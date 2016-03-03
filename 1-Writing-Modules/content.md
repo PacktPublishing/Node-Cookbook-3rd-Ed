@@ -19,8 +19,8 @@ In idiomatic Node, a module is a fundamental unit of logic. Applications or syst
 
 ### Getting Ready
 
-> #### Installing Node
-> <!--tip-->
+> #### Installing Node ![](../tip.png)
+> 
 > If we don't already have Node installed, we can go to <https://nodejs.org> to pick up the latest version for our operating system.
 
 If Node is on our system, then so is the `npm` executable. 
@@ -38,8 +38,8 @@ npm config set init.author.name "<name here>"
 This will speed up module creation and ensure each package we create has a consistent author name, thus avoiding typos and variation of our name. 
 
 
-> #### npm stands for..
-> <!-- info -->
+> #### npm stands for.. ![](../info.png)
+> 
 > Contrary to popular belief, `npm` is not an acronym for
 > Node Package Manager, in fact it stands for "npm is Not 
 > An Acronym", which is why it's not called NINAA.
@@ -117,8 +117,8 @@ original `npm init`. The classic circumstance is when we
 initialise the module a Git repository and add a remote 
 endpoint.
 
-> ##### Git and GitHub
-> <!-- info -->
+> ##### Git and GitHub  ![](../info.png)
+> 
 > If we've not heard or used the `git` tool and GitHub before,
 > refer to <http://help.github.com> to get started.
 > 
@@ -201,6 +201,8 @@ configuring npm author etc.
 ## Publishing 
 
 ## Private Repositories
+
+
 
 
 
