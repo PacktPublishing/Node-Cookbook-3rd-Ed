@@ -117,23 +117,19 @@ original `npm init`. The classic circumstance is when we
 initialise the module a Git repository and add a remote 
 endpoint.
 
----
-
-##### Git and GitHub
-
-If we've not heard or used the `git` tool and GitHub before,
-refer to <http://help.github.com> to get started.
-
-If we don't have a GitHub account we can head to <http://github.com> to get a free account.
-
----
+> ##### Git and GitHub
+> <!-- info -->
+> If we've not heard or used the `git` tool and GitHub before,
+> refer to <http://help.github.com> to get started.
+> 
+> If we don't have a GitHub account we can head to <http://github.com> to get a free account.
 
 To demonstrate, let's create a GitHub repository for our module.
 Head to GitHub and click the plus symbol in the top right, then select
 "new repository".
 
 ![](images/fig1.2.png)
-*select new repository*
+*Select "New repository"*
 
 Specify the name as "hsl-to-hex" and click "Create Repository".
 
@@ -154,7 +150,7 @@ npm init
 ```
 
 ![](images/fig1.3.png)
-*reinitializing*
+*Reinitializing*
 
 This time the Git remote we just added was detected and became the default answer for the "git repository" question. Accepting this default answer meant that the `repository`, `bugs` and `homepage` fields were added to `package.json`.
 
