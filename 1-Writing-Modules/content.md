@@ -72,7 +72,7 @@ This will ask a series of questions. We can hit enter for every question without
 
 
 ![](images/fig1.1.png)
-* An `npm init` should look like this *
+*An `npm init` should look like this*
 
 
 Upon completion we should have a `package.json` file in that looks something like this:
@@ -133,7 +133,7 @@ Head to GitHub and click the plus symbol in the top right, then select
 "new repository".
 
 ![](images/fig1.2.png)
-* select new repository *
+*select new repository*
 
 Specify the name as "hsl-to-hex" and click "Create Repository".
 
@@ -154,7 +154,7 @@ npm init
 ```
 
 ![](images/fig1.3.png)
-* reinitializing *
+*reinitializing*
 
 This time the Git remote we just added was detected and became the default answer for the "git repository" question. Accepting this default answer meant that the `repository`, `bugs` and `homepage` fields were added to `package.json`.
 
