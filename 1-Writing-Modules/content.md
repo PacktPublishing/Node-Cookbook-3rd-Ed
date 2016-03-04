@@ -89,21 +89,10 @@ Upon completion we should have a `package.json` file in that looks something lik
   "author": "David Mark Clements",
   "license": "MIT"
 }
-$ cat package.json
-{
-  "name": "hsl-to-hex",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "David Mark Clements",
-  "license": "MIT"
-}
 ```
 
 ### How it Works
+
 
 
 
@@ -159,6 +148,91 @@ A repository field in the `package.json` is an important addition when it comes 
 
 #### Versioning
 
+* npm version patch etc
+
+
+
+## Installing Dependencies
+
+### Getting ready
+
+For this recipe, all we need to do is make sure we have a command prompt open in the `hsl-to-hex` folder from the **Scaffolding a Module** recipe. 
+
+### How to do it
+
+Our `hsl-to-hex` module can be implemented in two steps
+
+1) convert the hue degrees, saturation percentage and luminosity percentage to corresponding red, green and blue numbers between 0 and 255
+2) convert the RGB values to HEX
+
+Before we tear into writing an HSL to RGB algorithm, we could likely benefit from checking to see whether this problem has already been solved.
+
+The easiest way to check is to head to <http://npmjs.com> and do a search.
+
+![](images/fig1.4.png)
+*Oh look somebodies already solved this*
+
+After some research we decide that the `hsl-to-rgb-for-reals` module is the best fit.
+
+Ensuring we are in the `hsl-to-hex` folder, we can now install our dependency with the following:
+
+```sh
+npm install --save hsl-to-rgb-for-reals
+```
+
+Now let's take a look at the bottom of `package.json`: 
+
+```sh
+tail package.json #linux/osx
+```
+
+```
+type package.json #windows
+```
+
+Tail output should give us:
+
+```  },
+  "bugs": {
+    "url": "https://github.com/davidmarkclements/hsl-to-hex/issues"
+  },
+  "homepage": "https://github.com/davidmarkclements/hsl-to-hex#readme",
+  "description": "",
+  "dependencies": {
+    "hsl-to-rgb-for-reals": "^1.1.0"
+  }
+}
+```
+
+We can see that the dependency we installed has been added to a `dependencies` object in the `package.json` file.
+
+### How it works
+
+The top two results of the npm search are `hsl-to-rgb` and `hsl-to-rgb-for-reals`. The first result is unusable, because the author of the package forgot to export it and is unresponsive to fixing it. The `hsl-to-rgb-for-reals` module is a fixed version of `hsl-to-rgb`.
+
+This situation serves to illustrate the nature of Node's ecosystem.
+
+On the one hand there are over 200,000 modules and counting, on the other many of these modules are of low value. Nevertheless, the system is also self healing, in that if a module is broken and not fixed by the original maintainer a second developer often assumes responsibility and publishes a fixed version of the module.
+
+When we run `npm install` in a folder with a `package.json` file, a `node_modules` folder is created (if it doesn't already exist). Then a the module package is downloaded from the npm registry, and saved into a subdirectory (`hsl-to-rgb-for-reals`) of `node_modules`. 
+
+
+> #### npm 2 vs npm 3 ![](../info.png)
+>
+> Our installed module doesn't have any dependencies of it's own, however if it did the sub-dependencies would be installed differently depending on whether we're using version 2 or version 3 of `npm`. 
+>
+> Essentially `npm` 2 installs dependencies in a tree structure, for instance `node_modules/dep/node_modules/sub-dep-of-dep/node_modules/sub-dep-of-sub-dep`. Conversely `npm` 3 follows a maximally flat strategy where sub-dependencies are installed in the top level `node_modules` folder when possible. For example `node_modules/dep`, `node_modules/sub-dep-of-dep` and `node_modules/sub-dep-of-sub-dep`. This results in fewer downloads and less disk space usage. `npm` 3 resorts to a tree structure in cases where there's two version of a sub-dependency, which is why it's called a "maximally" flat strategy. 
+>
+> Typically if we've installed Node 4 or above, we'll be using `npm` version 3.
+
+### There's more
+
+#### Installing Development Dependencies
+
+#### Listing Installed Modules
+
+#### Module Security Audit
+
 #### Eliminating The Need for Sudo
 
 The `npm` executable can install both local and global
@@ -176,17 +250,8 @@ npm -g install cute-stack # <-- oh oh needs sudo
 
 
 
+## Writing module code
 
-
-
-* set author
-* global without sudo
-* init
-
-
-## Creating
-
-* install deps
 * write code
 * go out of scope
 * decompose into another module
@@ -195,12 +260,9 @@ es6
 tests/examples/readme
 configuring npm author etc.
 
-## Finding Dependencies
+## Publishing a module
 
-
-## Publishing 
-
-## Private Repositories
+## Using a private repository
 
 
 
