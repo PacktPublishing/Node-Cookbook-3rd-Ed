@@ -150,13 +150,16 @@ npm init
 
 This time the Git remote we just added was detected and became the default answer for the "git repository" question. Accepting this default answer meant that the `repository`, `bugs` and `homepage` fields were added to `package.json`.
 
-A repository field in the `package.json` is an important addition when it comes to publishing open source modules since it will be rendered on the corresponding module page on <http://npmjs.com>. Packages without a corresponding repository where code can be perused prior to download are far less likely to be installed and used.
+A repository field in the `package.json` is an important addition when it comes to publishing open source modules since it will be rendered as a link on the modules information page on <http://npmjs.com>. 
+
+A repository link enables potential users to peruse the code prior to installation. Modules that can't be viewed prior to installation are far less likely to be used.
 
 
 #### Versioning
 
 * npm version patch etc
 
+### See also
 
 
 ## Installing Dependencies
@@ -297,6 +300,7 @@ source ~/.profile
 
 The `source` essentially refreshes the terminal environment to reflect the changes we've made.
 
+### See also
 
 ## Writing module code
 
@@ -387,6 +391,8 @@ module.exports = toHex
 ### How it works
 
 ### There's more
+
+### See also
 
 #### es6 module syntax/transpiling
 
