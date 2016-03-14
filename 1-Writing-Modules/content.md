@@ -152,12 +152,72 @@ This time the Git remote we just added was detected and became the default answe
 
 A repository field in the `package.json` is an important addition when it comes to publishing open source modules since it will be rendered as a link on the modules information page on <http://npmjs.com>. 
 
-A repository link enables potential users to peruse the code prior to installation. Modules that can't be viewed prior to installation are far less likely to be used.
+A repository link enables potential users to peruse the code prior to installation. Modules that can't be viewed before use are far less likely to be considered viable.
 
 
 #### Versioning
 
-* npm version patch etc
+The `npm` tool supplies other functionality to help with module creation and management workflow. 
+
+For instance the `npm version` command can allow us to manage our modules version number according to semver semantics. 
+
+> #### semver ![](../info.png)
+> semver is a versioning standard. A version consists of three numbers separated by a dot, for example `2.4.16`. The position of a number denotes specific information about the version in comparison to other versions. The three positions are known as `MAJOR.MINOR.PATCH`. The PATCH number is increased when changes have been made that don't break existing functionality nor add any new functionality. For instance, a bug fix would be considered a patch. The MINOR number should be increased when new backwards compatible functionality is added. For instance the adding of a method. The MAJOR number increases when backwards-incompatible changes are made
+> See <http://semver.org/> for more information.
+
+If we we're to a fix a bug we would want to increase the PATCH number. We could either manually edit the `version` field in `package.json`, setting it to `1.0.1`, or we can execute the following: 
+
+```sh
+npm version patch
+```
+
+This will increase the version field in one command. Additionally, if our module is a Git repository, it will add a commit based on the version (in our case 'v1.0.1') which we can then immediately push. 
+
+When we ran the command, `npm` will have output the new version. However we can double check the version number of our module without opening `package.json`:
+
+```sh
+npm version
+```
+
+This will output something like the following
+
+```js
+{ 'hsl-to-hex': '1.0.1',
+  npm: '2.14.17',
+  ares: '1.10.1-DEV',
+  http_parser: '2.6.2',
+  icu: '56.1',
+  modules: '47',
+  node: '5.7.0',
+  openssl: '1.0.2f',
+  uv: '1.8.0',
+  v8: '4.6.85.31',
+  zlib: '1.2.8' }
+```
+
+The first field is our module along with it's version number.
+
+If we added new backwards compatible functionality, we could run:
+
+```sh
+npm version minor
+```
+
+Now our version is `1.1.0`. Finally for a major we can do
+
+```sh
+npm version major
+```
+
+Which sets the version to `2.0.0`.
+
+Since we're just experimenting and didn't make any changes we should set our version back to 1.0.0. 
+
+We can do this via the command line too:
+
+```sh
+npm version 1.0.0
+```
 
 ### See also
 
@@ -393,6 +453,7 @@ module.exports = toHex
 ### There's more
 
 ### See also
+
 
 #### es6 module syntax/transpiling
 
