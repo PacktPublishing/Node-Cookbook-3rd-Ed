@@ -60,9 +60,7 @@ cd hsl-to-hex
 Every Node module must have a `package.json` file, which holds
 meta data about the module. 
 
-We can of course create this manually, but there is a better way. 
-
-We can simply execute the following command in our newly created module folder:
+Instead of manually creating a `package.json` file, we can simply execute the following command in our newly created module folder:
 
 ```sh
 npm init
@@ -75,7 +73,7 @@ This will ask a series of questions. We can hit enter for every question without
 *An `npm init` should look like this*
 
 
-Upon completion we should have a `package.json` file in that looks something like this:
+Upon completion we should have a `package.json` file that looks something like this:
 
 ```json
 {
@@ -93,11 +91,12 @@ Upon completion we should have a `package.json` file in that looks something lik
 
 ### How it Works
 
-We Node is installed on our system, `npm` comes bundled with it.
+When Node is installed on our system, `npm` comes bundled with it.
 
 The `npm` executable is written in JavaScript, and runs on Node.
 
-The `npm config` command can be used to permanently alter settings. In our case we changed the `init.author.name` setting so that `npm init` would have it as the default each time. 
+The `npm config` command can be used to permanently alter settings. In our case we changed the `init.author.name` setting so that `npm init` would reference it for
+the default during a modules initialization.
 
 We can list all current configuration settings with `npm config ls`. 
 
@@ -105,13 +104,13 @@ We can list all current configuration settings with `npm config ls`.
 > 
 > See <https://docs.npmjs.com/misc/config> for all possible `npm` configuration settings
 
-When we run `npm init` the answers to prompts are stored in an object, serialized as JSON and then saved to a newly created `package.json` in the current directory.
+When we run `npm init` the answers to prompts are stored in an object, serialized as JSON and then saved to a newly created `package.json` file in the current directory.
 
 ### There's More
 
 #### Reinitializing
 
-Sometimes additional meta data can be available after we've created a module. The classic scenario is when we initialize our module as a git repository and add a remote endpoint after creating the module.
+Sometimes additional meta data can be available after we've created a module. A typical scenario can arise when we initialize our module as a git repository and add a remote endpoint after creating the module.
 
 > ##### Git and GitHub  ![](../info.png)
 > 
@@ -195,7 +194,7 @@ This will output something like the following
   zlib: '1.2.8' }
 ```
 
-The first field is our module along with it's version number.
+The first field is our module along with its version number.
 
 If we added new backwards compatible functionality, we could run:
 
@@ -203,17 +202,17 @@ If we added new backwards compatible functionality, we could run:
 npm version minor
 ```
 
-Now our version is `1.1.0`. Finally for a major we can do
+Now our version is `1.1.0`. Finally for a major version bump we can run the following:
 
 ```sh
 npm version major
 ```
 
-Which sets the version to `2.0.0`.
+This sets the our modules version to `2.0.0`.
 
 Since we're just experimenting and didn't make any changes we should set our version back to 1.0.0. 
 
-We can do this via the command line too:
+We can do this via the `npm` command as well:
 
 ```sh
 npm version 1.0.0
@@ -226,7 +225,7 @@ npm version 1.0.0
 
 ### Getting ready
 
-For this recipe, all we need to do is make sure we have a command prompt open in the `hsl-to-hex` folder from the **Scaffolding a Module** recipe. 
+For this recipe, all we need is a command prompt open in the `hsl-to-hex` folder from the **Scaffolding a Module** recipe. 
 
 ### How to do it
 
@@ -235,9 +234,9 @@ Our `hsl-to-hex` module can be implemented in two steps
 1) convert the hue degrees, saturation percentage and luminosity percentage to corresponding red, green and blue numbers between 0 and 255
 2) convert the RGB values to HEX
 
-Before we tear into writing an HSL to RGB algorithm, we could likely benefit from checking to see whether this problem has already been solved.
+Before we tear into writing an HSL to RGB algorithm, we should check whether this problem has already been solved.
 
-The easiest way to check is to head to <http://npmjs.com> and do a search.
+The easiest way to check is to head to <http://npmjs.com> and perform a search.
 
 ![](images/fig1.4.png)
 *Oh look somebodies already solved this*
@@ -280,16 +279,16 @@ We can see that the dependency we installed has been added to a `dependencies` o
 
 The top two results of the npm search are `hsl-to-rgb` and `hsl-to-rgb-for-reals`. The first result is unusable, because the author of the package forgot to export it and is unresponsive to fixing it. The `hsl-to-rgb-for-reals` module is a fixed version of `hsl-to-rgb`.
 
-This situation serves to illustrate the nature of Node's ecosystem.
+This situation serves to illustrate the nature of the npm ecosystem.
 
 On the one hand there are over 200,000 modules and counting, on the other many of these modules are of low value. Nevertheless, the system is also self healing, in that if a module is broken and not fixed by the original maintainer a second developer often assumes responsibility and publishes a fixed version of the module.
 
-When we run `npm install` in a folder with a `package.json` file, a `node_modules` folder is created (if it doesn't already exist). Then a the module package is downloaded from the npm registry, and saved into a subdirectory (`hsl-to-rgb-for-reals`) of `node_modules`. 
+When we run `npm install` in a folder with a `package.json` file, a `node_modules` folder is created (if it doesn't already exist). Then the package is downloaded from the npm registry and saved into a subdirectory of `node_modules` (for example, `node_modules/hsl-to-rgb-for-reals`). 
 
 
 > #### npm 2 vs npm 3 ![](../info.png)
 >
-> Our installed module doesn't have any dependencies of it's own, however if it did the sub-dependencies would be installed differently depending on whether we're using version 2 or version 3 of `npm`. 
+> Our installed module doesn't have any dependencies of its own. But if it did the sub-dependencies would be installed differently depending on whether we're using version 2 or version 3 of `npm`. 
 >
 > Essentially `npm` 2 installs dependencies in a tree structure, for instance `node_modules/dep/node_modules/sub-dep-of-dep/node_modules/sub-dep-of-sub-dep`. Conversely `npm` 3 follows a maximally flat strategy where sub-dependencies are installed in the top level `node_modules` folder when possible. For example `node_modules/dep`, `node_modules/sub-dep-of-dep` and `node_modules/sub-dep-of-sub-dep`. This results in fewer downloads and less disk space usage. `npm` 3 resorts to a tree structure in cases where there's two version of a sub-dependency, which is why it's called a "maximally" flat strategy. 
 >
@@ -298,6 +297,98 @@ When we run `npm install` in a folder with a `package.json` file, a `node_module
 ### There's more
 
 #### Installing Development Dependencies
+
+We usually need some tooling to assist with development and maintenance of a module or application. The ecosystem is full of development supporting modules, from linting, to testing to browser bundling to transpilation.
+
+In general we don't want consumers of our module to download dependencies they don't need.
+Similarly, if we're deploying a system built in node, we don't want to burden the continuous integration and deployment processes with superfluous, pointless work.
+
+So we separate our dependencies into production and development categories.
+
+When we use `npm --save install <dep>` we're installing a production module.
+
+To install a development dependency we use `--save-dev`.
+
+Let's go ahead and install a linter. 
+
+> ##### standard  ![](../info.png)
+> 
+> `standard` is a JavaScript linter that enforces an unconfigurable rule set
+> The premise of this approach is that we should stop using precious time 
+> up on bikeshedding about syntax.
+
+All the code in this book uses the `standard` linter so we'll install that. 
+
+```sh
+npm install --save-dev standard
+```
+
+> ##### semistandard  ![](../tip.png)
+> 
+> If the absence of semi-colons is abhorrent and tasteless, we can choose to 
+> install `semistandard` instead of `standard` at this point. The lint rules
+> match those of standard, with the obvious exception of requiring semi-colons.
+> Further, any code written using standard can be reformatted to semistandard 
+> using the `semistandard-format` command tool. Simply `npm -g i semistandard-format` to get started with it.
+
+Now let's take a look at the `package.json` file:
+
+```json
+{
+  "name": "hsl-to-hex",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "David Mark Clements",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/davidmarkclements/hsl-to-hex.git"
+  },
+  "bugs": {
+    "url": "https://github.com/davidmarkclements/hsl-to-hex/issues"
+  },
+  "homepage": "https://github.com/davidmarkclements/hsl-to-hex#readme",
+  "description": "",
+  "dependencies": {
+    "hsl-to-rgb-for-reals": "^1.1.0"
+  },
+  "devDependencies": {
+    "standard": "^6.0.8"
+  }
+}
+```
+
+We now have a `devDependencies` field alongside the `dependencies` field.
+
+When our module is installed as a sub-dependency of another package, 
+only the `hsl-to-rgb-for-reals` module will be installed whilst the `standard` module since will be ignored since it's irrelevant to our modules actual implementation.
+
+If this `package.json` file represented a production system we could run the install step with the `--production` flag like so:
+
+
+```js
+npm install --production
+```
+
+Alternatively, this can be set in production environment with the following command:
+
+```js
+npm config set production true
+```
+
+Currently we can run our linter using the executable installed in the `node_modules/.bin` folder. For example:
+
+```js
+./node_modules/.bin/standard
+```
+
+This is ugly and not at all ideal. See [Using npm run scripts](#using-npm-run-scripts) for a more elegant approach. 
+
+#### Using npm run scripts
+
 
 #### Listing Installed Modules
 
