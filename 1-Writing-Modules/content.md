@@ -452,12 +452,6 @@ Since the `test` script is special, we can simply run
 npm test
 ```
 
-#### Listing Installed Modules
-
-
-
-#### Module Security Audit
-
 #### Eliminating The Need for Sudo
 
 The `npm` executable can install both local and global
@@ -607,6 +601,8 @@ module.exports = toHex
 
 ### There's more
 
+
+
 ### See also
 
 
@@ -625,8 +621,33 @@ configuring npm author etc.
 
 ## Publishing a module
 
+### Getting ready
+
+### How to do it
+
+### How it works
+
+### There's more
+
+#### Listing Installed Modules
+
+#### Module Security Audit
+
+#### Bundling Dependencies
+
+### See also
+
 ## Using a private repository
 
+### Getting ready
+
+### How to do it
+
+### How it works
+
+### There's more
+
+### See also
 
 
 
