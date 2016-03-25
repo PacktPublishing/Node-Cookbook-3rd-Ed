@@ -389,8 +389,72 @@ This is ugly and not at all ideal. See [Using npm run scripts](#using-npm-run-sc
 
 #### Using npm run scripts
 
+Our `package.json` file currently has a `scripts` property that looks like this:
+
+```json
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+```
+
+Let's edit the `package.json` file and add another field, called `lint`. 
+
+Like so:
+
+```
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "standard"
+  },
+```
+
+Now, as long as we have `standard` installed as a development dependency of our module (see [Installing Development Dependencies](#installing-development-dependencies)), we can run the following command to run a lint check on our code:
+
+```sh
+npm run-script lint
+```
+
+This can be shortened to:
+
+```sh
+npm run lint
+```
+
+When we run an npm script, the packages `node_modules/.bin` folder is appended
+to the execution contexts `PATH` environment variable. This means even if we 
+don't have the `standard` executable in our usual system `PATH`, we can reference
+it in an npm script as if it was in our `PATH`.
+
+
+Some consider lint checks to be a precursor to tests.
+
+Let's alter the `scripts.test` field like so:
+
+```sh
+  "scripts": {
+    "test": "npm run lint",
+    "lint": "standard"
+  },
+```
+
+Later we could append other commands to the `test` script using 
+the double ampersand (`&&`), to run a chain of checks. 
+
+Now to run the `test` script:
+
+```
+npm run test
+```
+
+Since the `test` script is special, we can simply run 
+
+```
+npm test
+```
 
 #### Listing Installed Modules
+
+
 
 #### Module Security Audit
 
