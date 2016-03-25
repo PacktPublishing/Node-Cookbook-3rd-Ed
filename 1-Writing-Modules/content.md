@@ -158,13 +158,13 @@ A repository link enables potential users to peruse the code prior to installati
 
 The `npm` tool supplies other functionality to help with module creation and management workflow. 
 
-For instance the `npm version` command can allow us to manage our modules version number according to semver semantics. 
+For instance the `npm version` command can allow us to manage our module's version number according to semver semantics. 
 
 > #### semver ![](../info.png)
-> semver is a versioning standard. A version consists of three numbers separated by a dot, for example `2.4.16`. The position of a number denotes specific information about the version in comparison to other versions. The three positions are known as `MAJOR.MINOR.PATCH`. The PATCH number is increased when changes have been made that don't break existing functionality nor add any new functionality. For instance, a bug fix would be considered a patch. The MINOR number should be increased when new backwards compatible functionality is added. For instance the adding of a method. The MAJOR number increases when backwards-incompatible changes are made
+> semver is a versioning standard. A version consists of three numbers separated by a dot, for example `2.4.16`. The position of a number denotes specific information about the version in comparison to other versions. The three positions are known as `MAJOR.MINOR.PATCH`. The PATCH number is increased when changes have been made that don't break existing functionality nor add any new functionality. For instance, a bug fix would be considered a patch. The MINOR number should be increased when new backwards compatible functionality is added. For instance the adding of a method. The MAJOR number increases when backwards-incompatible changes are made.
 > See <http://semver.org/> for more information.
 
-If we we're to a fix a bug we would want to increase the PATCH number. We could either manually edit the `version` field in `package.json`, setting it to `1.0.1`, or we can execute the following: 
+If we were to a fix a bug we would want to increase the PATCH number. We could either manually edit the `version` field in `package.json`, setting it to `1.0.1`, or we can execute the following: 
 
 ```sh
 npm version patch
@@ -172,15 +172,15 @@ npm version patch
 
 This will increase the version field in one command. Additionally, if our module is a Git repository, it will add a commit based on the version (in our case 'v1.0.1') which we can then immediately push. 
 
-When we ran the command, `npm` will have output the new version. However we can double check the version number of our module without opening `package.json`:
+When we ran the command, `npm` output the new version number. However we can double check the version number of our module without opening `package.json`:
 
 ```sh
 npm version
 ```
 
-This will output something like the following
+This will output something similar to the following:
 
-```js
+```javascript
 { 'hsl-to-hex': '1.0.1',
   npm: '2.14.17',
   ares: '1.10.1-DEV',
@@ -202,7 +202,9 @@ If we added new backwards compatible functionality, we could run:
 npm version minor
 ```
 
-Now our version is `1.1.0`. Finally for a major version bump we can run the following:
+Now our version is `1.1.0`. 
+
+Finally for a major version bump we can run the following:
 
 ```sh
 npm version major
@@ -210,7 +212,7 @@ npm version major
 
 This sets the our modules version to `2.0.0`.
 
-Since we're just experimenting and didn't make any changes we should set our version back to 1.0.0. 
+Since we're just experimenting and didn't make any changes we should set our version back to `1.0.0`.
 
 We can do this via the `npm` command as well:
 
@@ -231,8 +233,8 @@ For this recipe, all we need is a command prompt open in the `hsl-to-hex` folder
 
 Our `hsl-to-hex` module can be implemented in two steps
 
-1) convert the hue degrees, saturation percentage and luminosity percentage to corresponding red, green and blue numbers between 0 and 255
-2) convert the RGB values to HEX
+1. convert the hue degrees, saturation percentage and luminosity percentage to corresponding red, green and blue numbers between 0 and 255
+2. convert the RGB values to HEX
 
 Before we tear into writing an HSL to RGB algorithm, we should check whether this problem has already been solved.
 
@@ -298,7 +300,7 @@ When we run `npm install` in a folder with a `package.json` file, a `node_module
 
 #### Installing Development Dependencies
 
-We usually need some tooling to assist with development and maintenance of a module or application. The ecosystem is full of development supporting modules, from linting, to testing to browser bundling to transpilation.
+We usually need some tooling to assist with development and maintenance of a module or application. The ecosystem is full of programming support modules, from linting, to testing to browser bundling to transpilation.
 
 In general we don't want consumers of our module to download dependencies they don't need.
 Similarly, if we're deploying a system built in node, we don't want to burden the continuous integration and deployment processes with superfluous, pointless work.
@@ -325,10 +327,10 @@ npm install --save-dev standard
 
 > ##### semistandard  ![](../tip.png)
 > 
-> If the absence of semi-colons is abhorrent and tasteless, we can choose to 
+> If the absence of semi-colons is abhorrent, we can choose to 
 > install `semistandard` instead of `standard` at this point. The lint rules
-> match those of standard, with the obvious exception of requiring semi-colons.
-> Further, any code written using standard can be reformatted to semistandard 
+> match those of `standard`, with the obvious exception of requiring semi-colons.
+> Further, any code written using standard can be reformatted to `semistandard`
 > using the `semistandard-format` command tool. Simply `npm -g i semistandard-format` to get started with it.
 
 Now let's take a look at the `package.json` file:
@@ -420,7 +422,7 @@ This can be shortened to:
 npm run lint
 ```
 
-When we run an npm script, the packages `node_modules/.bin` folder is appended
+When we run an npm script, the current directory's `node_modules/.bin` folder is appended
 to the execution contexts `PATH` environment variable. This means even if we 
 don't have the `standard` executable in our usual system `PATH`, we can reference
 it in an npm script as if it was in our `PATH`.
@@ -648,7 +650,6 @@ configuring npm author etc.
 ### There's more
 
 ### See also
-
 
 
 
