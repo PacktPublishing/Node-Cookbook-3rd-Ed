@@ -1,4 +1,4 @@
-# N Chapter Title
+# 7 Getting Hapi
 
 This chapter covers the following topics
 
