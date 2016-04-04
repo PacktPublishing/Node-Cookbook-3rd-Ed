@@ -1,4 +1,4 @@
-# N Chapter Title
+# 11 Optimizing Performance
 
 This chapter covers the following topics
 
