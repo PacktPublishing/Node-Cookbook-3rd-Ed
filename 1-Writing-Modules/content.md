@@ -73,7 +73,7 @@ This will ask a series of questions. We can hit enter for every question without
 *An `npm init` should look like this*
 
 
-Upon completion we should have a `package.json` file that looks something like this:
+Upon completion we should have a `package.json` file that looks something like the following:
 
 ```json
 {
@@ -108,14 +108,16 @@ When we run `npm init` the answers to prompts are stored in an object, serialize
 
 ### There's More
 
+Let's find out some more ways to automatically manage the content of the `package.json` file via the `npm` command.
+
 #### Reinitializing
 
 Sometimes additional meta data can be available after we've created a module. A typical scenario can arise when we initialize our module as a git repository and add a remote endpoint after creating the module.
 
 > ##### Git and GitHub  ![](../info.png)
 > 
-> If we've not heard or used the `git` tool and GitHub before,
-> refer to <http://help.github.com> to get started.
+> If we've not used the `git` tool and GitHub before,
+> we can refer to <http://help.github.com> to get started.
 > 
 > If we don't have a GitHub account we can head to <http://github.com> to get a free account.
 
@@ -439,8 +441,11 @@ Let's alter the `scripts.test` field like so:
   },
 ```
 
-Later we could append other commands to the `test` script using 
-the double ampersand (`&&`), to run a chain of checks. 
+> ##### Chaining commands  ![](../tip.png)
+> 
+> Later we could append other commands to the `test` script using 
+the double ampersand (`&&`), to run a chain of checks. For instance, 
+`"test": "npm run lint && tap test"`
 
 Now to run the `test` script:
 
@@ -542,66 +547,284 @@ Saturation and luminosity are both percentages, we'll represent these percentage
 Let's write some utility functions to handle this logic:
 
 ```js
-function max(val, n) {
+function max (val, n) {
   return (val > n) ? n : val
 }
 
-function min(v, n) {
+function min (val, n) {
   return (val < n) ? n : val
 }
 
-function cycle(val) {
-  //for safety:
+function cycle (val) {
+  // for safety:
   val = max(val, 1e7)
   val = min(val, -1e7)
-  //cycle value:
+  // cycle value:
   while (val < 0) { val += 360 }
   while (val > 359) { val -= 360 }
   return val
 }
 ```
 
-Now for the main piece, the `toHex` function:
+Now for the main piece, the `hsl` function:
 
 ```js
-function toHex(hue, saturation, luminosity) {
-
-  //resolve degrees to 0 - 359 range
+function hsl (hue, saturation, luminosity) {
+  // resolve degrees to 0 - 359 range
   hue = cycle(hue)
 
   // enforce constraints
   saturation = min(max(saturation, 100), 0)
   luminosity = min(max(luminosity, 100), 0)
-  
+
   // convert to 0 to 1 range used by hsl-to-rgb-for-reals
   saturation /= 100
   luminosity /= 100
- 
-  //let hsl-to-rgb-for-reals do the hard work
+
+  // let hsl-to-rgb-for-reals do the hard work
   var rgb = toRgb(hue, saturation, luminosity)
-  
-  //convert each value in the returned RGB array
-  //to a 2 character hex value, join the array into
-  //a string, prefixed with a hash
+
+  // convert each value in the returned RGB array
+  // to a 2 character hex value, join the array into
+  // a string, prefixed with a hash
   return '#' + rgb
     .map(function (n) {
       return (256 + n).toString(16).substr(-2)
     })
     .join('')
-
 }
 ```
 
-Now for the final piece, to make our code into a bonafide module we have to export it:
+In order to make our code into a bona fide module we have to export it:
 
 ```js
-module.exports = toHex
+module.exports = hsl
 ```
 
+We can run a few sanity checks to ensure our code is working.
+
+Maximum saturation and luminosity should be white (`#ffffff`), 
+regardless of hue. So, with our current working directory set 
+to our modules folder, let's try the following:
+
+```sh
+node -p "require('./')(0, 100, 100)"
+```
+
+This should print `#ffffff`.
+
+> #### The -p flag
+> 
+> The `-p` flag tells node to evaluate the supplied string and 
+print the result to the terminal. 
+
+Okay that was easy. Let's try another test. A saturation of 0%
+and a luminosity of 50% should create red, green and blue values
+that are half way between 0 and 256 (128). In hex this is `80`,
+so the following should output `#808080`:
+
+```sh
+node -p "require('./')(0, 0, 50)"
+```
+
+We've checked luminosity and saturation, let's finish by ensuring
+that hue input works as expected.
+
+Hue represents color spectrum, starting and finishing with red, 
+defined in degree points. 
+
+![](images/hue.png)
+*Hue degrees*
+
+As we know, setting both saturation and luminosity to 100% will
+always result in white. After 50% luminosity colours beyond the
+defined hue will be added to further increase the brightness of 
+the colour. This means that we should get a pure hue by setting
+saturation to 100% and luminosity to 50%. 
+
+So, the following should output `#ff0000` (red)
+
+```sh
+node -p "require('./')(0, 100, 50)"
+```
+
+A hue of 240 should give exact blue (`#0000ff`):
+
+```sh
+node -p "require('./')(240, 100, 50)"
+```
+
+And 180 should result in cyan (`#00ffff`):
+
+```sh
+node -p "require('./')(180, 100, 50)"
+```
 
 ### How it works
 
+The algorithmic heavy lifting is performed by our dependency `hsl-to-rgb-for-reals`. This is often the case in the landscape of Node's ecosystem, many fundamental computer science problems have already been solved (often multiple times) by third party contributors. 
+
+We add some additional sanity to the inputs (like rotating 360 degrees back to 0 and enforcing minimum and maximums) and then convert the output from decimal values to hex values, prefixing them with a hash (`#`). 
+
+Since the `hsl-to-rgb-for-reals` module returns an array of values between 0 and 255, we can use the native `map` method to iterate over each element in the array and convert it from base 10 to base 16. Then we `join` the resulting array into a string.
+
+We're now going to describe the internals of Node's module system, if this isn't of major interest or importance we can skip ahead to the *There's More* section. 
+
+In our quick command line checks, we call the `node` binary with the `-p` flag.
+This simply evaluates a supplied expression, and outputs its value. In each
+case the expression involves calling `require`. 
+
+The `require` function is central to Node's module system, when it's called it performs a series of steps. 
+
+First `require` has to locate the module according to the supplied argument. Depending on the input, the module may be a local file, a core module or a separately installed module. 
+
+We supplied a path `'./'`, so the `require `function attempts to load the current directory as a module. In order to do this it looks for a `package.json` file, and looks up the `main` field in the `package.json` file. The `main` field in our `package.json` file is `'index.js'`, so `require` recognises this file as the modules entry point. In the absence of a `package.json` file or `main` field, `require` also defaults to `index.js` as the entry point. 
+
+Once an entry point file has been identified, Node synchronously loads it into a string. The modules code is wrapped with the following:
+
+```js
+(function (exports, require, module, __filename, __dirname) {
+  /* module code here */
+})
+```
+
+The resulting string is passed through the `vm` module's `runInThisContext` method, which essentially tells the JavaScript engine to compile the string
+into a function. This function is then called with the five 
+parameters dictated in the wrapper (`exports`, `require`, `module`, `__filename`, `__dirname`). The `exports` argument is an empty object,
+the `module` argument is an object with an `exports` property pointing 
+to the `exports` object. So there are two reference to the initial exports object: the `exports` parameter and the `module.exports` property. 
+
+The value returned from `require` is the `module.exports` property.
+
+In our code we overwrote this property with the `hsl` function, which is
+why we can call the result of `require` immediately (for example `require('./')(180, 100, 50)`). An alternative approach is to simply append properties to the `exports` object, but this doesn't allow for exporting a function, only an object. 
+
+
 ### There's more
+
+#### Adding tests
+
+If bugs arise, or we decide to make changes, or extend functionality it would be nice if we could run a single command that runs some checks against our code so we can be confident that we're not breaking anything we don't intend to break. We could lump all of our `node -p` checks from the main recipe into a single bash file, but there's a more standard and elegant.
+
+Let's write some tests.
+
+First we'll need a test library, let's use the `tap` library. This is simple, doesn't require it's own test runner, has built in coverage analysis and outputs a standard test rules format called TAP, the Test Anything Protocol which is used across many languages.
+
+```sh
+npm install --save-dev tap
+```
+
+Remember we're installing with `--save-dev` because this dependency would not be required in production.
+
+Now, assuming we're in the `hsl-to-hex-folder`, let's create a `test` folder 
+
+```sh
+mkdir test
+```
+
+Now, in the `test` folder let's create an `index.js` file, with the following code:
+
+```js
+var hsl = require('../')
+var test = require('tap').test
+
+test('pure white', function (assert) {
+  var expected = '#ffffff'
+  var actual = hsl(0, 100, 100)
+  var it = 'max saturation and luminosity should return pure white'
+  assert.is(actual, expected, it)
+  assert.end()
+})
+
+test('medium gray', function (assert) {
+  var expected = '#808080'
+  var actual = hsl(0, 0, 50)
+  var it = '0% saturation, 50% luminosity should be medium gray'
+  assert.is(actual, expected, it)
+  assert.end()
+})
+
+test('hue - red', function (assert) {
+  var expected = '#ff0000'
+  var actual = hsl(0, 100, 50)
+  var it = '0deg should be red'
+  assert.is(actual, expected, it)
+  assert.end()
+})
+
+test('hue - blue', function (assert) {
+  var expected = '#0000ff'
+  var actual = hsl(240, 100, 50)
+  var it = '240deg should be blue'
+  assert.is(actual, expected, it)
+  assert.end()
+})
+
+test('hue - cyan', function (assert) {
+  var expected = '#00ffff'
+  var actual = hsl(180, 100, 50)
+  var it = '180deg should be cyan'
+  assert.is(actual, expected, it)
+  assert.end()
+})
+
+test('degree overflow', function (assert) {
+  var expected = hsl(1, 100, 50)
+  var actual = hsl(361, 100, 50)
+  var it = '361deg should be the same as 1deg'
+  assert.is(actual, expected, it)
+  assert.end()
+})
+
+test('degree underflow', function (assert) {
+  var expected = hsl(-1, 100, 50)
+  var actual = hsl(359, 100, 50)
+  var it = '-1deg should be the same as 359deg'
+  assert.is(actual, expected, it)
+  assert.end()
+})
+
+test('max constraint', function (assert) {
+  var expected = hsl(0, 101, 50)
+  var actual = hsl(0, 100, 50)
+  var it = '101% should be the same as 100%'
+  assert.is(actual, expected, it)
+  assert.end()
+})
+
+test('max constraint', function (assert) {
+  var expected = hsl(0, -1, 50)
+  var actual = hsl(0, 0, 50)
+  var it = '-1% should be the same as 0%'
+  assert.is(actual, expected, it)
+  assert.end()
+})
+
+```
+
+In the `package.json` file we'll edit the `scripts.test` field to read thusly:
+
+```json
+    "test": "npm run lint && tap --cov test",
+```
+
+We can see if our tests are passing by running `npm test`
+
+```sh
+npm test
+```
+
+We also get to see a coverage report which was enabled with the `--cov` flag.
+
+> #### coverage ![](../info.png)
+> 
+> Coverage is a percentage of the amount of logic paths that were touched by our tests. This can be measured in several ways, for instance did we cover all the if/else branches? Did we cover every line of code? This can provide a sort of quality rating for our tests. However there are two things to consider when it comes to coverage. First, 100% coverage does not equate to 100% of possible scenarios. There could be some input that causes our code to crash or freeze. For example, what if we passed in a hue of `Infinity`. In our case we've handled that scenario, but haven't tested it. Yet we have 100% coverage. Secondly, in many real world cases, getting the last 20% of coverage can become the most resource intensive part of development and it's debatable whether that last 20% will deliver on the time and effort investment required. 
+
+
+
+
+
+#### Modernizing syntax
 
 
 
