@@ -1,4 +1,4 @@
-# N Chapter Title
+# 9 Debugging Systems
 
 This chapter covers the following topics
 
