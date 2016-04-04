@@ -630,7 +630,7 @@ node -p "require('./')(0, 0, 50)"
 We've checked luminosity and saturation, let's finish by ensuring
 that hue input works as expected.
 
-Hue represents color spectrum, starting and finishing with red, 
+Hue represents the color spectrum, starting and finishing with red, 
 defined in degree points. 
 
 ![](images/hue.png)
@@ -662,19 +662,18 @@ node -p "require('./')(180, 100, 50)"
 
 ### How it works
 
-The algorithmic heavy lifting is performed by our dependency `hsl-to-rgb-for-reals`. This is often the case in the landscape of Node's ecosystem, many fundamental computer science problems have already been solved (often multiple times) by third party contributors. 
+The algorithmic heavy lifting is performed by our dependency `hsl-to-rgb-for-reals`. This is often the case in the landscape of Node's ecosystem. Many fundamental computer science problems have already been solved (often multiple times) by third party contributors. 
 
 We add some additional sanity to the inputs (like rotating 360 degrees back to 0 and enforcing minimum and maximums) and then convert the output from decimal values to hex values, prefixing them with a hash (`#`). 
 
 Since the `hsl-to-rgb-for-reals` module returns an array of values between 0 and 255, we can use the native `map` method to iterate over each element in the array and convert it from base 10 to base 16. Then we `join` the resulting array into a string.
 
-We're now going to describe the internals of Node's module system, if this isn't of major interest or importance we can skip ahead to the *There's More* section. 
 
 In our quick command line checks, we call the `node` binary with the `-p` flag.
 This simply evaluates a supplied expression, and outputs its value. In each
 case the expression involves calling `require`. 
 
-The `require` function is central to Node's module system, when it's called it performs a series of steps. 
+The `require` function is central to Node's module system, when it's called the module system performs a series of steps. 
 
 First `require` has to locate the module according to the supplied argument. Depending on the input, the module may be a local file, a core module or a separately installed module. 
 
@@ -696,19 +695,18 @@ to the `exports` object. So there are two reference to the initial exports objec
 
 The value returned from `require` is the `module.exports` property.
 
-In our code we overwrote this property with the `hsl` function, which is
-why we can call the result of `require` immediately (for example `require('./')(180, 100, 50)`). An alternative approach is to simply append properties to the `exports` object, but this doesn't allow for exporting a function, only an object. 
+In our code we overwrote the `module.exports` property with the `hsl` function, which is why we can call the result of `require` immediately (for example `require('./')(180, 100, 50)`). An alternative approach is to simply append properties to the `exports` object, but this doesn't allow for exporting a function, only an object. 
 
 
 ### There's more
 
 #### Adding tests
 
-If bugs arise, or we decide to make changes, or extend functionality it would be nice if we could run a single command that runs some checks against our code so we can be confident that we're not breaking anything we don't intend to break. We could lump all of our `node -p` checks from the main recipe into a single bash file, but there's a more standard and elegant.
+If bugs arise, or we decide to make changes, or extend functionality it would be nice if we could run a single command that runs some checks against our code so we can be confident that we're not unintentionally breaking anything. We could lump all of our `node -p` checks from the main recipe into a single bash (or batch) file, but there's a more standard and elegant approach.
 
 Let's write some tests.
 
-First we'll need a test library, let's use the `tap` library. This is simple, doesn't require it's own test runner, has built in coverage analysis and outputs a standard test rules format called TAP, the Test Anything Protocol which is used across many languages.
+First we'll need a test library, let's use the `tap` module. The `tap` tool is simple, doesn't require it's own test runner, has built in coverage analysis and outputs TAP, the Test Anything Protocol, which is used across many languages.
 
 ```sh
 npm install --save-dev tap
@@ -819,9 +817,6 @@ We also get to see a coverage report which was enabled with the `--cov` flag.
 > #### coverage ![](../info.png)
 > 
 > Coverage is a percentage of the amount of logic paths that were touched by our tests. This can be measured in several ways, for instance did we cover all the if/else branches? Did we cover every line of code? This can provide a sort of quality rating for our tests. However there are two things to consider when it comes to coverage. First, 100% coverage does not equate to 100% of possible scenarios. There could be some input that causes our code to crash or freeze. For example, what if we passed in a hue of `Infinity`. In our case we've handled that scenario, but haven't tested it. Yet we have 100% coverage. Secondly, in many real world cases, getting the last 20% of coverage can become the most resource intensive part of development and it's debatable whether that last 20% will deliver on the time and effort investment required. 
-
-
-
 
 
 #### Modernizing syntax
