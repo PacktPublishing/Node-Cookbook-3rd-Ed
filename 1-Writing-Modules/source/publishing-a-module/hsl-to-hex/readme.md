@@ -2,6 +2,12 @@
 
 Convert HSL colors to RGB colors in hex format.
 
+## Install 
+
+```sh
+npm install --save @davidmarkclements/hsl-to-hex
+```
+ 
 ## API
 
 ```

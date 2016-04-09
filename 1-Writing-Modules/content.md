@@ -1149,15 +1149,22 @@ followed by a forward slash (`/`). For instance:
   "name": "@davidmarkclements/hsl-to-hex",
 ```
 
-Of course, instead of using `@davidmarkclements` we'll use whatever username with supplied to `npm login`. 
+Of course, instead of using `@davidmarkclements` we'll use whatever username we supplied to `npm login`. 
 
-Finally we're ready to publish:
+Finally, we're ready to publish:
 
 ```sh
-npm install --access public
+npm publish --access=public
 ```
 
+We should now be able to navigate to <https://www.npmjs.com/package/@davidmarkclements/hsl-to-hex> (where `@davidmarkclements` is the username we're using) so view the modules npm page. 
+
+![](images/hsl-to-hex.png)
+
+
 ### How it works
+
+
 
 ### There's more
 

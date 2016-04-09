@@ -1,5 +1,5 @@
 {
-  "name": "hsl-to-hex",
+  "name": "@davidmarkclements/hsl-to-hex",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
@@ -7,7 +7,7 @@
     "lint": "standard"
   },
   "author": "David Mark Clements",
-  "license": "MIT",
+  "license": "ISC",
   "repository": {
     "type": "git",
     "url": "git+ssh://git@github.com/davidmarkclements/hsl-to-hex.git"
