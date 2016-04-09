@@ -700,7 +700,12 @@ to the `exports` object. So there are two reference to the initial exports objec
 
 The value returned from `require` is the `module.exports` property.
 
-In our code we overwrote the `module.exports` property with the `hsl` function, which is why we can call the result of `require` immediately (for example `require('./')(180, 100, 50)`). An alternative approach is to simply append properties to the `exports` object, but this doesn't allow for exporting a function, only an object. 
+In our code we overwrote the `module.exports` property with the `hsl` function, which is why we can call the result of `require` immediately (for example `require('./')(180, 100, 50)`). An alternative approach is to simply append properties to the `exports` object, but this doesn't allow for exporting a function, only an object.
+
+The following diagram serves to visualize the module loading process at a high level:
+
+![](images/module-loading.png)
+*How Node loads modules*
 
 
 ### There's more
@@ -1191,9 +1196,6 @@ cd my-app
 npm init
 npm install @davidmarkclements/hsl-to-hex
 ```
-
-
-
 
 ### There's more
 
