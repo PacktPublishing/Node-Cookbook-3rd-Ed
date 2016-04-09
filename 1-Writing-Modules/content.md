@@ -17,7 +17,7 @@ In idiomatic Node, the module is the fundamental unit of logic. Applications or 
 
 ## Scaffolding a Module
 
-### Getting Ready
+### Getting ready
 
 > #### Installing Node ![](../tip.png)
 > 
@@ -133,6 +133,7 @@ Specify the name as "hsl-to-hex" and click "Create Repository".
 Back in the terminal, inside our module folder, we can now run:
 
 ```sh
+echo -e "node_modules\n*.log" > .gitignore
 git init
 git add package.json
 git commit -m '1st'
@@ -1054,13 +1055,13 @@ In this recipe we'll prepare our module to be published then publish it as a sco
 
 ### Getting ready
 
-We're going to publish our `hsl-to-hex` module we've been working on in previous recipes. We'll also want the (original) tests we wrote in the [Adding tests](#adding-tests) portion of the the [There's more](#theres-more-3) section of the [Writing module code](#writing-module-code) recipe.
+We're going to publish our `hsl-to-hex` module we've been working on in previous recipes. We'll also want the (original) tests we wrote in the [Adding tests](#adding-tests) portion of the the [There's more](#theres-more-2) section of the [Writing module code](#writing-module-code) recipe.
 
 If we don't have an [npmjs.org](http://npmjs.org) account we'll need to head over to <https://www.npmjs.com/signup> and get an account. Keep the npm username handy, we're going to need it. 
 
 ### How to do it
 
-If we've just signed up for an npm account (as explained in the previous [Getting Ready](#getting-ready-4) section) we'll want to authorise our `npm` client with [npmjs.org](http://npmjs.org).
+If we've just signed up for an npm account (as explained in the previous [Getting Ready](#getting-ready-2) section) we'll want to authorise our `npm` client with [npmjs.org](http://npmjs.org).
 
 On the command line, we simply need to run:
 
@@ -1151,6 +1152,17 @@ followed by a forward slash (`/`). For instance:
 
 Of course, instead of using `@davidmarkclements` we'll use whatever username we supplied to `npm login`. 
 
+> #### Extra Credit: Push to GitHub ![](../tip.png)
+> If we followed the [Reinitializing](#reinitializing) portion of the [There's More](#theres-more) section in the [Scaffolding a module](#scaffolding-a-module) recipe we could also take this opportunity to push to GitHub just before we publish. This can be useful in helping users explore code and clone our repo to execute the example, run tests or even fix bugs or add features which can be contributed back to our module.
+>
+> To do this we can run
+> 
+> ```
+> git add .
+> git commit -m 'v1.0.0'
+> git push
+> ```
+
 Finally, we're ready to publish:
 
 ```sh
@@ -1163,6 +1175,23 @@ We should now be able to navigate to <https://www.npmjs.com/package/@davidmarkcl
 
 
 ### How it works
+
+The npm registry allows for global and scoped package names. We converted our module's name to a scoped namespace in order to avoid naming conflicts. 
+This meant we had to pass the `--access=public` flag to along with the `npm publish` command. If we we're publishing a module to the global namespace this wouldn't be required since any modules in the global namespace are public. Scoped packages, however, allow for both private and public publishing where restricted access is the default. 
+
+When we ran the `npm publish` command, the `npm` tool packaged up our module and sent it to the npm registry. The npm registry stored our module and analysed the `package.json` file to and `readme.md` file to create a page for our module on npmjs.com. 
+
+Subsequently, now that our module is in the registry it can be installed as a dependency of other modules and applications. 
+
+For instance: 
+
+```sh
+mkdir my-app
+cd my-app
+npm init
+npm install @davidmarkclements/hsl-to-hex
+```
+
 
 
 
