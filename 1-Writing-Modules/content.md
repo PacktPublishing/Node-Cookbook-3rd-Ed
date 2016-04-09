@@ -3,12 +3,12 @@
 This chapter covers the following topics
 
 * Node's module system
-* NPM's package tooling and infrastructure
 * Initializing a module
-* Setting up developer tooling for module writing
+* Writing a modules
+* Tooling around modules
+* Publishing modules
+* Setting up a private module repository 
 * Best practices
-* Decomposition
-* Publishing to NPM privately
 
 ## Introduction
 
@@ -223,6 +223,8 @@ npm version 1.0.0
 ```
 
 ### See also
+
+* TODO LATER
 
 
 ## Installing Dependencies
@@ -518,6 +520,8 @@ The `source` essentially refreshes the terminal environment to reflect the chang
 
 ### See also
 
+* TODO LATER
+
 ## Writing module code
 
 ### Getting Ready
@@ -720,6 +724,9 @@ Now, assuming we're in the `hsl-to-hex-folder`, let's create a `test` folder
 mkdir test
 ```
 
+> #### Test writing ![](../tip.png)
+> For an excellent article on test writing and TAP output, check out Eric Elliots blog post [Why I use Tape instead of Mocha & so should you](https://medium.com/javascript-scene/why-i-use-tape-instead-of-mocha-so-should-you-6aa105d8eaf4#.gjt1h4hj9)
+
 Now, in the `test` folder let's create an `index.js` file, with the following code:
 
 ```js
@@ -821,29 +828,334 @@ We also get to see a coverage report which was enabled with the `--cov` flag.
 
 #### Modernizing syntax
 
+Recent Node.js versions support modern JavaScript syntax (known as
+EcmaScript 6), let's use some of these shiny new JavaScript features to improve the tests we wrote in the previous section.
 
+> #### EcmaScript 6 ![](../info.png)
+> Learn more about EcmaScript 6 at <http://es6-features.org/>
+
+For this to work, we'll need at least Node version 5 installed,
+preferable Node version 6 or greater. 
+
+> #### Managing Node Versions ![](../tip.png)
+> Check out [nvm](https://github.com/creationix/nvm) 
+> or [n](http:/npm.im/n) for an easy way to switch between
+> node versions
+
+Node v6 and above should support all of the syntax we'll be using,
+Node v5 will support all of it, as long as we pass a special flag. 
+
+> #### Transpilation ![](../info.png)
+> For version below Node 5, or to use syntax that currently isn't available in even in the latest versions of Node we can fall back to transpilation. Transpilation is essentially compiling a later version of a language into an earlier version. This is beyond our scope, but check out <babeljs.io> for more information on how to transpile.
+
+
+If we're using Node version 5 we'll need to adjust the `test` field in the
+`package.json` file like so: 
+
+```json
+"test": "npm run lint && tap --node-arg='--harmony-destructuring' --cov test",
+```
+
+The `--node-arg` is supplied to the `tap` test runner to pass through a Node specific flag which will be applied via tap when it runs out tests.
+
+In this case we passed the `--harmony-destructuring` flag, this turns
+on an experimental syntax in Node version 5 (as mentioned, we don't need to do this for Node v6 and up). 
+
+> #### Syntax Switches ![](../tip.png)
+> Get a full list of experimental syntax and behaviours by running `node --v8-options | grep harmony` or if we're on windows: `node --v8-options | findstr harmony`.
+
+Now let's rewrite out test code like so:
+
+```js
+const hsl = require('../')
+const {test} = require('tap')
+
+test('pure white', ({is, end}) => {
+  const expected = '#ffffff'
+  const actual = hsl(0, 100, 100)
+  const it = `
+    max saturation and luminosity should return pure white
+  `
+  is(actual, expected, it)
+  end()
+})
+
+test('medium gray', ({is, end}) => {
+  const expected = '#808080'
+  const actual = hsl(0, 0, 50)
+  const it = `
+    0% saturation, 50% luminosity should be medium gray
+  `
+  is(actual, expected, it)
+  end()
+})
+
+test('hue', ({is, end}) => {
+  {
+    const expected = '#ff0000'
+    const actual = hsl(0, 100, 50)
+    const it = `
+      0deg should be red
+    `
+    is(actual, expected, it)
+  }
+  {
+    const expected = '#0000ff'
+    const actual = hsl(240, 100, 50)
+    const it = `
+      240deg should be blue
+    `
+    is(actual, expected, it)
+  }
+  {
+    const expected = '#00ffff'
+    const actual = hsl(180, 100, 50)
+    const it = `
+      180deg should be cyan
+    `
+    is(actual, expected, it)
+  }
+  end()
+})
+
+test('degree overflow/underflow', ({is, end}) => {
+  {
+    const expected = hsl(1, 100, 50)
+    const actual = hsl(361, 100, 50)
+    const it = `
+      361deg should be the same as 1deg
+    `
+    is(actual, expected, it)
+  }
+  {
+    const expected = hsl(-1, 100, 50)
+    const actual = hsl(359, 100, 50)
+    const it = `
+      -1deg should be the same as 359deg
+    `
+    is(actual, expected, it)
+  }
+  end()
+})
+
+test('max constraint', ({is, end}) => {
+  {
+    const expected = hsl(0, 101, 50)
+    const actual = hsl(0, 100, 50)
+    const it = `
+      101% should be the same as 100%
+    `
+    is(actual, expected, it)
+  }
+  {
+    const expected = hsl(0, -1, 50)
+    const actual = hsl(0, 0, 50)
+    const it = `
+      -1% should be the same as 0%
+    `
+    is(actual, expected, it)
+  }
+  end()
+})
+```
+
+Here we've used several EcmaScript 6 features, all of which are available out-of-the-box in Node 6. 
+
+The features we've used are
+
+* destructuring assignment (enabled with --harmony-destructuring on Node v5)
+* arrow functions
+* template strings (also known as template literals)
+* `const` and block scope
+
+Destructuring is an elegant shorthand for taking property from an object and loading into a variable. 
+
+We first use destructuring assignment early on in our rewritten tests when we take `test` method from the exported `tap` object and load it into the `test` `const`, like so: 
+
+```js
+const {test} = require('tap')
+```
+
+This is equivalent to:
+
+```js
+const test = require('tap').tap
+```
+
+On one line this doesn't deliver much value but destructuring reveals its terse simplicity when we wish to extract several properties from an object and assign to variables of the same name. 
+
+For instance, the following:
+
+```js
+var foo = myObject.foo
+var bar = myObject.bar
+var baz = myObject.baz
+```
+
+Can be achieved in one line with destructuring, with less noise and (subjectively) greater readability. Like so:
+
+```js
+var {foo, bar, baz} = myObject
+```
+
+We also destructure the `assert` object in each of our `test` callbacks. 
+
+For instance the top line of  first test looks like this:
+
+```
+test('pure white', ({is, end}) => {
+```
+
+Parameter destructuring allows us to focus only on the properties we're interested in using for that function. It presents a clear contract to whatever's calling our function. Namely, for our case, the input object should have `is` and `end` properties.
+
+> #### Destructuring ![](../info.png)
+> Find more detail about destructuring at <https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Operators/Destructuring_assignment>
+
+Each of the callbacks supplied to our test are arrow functions, which look like this:
+
+```js
+var fn = (some, params) => { return 'something' }
+```
+
+When it makes sense, arrow functions we can also omit the braces and the `return` keyword:
+
+```
+[1,2,3,4,5].map(n => n * n) // [1, 4, 9, 16, 25]
+```
+
+We use arrow functions purely for aesthetics, removing noise enhances the focus of our code. 
+
+> #### Arrow Functions ![](../info.png)
+> We should note that arrow functions behave differently to normal functions, in particular when it comes to the `this` context. 
+> Find out more about arrow functions at <https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Functions/Arrow_functions>
+
+Template strings are denoted with backticks (<code>`</code>) and can be multiline. We use these for our `it` constants purely for the multiline capabilities, since describing behaviour can often take up more than 80-100 columns, or more than one line. Template strings (the clue being in the name), also supply interpolation, like so:
+
+```
+var name = 'David'
+console.log(`Hi name is ${name}`)
+```
+
+> #### Template strings ![](../info.png)
+> Find out more about template strings at <https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals>
+
+Finally, EcmaScript 6 supplies two additional assignment keywords to the JavaScript lexicon: `let` and `const`. In JavaScript the lifetime of `var` assigned reference occurs within the closest parent function. The `let` and `const` keywords introduce the more traditional block-scoped behavior, where the references lifetime is relative to the closest block (for example, as denoted by the braces in a `for` loop). We used this to our advantage and merged some of the tests together. For instance, `hue - blue`, `hue - red` and `hue - cyan` could all be separate assertions in a single `hue` test. Block scoping makes it easy to maintain the repeating pattern of `expected`, `actual`, and `it` without clashing with neighbouring assertions. The `let` keyword is similar to `var` in that it allows for reassignment. The `const` keyword is a constant *reference* to a value (it does **not** make the value a constant). We use `const` throughout since we have no intention of reassigning our references, and if that occurred it would be a bug (in which case our tests would conveniently throw).
+
+> #### Block Scope In JavaScript ![](../info.png)
+> For more info about block scope a look at Dr. Axel Rauschmayer's article at <http://www.2ality.com/2015/02/es6-scoping.html>
 
 ### See also
 
-
-#### es6 module syntax/transpiling
-
-
-
-
-* write code
-* go out of scope
-* decompose into another module
-- there's more
-es6
-tests/examples/readme
-configuring npm author etc.
+* TODO LATER
 
 ## Publishing a module
 
+In this recipe we'll prepare our module to be published then publish it as a scoped package.
+
 ### Getting ready
 
+We're going to publish our `hsl-to-hex` module we've been working on in previous recipes. We'll also want the (original) tests we wrote in the [Adding tests](#adding-tests) portion of the the [There's more](#theres-more-3) section of the [Writing module code](#writing-module-code) recipe.
+
+If we don't have an [npmjs.org](http://npmjs.org) account we'll need to head over to <https://www.npmjs.com/signup> and get an account. Keep the npm username handy, we're going to need it. 
+
 ### How to do it
+
+If we've just signed up for an npm account (as explained in the previous [Getting Ready](#getting-ready-4) section) we'll want to authorise our `npm` client with [npmjs.org](http://npmjs.org).
+
+On the command line, we simply need to run:
+
+```sh
+npm login
+```
+Then supply the username, password, and email address we signed up with.
+
+Every module should have a Readme explaining how it works. 
+
+Let's create a Readme.md file with the following markdown:
+
+<pre><code>
+# hsl-to-hex
+
+Convert HSL colors to RGB colors in hex format.
+
+## Install 
+
+```sh
+npm install --save @davidmarkclements/hsl-to-hex
+```
+ 
+## API
+
+```
+require('hsl-to-hex') => Function
+hsl(hue, saturation, luminosity)` => String
+```
+
+## Example
+
+```js
+var hsl = require('hsl-to-hex')
+var hue = 133 hsl(133, 40, 60)
+var saturation = 40
+var luminosity = 60
+var hex = hsl(hue, saturation, luminosity)
+console.log(hex) // #70c282
+```
+
+## License
+
+ISC
+</code></pre>
+
+In the install section of the readme, we should replace `@davidmarkclements/hsl-to-hex` with out own username. 
+
+> #### Markdown ![](../info.png)
+> Markdown is a lightweight documentation syntax, see 
+> <https://guides.github.com/features/mastering-markdown/>
+
+As a courtesy, we'll also take the example we wrote in the Readme and
+put it in an `example.js` file.
+
+Let's create a file called `example.js` with the following contents:
+
+```js
+var hsl = require('hsl-to-hex')
+var hue = 133 hsl(133, 40, 60)
+var saturation = 40
+var luminosity = 60
+var hex = hsl(hue, saturation, luminosity)
+console.log(hex) // #70c282
+```
+
+Now we'll make some final touches the `package.json` file.
+
+First we'll reinitialize the module:
+
+```sh
+npm init
+```
+
+Following this command, we can simply press Enter in response to all questions. The output of `npm init` should show that a `description` field has been added, with its content taken from the `readme.md` file.
+
+```json
+  "description": "Convert HSL colors to RGB colors in hex format.",
+```
+
+Now let's open the `package.json` file and change the `name` field, 
+by prefixing it with an at (`@`) symbol, followed by our npm username, 
+followed by a forward slash (`/`). For instance: 
+
+```json
+  "name": "@davidmarkclements/hsl-to-hex",
+```
+
+Of course, instead of using `@davidmarkclements` we'll use whatever username with supplied to `npm login`. 
+
+Finally we're ready to publish:
+
+```sh
+npm install --access public
+```
 
 ### How it works
 
@@ -851,11 +1163,13 @@ configuring npm author etc.
 
 #### Listing Installed Modules
 
-#### Module Security Audit
-
 #### Bundling Dependencies
 
+#### Everything Everywhere
+
 ### See also
+
+* TODO LATER
 
 ## Using a private repository
 
@@ -867,7 +1181,15 @@ configuring npm author etc.
 
 ### There's more
 
+#### Module Security Audit
+
+#### Scope Registries
+
+
+
 ### See also
+
+* TODO LATER
 
 
 

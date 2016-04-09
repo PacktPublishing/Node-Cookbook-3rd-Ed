@@ -1,0 +1,30 @@
+{
+  "name": "hsl-to-hex",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "npm run lint && tap --cov test",
+    "lint": "standard"
+  },
+  "author": "David Mark Clements",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/davidmarkclements/hsl-to-hex.git"
+  },
+  "bugs": {
+    "url": "https://github.com/davidmarkclements/hsl-to-hex/issues"
+  },
+  "homepage": "https://github.com/davidmarkclements/hsl-to-hex#readme",
+  "description": "Convert HSL colors to RGB colors in hex format.",
+  "dependencies": {
+    "hsl-to-rgb-for-reals": "^1.1.0"
+  },
+  "devDependencies": {
+    "standard": "^6.0.8",
+    "tap": "^5.7.0"
+  },
+  "directories": {
+    "test": "test"
+  }
+}
