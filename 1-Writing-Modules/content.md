@@ -135,7 +135,7 @@ Back in the terminal, inside our module folder, we can now run:
 ```sh
 echo -e "node_modules\n*.log" > .gitignore
 git init
-git add package.json
+git add .
 git commit -m '1st'
 git remote add origin http://github.com/<username>/hsl-to-hex
 git push -u origin master
@@ -1101,7 +1101,7 @@ hsl(hue, saturation, luminosity)` => String
 
 ```js
 var hsl = require('hsl-to-hex')
-var hue = 133 hsl(133, 40, 60)
+var hue = 133
 var saturation = 40
 var luminosity = 60
 var hex = hsl(hue, saturation, luminosity)
@@ -1125,13 +1125,17 @@ put it in an `example.js` file.
 Let's create a file called `example.js` with the following contents:
 
 ```js
-var hsl = require('hsl-to-hex')
-var hue = 133 hsl(133, 40, 60)
+var hsl = require('./')
+var hue = 133
 var saturation = 40
 var luminosity = 60
 var hex = hsl(hue, saturation, luminosity)
 console.log(hex) // #70c282
 ```
+
+Notice how we've made a minor adjustment to the example code, 
+instead of requiring `hsl-to-hex` we're requiring `./`. This
+ensures that the `example.js` file will run. 
 
 Now we'll make some final touches the `package.json` file.
 
@@ -1199,9 +1203,100 @@ npm install @davidmarkclements/hsl-to-hex
 
 ### There's more
 
-#### Listing Installed Modules
+#### Extraneous Dependencies
 
-#### Bundling Dependencies
+It can be all too easy to publish modules without necessary dependencies.
+
+Let's say we install the `debug` module because we want to instrument our code with debug messages.
+
+In the `hsl-to-hex` folder we could run:
+
+```sh
+npm install debug
+```
+
+> #### Debugging ![](../info.png)
+> The purpose of this section is to demonstrate extraneous dependencies.
+> The fact we're using the `debug` module is peripheral, however we will be going into detail on debugging in **Chapter 9 Debugging Systems**.
+
+Now let's use debug in our `index.js` file.
+
+At the top of the file, we can create a debug logger:
+
+```js
+var toRgb = require('hsl-to-rgb-for-reals')
+var debug = require('debug')('hsl-to-hex')
+```
+
+Now let's add some debug output in each of our functions.
+
+For the `max` function we'll add the following:
+
+```js
+function max (val, n) {
+  debug('ensuring ' + val + 'is no more than ' + n)
+/*...snip..*/
+```
+
+Likewise for the `min` function:
+
+```js
+function min (val, n) {
+  debug('ensuring ' + val + 'is no less than ' + n)
+/*...snip..*/
+```
+
+And finally the `cycle` function:
+
+```js
+function cycle (val) {
+  debug('resolving ' + val + ' within the 0-359 range')
+/*...snip..*/
+```
+
+Ok, looks good. 
+
+Let's run our tests to make sure everything is working:
+
+```sh
+npm test
+```
+
+We can also check out debug logs work by running
+
+```sh
+DEBUG=hsl-to-hex node example.js
+```
+
+If all went well we could be fooled into believing that we are ready to publish a new version of our module. However if we did, it would be broken on arrival. 
+
+This is because we neglected to add the `debug` module to the `package.json` file. We omitted the `--save` flag.
+
+The tests and code work for us because the `debug` module is installed, but npm does not know to install it for users of our module because we haven't told npm to do so. 
+
+A good habit to get into is running `npm ls` before publishing, like so:
+
+```sh
+npm ls
+```
+
+This will output a dependency tree for all our production and development modules. More importantly, it also identifies "extraneous" dependencies. That is, dependencies that are in the `node_modules` folder, but aren't specified in the `package.json` file. 
+
+In our case, the bottom of the `npm ls` output will say:
+
+```
+npm ERR! extraneous: debug@2.2.0 /Users/davidclements/z/Node-Cookbook-3rd-Ed/1-Writing-Modules/source/publishing-a-module/listing-installed-modules/hsl-to-hex/node_modules/debug
+```
+
+To fix the extraneous dependency we can manually edit the `package.json` file `dependencies` field, or we can simply run the install command again with the `--save` flag. Like so:
+
+```sh
+npm install --save debug
+```
+
+#### Prepublish
+
+
 
 #### Everything Everywhere
 
