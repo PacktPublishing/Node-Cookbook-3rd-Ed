@@ -1029,7 +1029,7 @@ We use arrow functions purely for aesthetics, removing noise enhances the focus 
 > We should note that arrow functions behave differently to normal functions, in particular when it comes to the `this` context. 
 > Find out more about arrow functions at <https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Functions/Arrow_functions>
 
-Template strings are denoted with backticks (<code>`</code>) and can be multiline. We use these for our `it` constants purely for the multiline capabilities, since describing behaviour can often take up more than 80-100 columns, or more than one line. Template strings (the clue being in the name), also supply interpolation, like so:
+Template strings are denoted with backticks (<code>&#96;</code>) and can be multiline. We use these for our `it` constants purely for the multiline capabilities, since describing behaviour can often take up more than 80-100 columns, or more than one line. Template strings (the clue being in the name), also supply interpolation, like so:
 
 ```
 var name = 'David'
@@ -1157,7 +1157,7 @@ Finally, we're ready to publish:
 npm publish --access=public
 ```
 
-We should now be able to navigate to <https://www.npmjs.com/package/@davidmarkclements/hsl-to-hex> (where `@davidmarkclements` is the username we're using) so view the modules npm page. 
+We should now be able to navigate to <https://www.npmjs.com/package/@davidmarkclements/hsl-to-hex> (where `@davidmarkclements` is the username we're using) and view the modules npm page. 
 
 ![](images/hsl-to-hex.png)
 
