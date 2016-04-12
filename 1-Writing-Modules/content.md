@@ -1202,6 +1202,31 @@ npm install @davidmarkclements/hsl-to-hex
 ```
 
 ### There's more
+Prior to publishing a module (or deploying a system), there's several things we want to check so that our module isn't dead on arrival, or worse: alive and dangerous. Let's explore some tools and approaches for handling module security, broken dependencies and automated checks. 
+
+#### Detecting Vulnerabilities
+
+Whilst, by no means, a substitute for thorough penetration testing the `auditjs` tool can help to catch some security holes in our modules and applications.
+
+Let's check it out:
+
+```sh
+npm i -g auditjs
+```
+
+Now let's run a security sweep. 
+
+In our `hsl-to-hex` module folder, we simply execute the following:
+
+```sh
+auditjs
+```
+
+When we run `auditjs` the entire `node_modules` tree is scanned against the OSS Index. The OSS Index contains recorded security vulnerabilities from various sources including the National Vulnerability Datase, the Node Security Project and <http://npmjs.com> itself. Additionally, `auditjs` will check the current Node version in use for any security announcement.
+
+> #### OSS Index ![](../info.png)
+> For more on the OSS Index visit <https://ossindex.net/>
+
 
 #### Extraneous Dependencies
 
@@ -1527,6 +1552,10 @@ We can do so with the following command:
 npm set registry http://localhost:4873
 ```
 
+> #### Hosting Sinopia ![](../info.png)
+> In order to host Sinopia either over the public internet, within cloud infrastructure on in-house metal several Sinopia settings would need to be configured. These settings are typically located `~/.config/sinopia/config.yaml`, although we can pass our own file with `sinopia my-config.yaml`. In particular, we would want to set an admin password hash, restrict access in the packages field and listen on host `0.0.0.0`. We can find out more about configuration options here <https://github.com/rlidwka/sinopia/blob/master/conf/full.yaml>. Additionally, there are ready made Chef, Puppet and Docker setups for easy deployment, see the Sinopia readme at <http://npm.im/sinopia> for more details.
+
+
 Finally, let's enter the directory of the `hsl-to-hex` module we've been building throughout this chapter, and publish it locally. 
 
 
@@ -1542,6 +1571,10 @@ We can see if this worked by navigating to <http://localhost:4873> in the browse
 *Sinopia Module Viewer*
 
 
+> #### Stop sinopia ![](../tip.png)
+> We can stop Sinopia with `killall sinopia` or on Windows `taskkill /IM sinopia.cmd`
+
+
 > #### Revert to public registry ![](../tip.png)
 > Set the npm registry back to default with the following:
 > ```sh
@@ -1550,16 +1583,62 @@ We can see if this worked by navigating to <http://localhost:4873> in the browse
 
 ### How it works
 
+The npm client simply sends HTTP requests to the npm registry.
 
+For instance, an `npm publish` command causes a tarball of our module to be sent to the registry endpoint via an HTTP PUT request.
+
+Sinopia supports a subset of the endpoints and verbs used by the npm registry, but beyond that it works quite differently. 
+
+The npm registry was originally built as a CouchDB application that held all meta-data and tarballs in one database, but now runs as a distributed microservice based system made up of many pieces.
+
+Sinopia on the other hand, is a RESTful Node application which essentially stores modules to the file system (in exactly the same form as we create them, as a folder with `package.json` and source files).
+
+> ####  Sinopia storage ![](../tip.png)
+> We can try `grep storage ~/.config/sinopia/config.yaml` to find out where Sinopia stores modules on our file system. If we're using Windows we can use `findstr storage %homedrive%%homepath%/.config/sinopia/config.yaml`.
 
 ### There's more
 
-#### Module Security Audit
+As we round off this chapter, we're going to explore other aspects of private repositories such as localized caching and associating scopes to registries.
+
+#### Module caching
+
+Sinopia also acts as a localized cache. If our registry endpoint is set to the Sinopia server we simply `npm install` a package and it will be downloaded from the npm registry then saved to sinopias storage. The next time we install the same module (and version), it will come from Sinopia.
+
+If we're only interested in localized caching of npm modules, an interesting alternative to Sinopia is `registry-static`.
+
+The `registry-static` tool is much simpler, it simply replicates the entire npm registry (around 300GB of data) to a flat file structure. 
+
 
 #### Scope Registries
 
-#### Static Registry
+We can associate registries to module namespaces. An example of a module namespace (or scope) is found in our module's name `@davidmarkclements/hsl-to-hex` where `@davidmarkclements` is the scope. 
 
+
+If we haven't already done so, we can revert to the default registry with the following command:
+
+```sh
+npm config delete registry
+```
+
+Let's say we want to associate only the `@ncb` scope with our local Sinopia server. We can run the following command
+
+```sh
+npm set @ncb:registry http://localhost:4873
+```
+
+Now let's alter the `name` field of `package.json` like so:
+
+```json
+  "name": "@ncb/hsl-to-hex",
+```
+
+Now we can publish to our local registry:
+
+```sh
+npm publish
+```
+
+If we navigate to <http://localhost:4873> we should see the `@ncb/hsl-to-hex` module listed.
 
 
 ### See also
