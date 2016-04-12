@@ -1296,9 +1296,190 @@ npm install --save debug
 
 #### Prepublish
 
+Along with arbitrary commands, and the special `test` field, the `scripts` section of the `package.json` file supports hooks.
+
+The `prepublish` field can be useful for catching mistakes before we send our code out into the world. 
 
 
-#### Everything Everywhere
+> #### npm scripts ![](../info.png)
+> Take a look at <https://docs.npmjs.com/misc/scripts> for list of all supported npm scripts. 
+
+Let's add a `prepublish` script, that runs `npm ls` and `npm test`.
+
+```json
+  "scripts": {
+    "prepublish": "npm ls && npm test",
+    "test": "npm run lint && tap --cov test",
+    "lint": "standard"
+  },
+```
+
+Now, before each publish npm should check for extraneous dependencies, run our linter, and run our test suite automatically before each publish. 
+
+Let's test it real quick by adding an extraneous dependency as in the previous section. 
+
+This time our extraneous dependency can be `clockface`:
+
+```sh
+npm install clockface
+```
+
+Okay, now we'll bump the patch version:
+
+```sh
+npm version patch
+```
+
+Then we'll try to publish:
+
+```sh
+npm publish
+```
+
+At this point, npm should fail to publish and write an `npm-debug.log` to our modules folder.
+
+When `npm ls` fails, it exits with a non-zero exit code. The npm task will respect this exit code and similarly fail. A similar situation would occurs if one of our tests were failing, or if our code contained syntax that broke linting rules. 
+
+Finally, let's fix our "mistake" and publish for real:
+
+In this case, we don't need `clockface`, so we'll simply remove it:
+
+```sh
+rm -fr node_modules/clockface
+```
+
+And publish:
+
+```sh
+npm publish
+```
+
+Now we should see a successful `npm ls` command and we should see linting and tests passing, followed by a successful publish of the next version of our module. 
+
+#### Decentralized Publishing
+
+In the last few decades great strides have been made in the area of distributed computing. An interesting outcome is the prospect that modules can be shared within the community without a central registry.
+
+It's possible today to publish a module to IPFS (the InterPlanetary FileSystem). IPFS is an immutable peer-to-peer file system composed of various innovations in cryptography and decentralized networks from the last 30 years. Including technologies found in `git`, BitTorrent, the Tor network, and BitCoins blockchain.
+
+Let's publish our module to IPFS!
+
+First we'll need to install IPFS. Let's head to <https://ipfs.io/docs/install/> and follow the instructions to install IPFS on our system.
+
+Once installed, we need to initialize:
+
+```sh
+ipfs init
+``
+
+Then start the IPFS service:
+
+```sh
+ipfs daemon
+```
+
+There's a handy npm module called `stay-cli` that makes it trivial to publish to and install modules from IPFS.
+
+Let's open another terminal and install `stay-cli`:
+
+```sh
+npm install -g stay-cli
+```
+
+The `stay-cli` will prepare our module for decentralized publishing by injecting a `prepublish` script into our `package.json`. If we followed the previous section ([Prepublish](#prepublish)) we'll already have a `prepublish` script. 
+
+That being the case we'll need to alter the `scripts` section in our `package.json` file to:
+
+```json
+  "scripts": {
+    "check": "npm ls && npm test",
+    "test": "npm run lint && tap --cov test",
+    "lint": "standard"
+  }
+```
+
+Notice that we've renamed the "prepublish" field to "check".
+
+Next in our module's folder, we can run the following:
+
+```sh
+stay init
+```
+
+This will place a `publish-dep.sh` in our module's directory and alter our `package.json` file to look thusly:
+
+```json
+  "scripts": {
+    "check": "npm ls && npm test",
+    "test": "npm run lint && tap --cov test",
+    "lint": "standard",
+    "prepublish": "./publish-dep.sh"
+  },
+```
+
+Now let's make sure our pre-publish checks happen, by editing the `prepublish` field like so:
+
+```json
+    "prepublish": "npm run check && ./publish-dep.sh"
+```
+
+Let's bump our module's patch version, since we've made edits: 
+
+```sh
+npm version patch
+```
+
+Now we're ready to publish our module to the IPFS peer-to-peer network.
+
+```sh
+npm publish
+```
+
+This will publish to both [npmjs.org](http://npmjs.org) and IPFS. 
+
+In the publish output we should see something like:
+
+```sh
+## Publishing dependency
+Published as QmPqxGscbc6Qv9zdN3meifT7TRfBJKXT4VVRrQZ4skbFZ5
+```
+
+We can use the supplied hash to install our `hsl-to-hex` module from IPFS. 
+
+Let's try that out. First, let's create a new folder called stay-play:
+
+```sh
+mkdir stay-play
+```
+
+Now we'll initialize a new module:
+
+```
+npm init
+```
+
+Next, we need to add the decentralized dependency:
+
+```
+stay add hsl-to-hex@QmPqxGscbc6Qv9zdN3meifT7TRfBJKXT4VVRrQZ4skbFZ5
+```
+
+We can replace the hash (beginning `Qmpqx`) with the hash of our own published module when we ran `npm publish`. 
+
+This will add an `esDependencies` field to our `package.json` file, which looks like this:
+
+```json
+  "esDependencies": {
+    "hsl-to-hex": "QmPqxGscbc6Qv9zdN3meifT7TRfBJKXT4VVRrQZ4skbFZ5"
+  }
+```
+Finally we can grab install distributed dependencies listed in the `esDepdendencies` field with:
+
+```sh
+stay install
+```
+
+In all likelihood this will install `hsl-to-hex` from our own system, since we're the closest network node to ourself. As an experiment, we could always try passing on the hash to a friend and seeing if they can install it.
 
 ### See also
 
@@ -1306,17 +1487,78 @@ npm install --save debug
 
 ## Using a private repository
 
+There can be multiple reasons for using a private repository. From a personal perspective, it can be a useful caching mechanism or test-bed when run locally.  From an organizational perspective it's usually about control.
+
+Whilst open source has been fundamental to advancements in every industry that has been touched by the digital era, there's still a case for in-house only code. In some cases, it may be that code is specific to an organization, or reveals internal details that should be trade secrets. In other cases it may be an archaic though impassable proprietary culture. At any rate, when living in a gated community it makes all the more sense to share resources.
+
+In this recipe we'll investigate setting up a personal module registry which could be deployed as an internal registry to provide a platform for code-reuse across an organization.
+
 ### Getting ready
+
+Setting up a private repository has become very easy, to get ready for this recipe simply have a terminal open and ready. 
 
 ### How to do it
 
+We're going to use a tool called `sinopia`.
+
+We install it with npm:
+
+```sh
+npm install -g sinopia
+```
+
+Next simply start `sinopia` as a service: 
+
+```sh
+sinopia &> /dev/null &
+```
+
+Or if we're on Windows:
+
+```sh
+START /B "" sinopia >nul 2>nul
+```
+
+In order to publish to our local registry, we'll need to configure npm to point at Sinopia's HTTP endpoint. 
+
+We can do so with the following command:
+
+```sh
+npm set registry http://localhost:4873
+```
+
+Finally, let's enter the directory of the `hsl-to-hex` module we've been building throughout this chapter, and publish it locally. 
+
+
+From the `hsl-to-hex` module folder, we run:
+
+```sh
+npm publish
+```
+
+We can see if this worked by navigating to <http://localhost:4873> in the browser.
+
+![](images/sinopia.png)
+*Sinopia Module Viewer*
+
+
+> #### Revert to public registry ![](../tip.png)
+> Set the npm registry back to default with the following:
+> ```sh
+> npm config delete registry
+> ```
+
 ### How it works
+
+
 
 ### There's more
 
 #### Module Security Audit
 
 #### Scope Registries
+
+#### Static Registry
 
 
 
