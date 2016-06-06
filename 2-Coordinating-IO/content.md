@@ -9,10 +9,12 @@ This chapter covers the following topics
 
 ## Introduction
 
-One to two paragraph intro to chapter
+* File reading, writing, appending
+* File system meta data
+* STDOUT, STDIN, STDERR
+* Creating TCP and UDP servers and clients
 
-
-## Recipe title
+## Interfacing with standard IO
 
 ### Getting Ready
 
@@ -24,5 +26,64 @@ One to two paragraph intro to chapter
 
 ### See also
 
+## Working with files
+
+### Getting Ready
+
+### How to do it
+
+### How it works
+
+### There's more
+
+### See also
+
+## Fetching meta-data
+
+### Getting Ready
+
+### How to do it
+
+### How it works
+
+### There's more
+
+### See also
+
+## Modifying files and directories
+
+### Getting Ready
+
+### How to do it
+
+### How it works
+
+### There's more
+
+### See also
+
+## Watching files and directories
+
+### Getting Ready
+
+### How to do it
+
+### How it works
+
+### There's more
+
+### See also
+
+## Interacting with Sockets
+
+### Getting Ready
+
+### How to do it
+
+### How it works
+
+### There's more
+
+### See also
 
 
