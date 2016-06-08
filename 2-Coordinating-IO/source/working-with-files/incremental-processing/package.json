@@ -1,0 +1,14 @@
+{
+  "name": "piping",
+  "version": "1.0.0",
+  "description": "",
+  "main": "null-byte-remover.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "David Mark Clements",
+  "license": "MIT",
+  "dependencies": {
+    "strip-bytes-stream": "^1.1.0"
+  }
+}
