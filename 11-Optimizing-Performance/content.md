@@ -209,6 +209,24 @@ We can also use `-i` if we want to send the content of a file.
 
 ### See also
 
+TBD
+
+## Generating a Flamegraph
+
+![example flamegraph](./images/flamegraph1.png)
+
+A flamegraph is the most powerful tool to identify hot code paths in
+your application, and to solve performance issues that might arise.
+
+### Getting Ready
+
+### How to do it
+
+### How it works
+
+### There's more
+
+### See also
 
 ## Recipe title
 
