@@ -345,7 +345,20 @@ Bytes/Sec    1.85 MB 260.17 kB 2.03 MB
 54k requests in 10s, 18.55 MB read
 ```
 
-#### Checking the optimization status of a function
+#### Delivering a performance optimization task
+
+We can now execute a full task of performance optimization for our web
+applications:
+
+1. establish a baseline, by executing `autocannon` and generating a
+   number in the form of req/sec (request per second).
+2. launch the application with `0x`, launch `autocannon` and then generate
+   a flamegraph.
+3. identify any performance issue and fix them.
+4. launch the application without `0x`, and generate another figure of
+   req/sec.
+5. if this number is higher than your baseline, go to 1; if not, discard your
+   work and try again.
 
 ### See also
 
