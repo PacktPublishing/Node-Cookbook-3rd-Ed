@@ -2,22 +2,48 @@
 
 This chapter covers the following topics
 
-* topics
-* as
-* bullets
-* here
+* Handling data larger than fits in memory
+* Decoupling I/O from modules
+* Reducing latency in your apps
+* Composing pipelines
 
 ## Introduction
 
-One to two paragraph intro to chapter
-
-## Introduction
+Streams are one of the best features in Node. They have been a big part of the ecosystem since the early days of Node and today 1000s of modules exists on npm that help us compose all kinds of great stream based apps. They allow us to work with large volumes of data in environments with limited resources. In addition to that they help us decouple our applications by supplying a generic abstraction that most I/O patters work with.
 
 ## Processing big data
 
-// problem statement (count all npm modules fx)
-// show a trivial solution (a program that crashes)
-// introduce streams to solve it
+Let's dive right into it by looking at a classic node problem, counting all Node modules available on npm.
+The npm registry exposes http endpoint where you can get all registry content as JSON. If you are familiar with the command line you can try it out using `curl`.
+
+```
+# Prints a new line delimited JSON stream of all modules.
+curl https://skimdb.npmjs.com/registry/_changes?include_docs=true
+```
+
+The JSON stream returned by the registry contains a JSON object for each module stored on npm followed by a new line character.
+A simple Node program that counts all modules could look like this
+
+``` js
+var request = require('request')
+var registryUrl = 'https://skimdb.npmjs.com/registry/_changes?include_docs=true'
+
+// request the data from the url
+request(registryUrl, function (err, data) {
+  if (err) throw err
+  // lets count the number of lines in the response
+  var numberOfLines = data.split('\n').length + 1
+  console.log('Total modules on npm: ' + numberOfLines)
+})
+```
+
+If we try and run the above program we'll notice a couple of things.
+
+First of all this program takes quite a long time to run. Second, depending on the machine you are using, there is a very good chance the program will crash with an "out of memory" error.
+
+Why is this happening?
+
+It turns out a decent amount of JSON data is stored in npm and it takes a bit of memory to buffer it all. Lets investigate how we can use streams to improve our program.
 
 ### Getting Ready
 
