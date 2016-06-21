@@ -226,7 +226,7 @@ In order to generate a flamegraph, you will need Mac OS X (10.8 -
 to set up a virtual machine.
 
 The tool for generating flamegraphs is
-[`0x`](https://github.com/davidmarkclements/0x): you can install it with
+[`0x`][0x]: you can install it with
 `npm install 0x -g`.
 
 ### How to do it
@@ -364,6 +364,290 @@ applications:
 
 TBD
 
+## Optimizing a synchronous function call
+
+HTTP benchmarking and flamegraphs can help in understanding where there
+is a problem, and which areas in your application needs an optimization.
+With some reasoning, we are now able to pinpoint the performance issue
+to a specific synchronous function (or a group of).
+In this recipe, we cover the task of optimizing a single function call.
+
+### Getting Ready
+
+We use [benchmark.js][benchmark] to create benchmarks for single
+functions. Create a new folder, launch `npm init` to create a
+`package.json`, and run `npm i benchmark --save-dev`.
+
+### How to do it
+
+Somewhere in our codebase we have a function `divideByAndSum` to optimize,
+as it comes up 10% of the time on top of the stack in our flamegraph.
+The first step is to extract that function into its own module. This is what an
+optimization candidate will look like:
+
+```js
+function divideByAndSum (num, array) {
+  try {
+    array.map(function (item) {
+      return item / num
+    }).reduce(function (acc, item) {
+      return acc + item
+    }, 0)
+  } catch (err) {
+    // to guard for division by zero
+    return 0
+  }
+}
+
+module.exports = divideByAndSum
+```
+
+Write this into a `slow.js` file.
+
+The goal is to have an independent module, that you can benchmark in
+isolation. We can now write a simple benchmark for it:
+
+```js
+const benchmark = require('benchmark')
+const slow = require('./slow')
+const suite = new benchmark.Suite()
+
+const numbers = []
+
+for (let i = 0; i < 1000; i++) {
+  numbers.push(Math.random() * i)
+}
+
+suite.add('slow', function () {
+  slow(12, numbers)
+})
+
+suite.on('complete', print)
+
+suite.run()
+
+function print () {
+  for (var i = 0; i < this.length; i++) {
+    console.log(this[i].toString())
+  }
+
+  console.log('Fastest is', this.filter('fastest').map('name')[0])
+}
+```
+
+Save this as `bench.js`, we will edit this file multiple times.
+
+We can now run it with:
+
+```
+$ node bench.js
+slow x 11,014 ops/sec ±1.12% (87 runs sampled)
+Fastest is slow
+```
+
+#### Remove the use of the collections
+
+The fastest way to iterate over an array is a for loop. Even thought
+idiomatic Javascript prefers to use `forEach()`, `map()` and `reduce()`,
+iterating by calling a function is slower than a for loop.
+
+We save the following module as `no-collections.js`:
+
+```js
+'use strict'
+
+function divideByAndSum (num, array) {
+  var result = 0
+  try {
+    for (var i = 0; i < array.length; i++) {
+      result += array[i] / num
+    }
+  } catch (err) {
+    // to guard for division by zero
+    return 0
+  }
+}
+
+module.exports = divideByAndSum
+```
+
+We can then edit our `bench.js` file to add a test for this new module:
+
+```js
+const noCollection = require('./no-collections')
+suite.add('no-collections', function () {
+  noCollection(12, numbers)
+})
+```
+
+The results is impressive:
+
+```
+$ node bench.js
+slow x 11,014 ops/sec ±1.12% (87 runs sampled)
+no-collections x 58,190 ops/sec ±1.11% (87 runs sampled)
+Fastest is no-collections
+```
+
+#### The danger of try-catch
+
+Execptions are hard, and sometimes we must use a try/catch block. This
+is not the case:
+
+```js
+function divideByAndSum (num, array) {
+  var result = 0
+
+  if (num === 0) {
+    return 0
+  }
+
+  for (var i = 0; i < array.length; i++) {
+    result += array[i] / num
+  }
+
+  return result
+}
+```
+
+Save this as `no-try-catch.js`, and then we edit our `bench.js` file to add a test for this new module:
+
+```js
+const noTryCatch = require('./no-try-catch')
+suite.add('no-try-catch', function () {
+  noTryCatch(12, numbers)
+})
+```
+
+The results are even more relevant:
+
+```
+$ node bench.js
+slow x 11,014 ops/sec ±1.12% (87 runs sampled)
+no-collections x 58,190 ops/sec ±1.11% (87 runs sampled)
+no-try-catch x 231,196 ops/sec ±0.58% (92 runs sampled)
+Fastest is no-try-catch
+```
+
+We achieved a 20 times throughput improvement.
+
+### How it works
+
+Node.js is an evented I/O platform built on top of [V8][v8], Google Chrome's Javascript VM.
+Node.js applications receive an I/O event (file read, data available on
+a socket, write completed), and then execute a Javascript callback. The
+next I/O event is processed after the Javascript function terminates.
+In order to write fast Node.js applications, our Javascript functions
+need to terminate as fast as possible.
+
+[V8][v8] offers two just-in-time compilers: one is activated when a
+function is loaded, and one when a function becomes "hot", and certain
+conditions are satistified.
+
+"Hot" functions are functions that either executed often or they take a
+long time to complete. If a function is not "hot", it will not show
+up in the flamegraph at the top of the stack, or in darker colors.
+
+Both compiler generate machine code, but the optimizing compiler takes
+also into account the types and the code within the function. The rules
+that prevent a function to be optimized are called [V8 Optimization
+Killers](https://github.com/petkaantonov/bluebird/wiki/Optimization-killers).
+
+### There's more
+
+#### Checking the optimization status
+
+We can check if a function is optimized or optimizable by using the "V8
+natives syntax", which we can turn on by executing our applications with
+`node --allow-natives-syntax app.js`.
+
+We can then instrument the code like the following:
+
+```js
+%GetOptimizationStatus(fn)
+```
+
+We can even write a little module to help us debugging these conditions:
+
+```
+function printStatus(fn) {
+  switch(%GetOptimizationStatus(fn)) {
+    case 1: console.log("Function is optimized"); break;
+    case 2: console.log("Function is not optimized"); break;
+    case 3: console.log("Function is always optimized"); break;
+    case 4: console.log("Function is never optimized"); break;
+    case 6: console.log("Function is maybe deoptimized"); break;
+    case 7: console.log("Function is optimized by TurboFan"); break;
+    default: console.log("Unknown optimization status"); break;
+  }
+}
+
+module.exports = printStatus
+```
+
+We can then modify our `bench.js` file to verify that
+`no-try-collections.js` is optimized.
+
+You can also see the optimization status of a function through the
+flamegraph generated by [0x][0x].
+
+#### Tracing optimization and deoptimization events
+
+We can tap into the V8 decision process regarding when to optimize a
+function by running our code with `node --trace-opt --trace-deopt
+app.js`. You will get some lines that resemble this:
+
+```
+[marking 0x21e29c142521 <JS Function varOf (SharedFunctionInfo 0x1031e5bfa4b9)> for recompilation, reason: hot and stable, ICs with typeinfo: 3/3 (100%), generic ICs: 0/3 (0%)]
+[compiling method 0x21e29c142521 <JS Function varOf (SharedFunctionInfo 0x1031e5bfa4b9)> using Crankshaft]
+[optimizing 0x21e29c142521 <JS Function varOf (SharedFunctionInfo 0x1031e5bfa4b9)> - took 0.019, 0.106, 0.033 ms]
+[completed optimizing 0x21e29c142521 <JS Function varOf (SharedFunctionInfo 0x1031e5bfa4b9)>]
+```
+
+In the abot snippet, a function named `varOf` is marked for optimization and
+then it is optimized.
+
+While reading the output, we would also notice lines like this:
+
+```
+[marking 0x21e29d33b401 <JS Function (SharedFunctionInfo 0x363485de4f69)> for recompilation, reason: small function, ICs with typeinfo: 1/1 (100%), generic ICs: 0/1 (0%)]
+[compiling method 0x21e29d33b401 <JS Function (SharedFunctionInfo 0x363485de4f69)> using Crankshaft]
+[optimizing 0x21e29d33b401 <JS Function (SharedFunctionInfo 0x363485de4f69)> - took 0.012, 0.072, 0.021 ms]
+```
+
+This is an anononymous function: it is really hard to know where this is
+defined. [`0x`][0x] use several techniques to reconstruct the line of
+code where that is defined, but we can only access that if that line happear
+in the flamegraph. We must remember to always name our functions.
+
+From time to time, we can also see a deoptimizatition happening:
+
+```
+[deoptimizing (DEOPT eager): begin 0x1f5a5b1fd601 <JS Function forOwn (SharedFunctionInfo 0x1f5a5b161259)> (opt #125) @55, FP to SP delta:
+376]
+            ;;; deoptimize at 109463: not a Smi
+  reading input frame forOwn => node=3, args=13, height=2; inputs:
+      0: 0x1f5a5b1fd601 ; (frame function) 0x1f5a5b1fd601 <JS Function
+forOwn (SharedFunctionInfo 0x1f5a5b161259)>
+      1: 0x1f5a5b1fa7d9 ; [fp + 32] 0x1f5a5b1fa7d9 <JS Function lodash
+(SharedFunctionInfo 0x1f5a5b153b19)>
+      2: 0x2e17991e6409 ; [fp + 24] 0x2e17991e6409 <an Object with map
+0x366bf3f38b89>
+      3: 0x2e17991ebb41 ; [fp + 16] 0x2e17991ebb41 <JS Function
+(SharedFunctionInfo 0x1f5a5b1ca9e1)>
+      4: 0x1f5a5b1eaed1 ; [fp - 24] 0x1f5a5b1eaed1 <FixedArray[272]>
+      5: 0x1f5a5b1ee239 ; [fp - 32] 0x1f5a5b1ee239 <JS Function
+baseForOwn (SharedFunctionInfo 0x1f5a5b155d39)>
+...
+```
+
+The reason for the deoptimization is "not a SMI", which means that the
+function was expecting a 32-bit fixed integer and it got something else
+instead.
+
+### See also
+
+TBD
 
 ## Recipe title
 
@@ -381,3 +665,6 @@ TBD
 [autocannon]: https://github.com/mcollina/autocannon
 [wrk]: https://github.com/wg/wrk
 [express]: http://expressjs.com
+[benchmark]: https://github.com/bestiejs/benchmark.js
+[v8]: https://developers.google.com/v8/
+[0x]: https://github.com/davidmarkclements/0x
