@@ -356,6 +356,8 @@ Bytes/Sec    1.85 MB 260.17 kB 2.03 MB
 
 #### Delivering a performance optimization task
 
+![bdd-flowchart](./images/bdd-flowchart.png)
+
 We can now execute a full task of performance optimization for our web
 applications:
 
