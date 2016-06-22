@@ -408,27 +408,344 @@ and write to files.
 
 ## Fetching meta-data
 
-### Getting Ready
+Reading directory listings, fetching permissions, getting time of creation and modification. These are all essential pieces of the file system tool kit. 
 
-### How to do it
+> ### `fs` and POSIX ![](../tip.png)
+> Most of the `fs` module methods are light wrappers around [POSIX](https://en.wikipedia.org/wiki/POSIX) operations (with shims for Windows), so many of the concepts and names should be similar if we've indulged in any system programming or even shell scripting.
 
-### How it works
-
-### There's more
-
-### See also
-
-## Modifying files and directories
+In this recipe, we're going to write a CLI tool that supplies in depth information about files and directories for a given path.
 
 ### Getting Ready
 
+To get started, let's create a new folder called `fetching-meta-data`,
+containing a file called `meta.js`:
+
+```sh
+mkdir fetching-meta-data
+cd fetching-meta-data
+touch meta.js
+```
+
+Now let's use `npm` to create `package.json` file,
+
+```sh
+npm init -y
+```
+
+We're going to display tabulated and styled meta data in the terminal, 
+instead of manually writing ANSI codes and tabulating code, we'll simply 
+be using the third party `tableaux` module.
+
+We can install it like so
+
+```sh
+npm install --save tableaux
+```
+
+Finally we'll create a folder structure that we can check our program against:
+
+```sh
+mkdir -p my-folder/my-subdir/my-subsubdir
+cd my-folder
+touch my-file my-private-file
+chmod 000 my-private-file
+echo "my edit" > my-file
+ln -s my-file my-symlink
+touch my-subdir/another-file
+touch my-subdir/my-subsubdir/too-deep
+```
+
 ### How to do it
+
+Let's open `meta.js`, and begin by loading the modules we'll be using
+
+```js
+const fs = require('fs')
+const path = require('path')
+const tableaux = require('tableaux')
+```
+
+Next we'll initialize tableaux with some table headers, 
+which in turn will supply a `write` function which we'll be using shortly:
+
+```js
+const write = tableaux(
+  {name: 'Name', size: 20},
+  {name: 'Created', size: 30},
+  {name: 'DeviceId', size: 10},
+  {name: 'Mode', size: 8},
+  {name: 'Lnks', size: 4},
+  {name: 'Size', size:  6}
+)
+```
+
+Now let's sketch out a `print` function
+
+```js
+function print(dir) {
+  fs.readdirSync(dir)
+    .map((file) => ({file, dir}))
+    .map(toMeta)
+    .forEach(output)
+  write.newline()
+}
+```
+
+The `print` function wont work yet, not until we define the `toMeta` and `output` functions.
+
+The `toMeta` function is going to take an object with a `file` property, `stat` the
+file in order to obtain information about it, then return that data, like so:
+
+```js
+function toMeta({file, dir}) {
+  const stats = fs.statSync(path.join(dir, file))
+  let {birthtime, ino, mode, nlink, size} = stats
+  birthtime = birthtime.toUTCString()
+  mode = mode.toString(8)
+  size += 'B'
+  return {
+    file,
+    dir,
+    info: [birthtime, ino, mode, nlink, size],
+    isDir: stats.isDirectory()
+  }
+}
+```
+
+The `output` function is going to output the information supplied by `toMeta`, 
+and in cases where a given entity is a directory, it will query and output a
+summary of the directory contents. Our `output` functions looks like the following:
+
+```js
+function output({file, dir, info, isDir}) {
+  write(file, ...info)
+  if (!isDir) { return }
+  const p = path.join(dir, file)
+  write.arrow()
+  fs.readdirSync(p).forEach((f) => {
+    const stats = fs.statSync(path.join(p, f))
+    const style = stats.isDirectory() ? 'bold' : 'dim'
+    write[style](f)
+  })
+  write.newline()
+}
+```
+
+Finally we can call the `print` function:
+
+```js
+print(process.argv[2] || '.')
+```
+
+Now let's run our program, assuming our current working directory is the `fetching-meta-data` folder, we should be able to successfully run the following:
+
+```sh
+node meta.js my-folder
+```
+
+![](images/fig1.1.png)
+*Our program output should look similar to this*
 
 ### How it works
 
+When we call `print` we pass in `process.argv[2]`, if it's value is falsey, then
+we alternatively pass a dot (meaning current working directory). 
+
+The `argv` property on `process` is an array of command line arguments, including
+the call to `node` (at `process.argv[0]`) and the file being executed (at `process.argv[1]`).
+
+When we ran `node meta.js my-folder`, `process.argv[2]` had the value `'my-folder'`.
+
+Our `print` function uses `fs.readdirSync` to get an array of all the files and folders in 
+the specified `dir` (in our case, the `dir` was `'my-folder'`). 
+
+> #### Functional Programming ![](../info.png)
+> We use a functional approach in this recipe (and mostly throughout this book)
+> If this is unfamiliar, check out the functional programming workshop on
+> http://nodeschool.io
+
+We call `map` on the returned array to create a new array of objects containing both the `file` and the `dir` (we need to keep a reference to the `dir` so it can eventually be passed to the `output` function).
+
+We call `map` again, on the previously mapped array of objects, this time passing the `toMeta`
+function as the transformer function.
+
+The `toMeta` function uses the ES2015 destructuring syntax to accept an object and break its `file` and `dir` property into variables that are local to the function. Then `toMeta` passes the `file` and `dir` into `path.join` (to assemble a complete cross-platform to the file), which in turn is passed into `fs.statSync`. The `fs.statSync` method (and its asynchronous counter `fs.stat`) is a light wrapper around the POSIX `stat` operation. 
+
+It supplies an object with following information about a file or directory:
+
+
+| Information Point                           | Namespace  |
+|---------------------------------------------|------------|
+| ID of device holding file                   | `dev`      |
+| Inode number                                | `ino`      |
+| Access Permissions                          | `mode`     |
+| Number of hard links contained              | `nlink`    |
+| User ID                                     | `uid`      |
+| Group ID                                    | `gid`      |
+| Device ID of special device file            | `rdev`     |
+| Total bytes                                 | `size`     |
+| Filesystem block size                       | `blksize`  |
+| Number of 512byte blocks allocated for file | `blocks`   |
+| Time of last access                         | `atime`    |
+| Time of last modification                   | `mtime`    |
+| Time of last status change                  | `ctime`    |
+| Time of file creation                       | `birthtime`|
+
+We use assignment destructuring in out `toMeta` function to grab the 
+`birthtime`, `ino`, `mode`, `nlink` and `size` values. We ensure `birthtime`
+is a standard UTC string (instead of local time), and convert the `mode`
+from a decimal to the more familiar octal permissions. representation.
+
+The `stats` object supplies some methods:
+
+* `isFile`
+* `isDirectory`
+* `isBlockDevice`
+* `isCharacterDevice`
+* `isFIFO`
+* `isSocket`
+* `isSymbolicLink`
+
+> #### `isSymbolicLink` ![](../info.png)
+> The `isSymbolicLink` method is only available when the
+> file stats have been retrieved with `fs.lstat` (not with
+> `fs.stat`), see the **There's More** section for an example
+> where we use `fs.lstat`.
+
+In the object returned from `toMeta`, we add an `isDir` property, 
+the value of which is determined by the `stats.isDirectory()` call. 
+
+We also add the `file` and `dir` use ES2015 property shorthand 
+, and an array of our selected stats on the `info` property.
+
+> #### ES2015 Property Shorthand ![](../info.png)
+> ES2015 (or ES6) defines a host of convenient syntax
+> extensions for JavaScript, 96% of which is supported in Node v6. 
+> One such extension is property shorthand, where a variable can 
+> be placed in an object without specifying property name or value. 
+> Under the rules of property shorthand the property name corresponds 
+> to the variable name, the value to the value referenced by the variable.
+
+Once the second `map` call in our `print` function has looped over every
+element, passing each to the `toMeta` function, we are left with a new 
+array composed of objects as returned from `toMeta` - containing `file`, 
+`dir`, `info`, and `isDir` properties.
+
+The `forEach` method is called on this array of meta data, and it's passed
+the `output` function. This means that each piece of meta data is processed
+by the `output` function. 
+
+In similar form to the `toMeta` function, the `output` function likewise 
+deconstructs the passed in object into `file`, `dir`, `info`, and `isDir`
+references. We then pass the `file` string and all of elements in the `info`
+array, using the ES2015 spread operator, to our `write` function (as supplied
+by the third party `tableaux` module). 
+
+If we're only dealing with a file, (that is, if `isDir` is not `true`), we exit
+the `output` function by returning early. 
+
+If, however, `isDir` is true then we call `write.arrow` (which writes a unicode
+arrow to the terminal), read the directory, call `forEach` on the returned array
+of directory contents, and call `fs.statSync` on each item in the directory. 
+
+We then check whether the item is a directory (that is, a subdirectory) 
+using the returned stats object, if it is we write the directory name to the terminal
+in bold, if it isn't we write a in a dulled down white color.  
+
 ### There's more
 
+Let's see how to examine symlinks, check whether files exists and see how to
+actually change a files meta data.
+
+#### Getting symlink information
+
+There are other types of stat calls, one such call is `lstat` (the 'l' stands for link).
+
+When an `lstat` command comes accross a symlink, it stats the symlink itself, rather
+than the file it points to. 
+
+TODO SYMLINK - fix code, write up
+
+#### Checking file existence
+
+A fairly common task in systems and server side programming, 
+is checking whether a file exists or not.
+
+There is a method, `fs.exists` (and its sync cousin) `fs.existsSync`, 
+which allows us perform this very action. However, it has been deprecated
+since Node version 4, and therefore isn't future-safe. 
+
+A better practice is to use `fs.access` (added when `fs.exists` was deprecated).
+
+By default `fs.access` checks purely for "file visibility", which is essentially
+the equivalent of checking for existence.
+
+Let's write a file called `check.js`, we can pass it a file and it will tell us
+whether the file exists or not:
+
+```js
+const fs = require('fs')
+
+const exists = (file) => new Promise((resolve, reject) => {
+  fs.access(file, (err) => {
+    if (err) {
+      if (err.code !== 'ENOENT') { return reject(err) }
+      return resolve({file, exists: false})
+    }
+    resolve({file, exists: true})
+  })  
+})
+
+exists(process.argv[2])
+  .then(({file, exists}) => console.log(`"${file}" does${exists ? '' : ' not'} exist`))
+  .catch(console.error)
+```
+
+> #### Promises ![](../info.png)
+> For extra fun here (because the paradigm fits well in this case),
+> we used the ES2015 native `Promise` abstraction. Find out more about
+> promises at https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects/Promise
+
+
+Now if we run the following:
+
+```sh
+node check.js non-existent-file
+"non-existent-file" does not exist
+```
+
+But if we run:
+
+```sh
+node check.js check.js
+"check.js" does exist
+```
+
+The `fs.access` method is more versatile than `fs.exists`, it can be passed different
+modes (`fs.F_OK` (default), `fs.R_OK`, `fs.W_OK` and `fs.X_OK`) to alter access check
+being made. The mode is a number, and the constants of `fs` (ending in `_OK`) are
+numbers, allowing for a bitmask approach. 
+
+For instance, here's how we can check if have permissions to read, write and execute 
+a file (this time with `fs.accessSync`):
+
+```js
+fs.access('/usr/local/bin/node', fs.R_OK | fs.W_OK | fs.X_OK, console.log)
+```
+
+If there's a problem accessing, an error will be logged, if not `null` will be logged.
+
+
+> #### Modes and Bitmasks ![](../info.png)
+> For more on `fs.access` see the docs  at https://nodejs.org/api/fs.html#fs_fs_access_path_mode_callback, to learn about bitmasks check out https://abdulapopoola.com/2016/05/30/understanding-bit-masks/
+
+
+#### Manipulating meta Data
+
+TODO change perms
+
 ### See also
+
 
 ## Watching files and directories
 
