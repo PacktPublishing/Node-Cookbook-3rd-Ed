@@ -654,17 +654,107 @@ in bold, if it isn't we write a in a dulled down white color.
 
 ### There's more
 
-Let's see how to examine symlinks, check whether files exists and see how to
-actually change a files meta data.
+Let's find out how to examine symlinks, check whether files exists and see how to
+actually alter file system meta data.
 
 #### Getting symlink information
 
 There are other types of stat calls, one such call is `lstat` (the 'l' stands for link).
 
-When an `lstat` command comes accross a symlink, it stats the symlink itself, rather
-than the file it points to. 
+When an `lstat` command comes across a symlink, it stats the symlink itself, rather
+than the file it points to.
 
-TODO SYMLINK - fix code, write up
+Let's modify our `meta.js` file to recognize and resolve symbolic links.
+
+First we'll modify the `toMeta` function to use `fs.lstatSync` instead of
+`fs.statSync`, and then add an `isSymLink` property to the returned object:
+
+```js
+function toMeta({file, dir}) {
+  const stats = fs.lstatSync(path.join(dir, file))
+  let {birthtime, ino, mode, nlink, size} = stats
+  birthtime = birthtime.toUTCString()
+  mode = mode.toString(8)
+  size += 'B'
+  return {
+    file,
+    dir,
+    info: [birthtime, ino, mode, nlink, size],
+    isDir: stats.isDirectory(),
+    isSymLink: stats.isSymbolicLink()
+  }
+}
+```
+
+Now let's add a new function, called `outputSymlink`:
+
+```js
+function outputSymlink(file, dir, info) {
+  write('\u001b[33m' + file + '\u001b[0m', ...info)
+  process.stdout.write('\u001b[33m')
+  write.arrow(4)
+  write.bold(fs.readlinkSync(path.join(dir, file)))
+  process.stdout.write('\u001b[0m')
+  write.newline()
+}
+```
+
+Our `outputSymlink` function using terminal ANSI escape codes
+to color the symlink name, arrow and file target, yellow.
+
+Next in the `output` function, we'll check whether the file is a
+symbolic link, and delegate to `outputSymlink` if it is. 
+
+Additionally when we're querying subdirectories, we'll 
+switch to `fs.lstatSync` so we can colour an symbolic links
+in the subdirectories a dim yellow as well.
+
+```js
+function output({file, dir, info, isDir, isSymLink}) {
+  if (isSymLink) {
+    outputSymlink(file, dir, info)
+    return
+  }
+  write(file, ...info)
+  if (!isDir) { return }
+  const p = path.join(dir, file)
+  write.arrow()
+  fs.readdirSync(p).forEach((f) => {
+    const stats = fs.lstatSync(path.join(p, f))
+    const style = stats.isDirectory() ? 'bold' : 'dim'
+    if (stats.isSymbolicLink()) { f = '\u001b[33m' + f + '\u001b[0m'}
+    write[style](f)
+  })
+  write.newline()
+}
+```
+
+Now when we run
+
+```sh
+node meta.js my-folder
+```
+
+We should see the `my-symlink` file in a pretty yellow color. 
+
+Let's finish up by adding some extra symlinks and seeing how they 
+render:
+
+```sh
+cd my-folder
+ln -s /tmp absolute-symlink
+ln -s my-symlink link-to-symlink
+ln -s ../meta.js relative-symlink
+ln -s my-subdir/my-subsubdir/too-deep too-deep
+cd my-subdir
+ln -s another-file subdir-symlink
+cd ../..
+node meta.js my-folder
+```
+
+![](images/fig1.2.png)
+*Symlinks in glorious yellow*
+
 
 #### Checking file existence
 
