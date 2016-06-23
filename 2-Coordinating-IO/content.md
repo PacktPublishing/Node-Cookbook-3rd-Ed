@@ -830,11 +830,74 @@ If there's a problem accessing, an error will be logged, if not `null` will be l
 > For more on `fs.access` see the docs  at https://nodejs.org/api/fs.html#fs_fs_access_path_mode_callback, to learn about bitmasks check out https://abdulapopoola.com/2016/05/30/understanding-bit-masks/
 
 
-#### Manipulating meta Data
+#### Manipulating meta data
 
-TODO change perms
+By now we have learned how to fetch information about a file or directory, but how do we alter specific qualities.
+
+Let's create a small program that creates a file, sets the UID and GID to `nobody` and sets access permissions to `000` (not readable, writeable or executable).
+
+```js
+const fs = require('fs')
+const {execSync} = require('child_process')
+
+const file = process.argv[2]
+if (!file) { 
+  console.error('specify a file')
+  process.exit(1)
+}
+try {
+  fs.accessSync(file)
+  console.error('file already exists')
+  process.exit(1)
+} catch (e) {
+  makeIt()
+}
+
+function makeIt() {
+  const nobody = Number(execSync('id -u nobody').toString().trim())
+  fs.writeFileSync(file, '')
+  fs.chownSync(file, nobody, nobody)
+  fs.chmodSync(file, 0)
+  console.log(file + ' created')
+}
+```
+
+We used `fs.accessSync` to synchronously check for file existence, using a
+`try/catch` since `fs.accessSync` throws when a file does not exist.
+
+> #### try/catch ![](../tip.png)
+> In this particular context, a try/catch is fine. However as a general rule we should avoid try/catch as much as possible. See [How to know when (not) to throw](http://www.nearform.com/nodecrunch/10-tips-coding-node-js-3-know-throw-2/) for more details.
+
+If the file does not exist, we call our `makeIt` function. 
+
+This uses the `execSync` function from the `child_process` module to get the numerical ID of the `nobody` user on our system.
+
+Next we use `fs.writeFileSync` to create an empty file, then use `fs.chownSync` to set the user and group to nobody, use `fs.chmodSync` to set the permissions to their minimum possible value, and finally log out a confirmation message.
+
+We can improve our approach a little here. Each operation has to access the file separately, instead of retaining a reference to it throughout. We can make this a little more efficient by using file handles. 
+
+Let's rewrite out `makeIt` function like so:
+
+```js
+function makeIt() {
+  const nobody = Number(execSync('id -u nobody').toString().trim())
+  const fd = fs.openSync(file, 'w')
+  fs.fchmodSync(fd, 0)
+  fs.fchownSync(fd, nobody, nobody)
+  console.log(file + ' created')
+}
+```
+
+This achieve the same result, but directly manages the file handle (an OS-level reference to the file). 
+
+We use `fs.openSync` to create the file and get a file descriptor (`fd`), 
+then instead of fs.chmodSync and fs.chownSync both of which expect a file
+path, we use `fs.fchmodSync` and `fs.fchownSync` which take a file descriptor.
+
 
 ### See also
+
+* TODO
 
 
 ## Watching files and directories
