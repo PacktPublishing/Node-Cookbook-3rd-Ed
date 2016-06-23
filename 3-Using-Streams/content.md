@@ -4,7 +4,7 @@ This chapter covers the following topics
 
 * Handling data larger than fits in memory
 * Decoupling I/O from modules
-* Reducing latency in your apps
+* Reducing latency in our apps
 * Composing pipelines
 
 ## Introduction
@@ -14,7 +14,7 @@ Streams are one of the best features in Node. They have been a big part of the e
 ## Processing big data
 
 Let's dive right into it by looking at a classic node problem, counting all Node modules available on npm.
-The npm registry exposes http endpoint where you can get all registry content as JSON. If you are familiar with the command line you can try it out using `curl`.
+The npm registry exposes a http endpoint where we can get all registry content as JSON. Using the command line tool `curl` that included on most operating systems we can try it out.
 
 ```
 # Prints a new line delimited JSON stream of all modules.
@@ -39,7 +39,7 @@ request(registryUrl, function (err, data) {
 
 If we try and run the above program we'll notice a couple of things.
 
-First of all this program takes quite a long time to run. Second, depending on the machine you are using, there is a very good chance the program will crash with an "out of memory" error.
+First of all this program takes quite a long time to run. Second, depending on the machine we are using, there is a very good chance the program will crash with an "out of memory" error.
 
 Why is this happening?
 
