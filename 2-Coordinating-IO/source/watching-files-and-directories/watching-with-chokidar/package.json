@@ -1,0 +1,16 @@
+{
+  "name": "watching-with-chokidar",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "David Mark Clements",
+  "license": "MIT",
+  "dependencies": {
+    "chokidar": "^1.6.0",
+    "human-time": "0.0.1"
+  }
+}

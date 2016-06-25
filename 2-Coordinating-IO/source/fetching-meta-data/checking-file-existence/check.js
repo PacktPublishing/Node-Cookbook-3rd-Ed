@@ -1,3 +1,5 @@
+'use strict'
+
 const fs = require('fs')
 
 const exists = (file) => new Promise((resolve, reject) => {

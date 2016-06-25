@@ -3,13 +3,13 @@
 This chapter covers the following topics
 
 * File reading, writing, appending
-* File system meta data
+* File system metadata
 * STDOUT, STDIN, STDERR
 * Communicating with sockets
 
 ## Introduction
 
-Operationally, Node.js is C with JavaScript clothes on.
+Operationally, Node.js is C with JavaScript's clothes on.
 Just like C and other low-level environments, Node interacts with the Operating System at a fundamental level: Input and Output.
 
 In this chapter we'll explore some core API's provided by Node, along with
@@ -34,7 +34,7 @@ program that converts input into its base64 equivalent.
 
 First, we'll listen for a `data` event on `process.stdin`,
 
-```javascript
+```js
 process.stdin.on('data', data => {
   
 })
@@ -43,14 +43,14 @@ process.stdin.on('data', data => {
 If we run our file now:
 
 ```sh
-node base64.js
+$ node base64.js
 ```
 
 We should notice that the process does not exit, and allows keyboard input.
 
 Now let's do something with the incoming data, we'll modify our code thusly:
 
-```javascript
+```js
 process.stdin.on('data', data => {
   process.stderr.write(`Converting: "${data}" to base64\n`)
   process.stdout.write(data.toString('base64') + '\n')
@@ -60,7 +60,7 @@ process.stdin.on('data', data => {
 We can test our program like so
 
 ```sh
-echo -e "hi\nthere" | node base64.js
+$ echo -e "hi\nthere" | node base64.js
 ```
 
 Which should output:
@@ -76,7 +76,7 @@ We can also simply run our program, and each line of input will be
 converted:
 
 ```sh
-node base64.js
+$ node base64.js
 <keyboard input>
 ```
 
@@ -84,7 +84,7 @@ Of course if we want to filter out logs to standard error, we can
 do the following:
 
 ```sh
-echo -e "hi\nthere" | node base64.js 2> /dev/null
+$ echo -e "hi\nthere" | node base64.js 2> /dev/null
 ```
 
 Which outputs:
@@ -124,10 +124,10 @@ As mentioned in the main recipe, the standard I/O channels available on the glob
 For this example we need the third party `base64-encode-stream` module, so let's open a terminal and run the following commands:
 
 ```sh
-mkdir piping
-cd piping
-npm init -y
-npm install --save base64-encode-stream
+$ mkdir piping
+$ cd piping
+$ npm init -y
+$ npm install --save base64-encode-stream
 ```
 
 We just created a folder, used `npm init` to create a `package.json` file
@@ -144,7 +144,7 @@ process.stdin.pipe(encode()).pipe(process.stdout)
 We can try out our code like so:
 
 ```sh
-echo -e "hi\nthere" | node base64.js
+$ echo -e "hi\nthere" | node base64.js
 aGkKdGhlcmUK
 ```
 
@@ -161,7 +161,7 @@ We can check with the `isTTY` flag on each I/O channel.
 For instance, let's try the following command:
 
 ```sh
-node -p "process.stdin.isTTY"
+$ node -p "process.stdin.isTTY"
 true
 ```
 
@@ -175,8 +175,8 @@ identified as a TTY.
 
 Now let's try the following:
 
-```
-echo "hi" | node -p "process.stdin.isTTY"
+```sh
+$ echo "hi" | node -p "process.stdin.isTTY"
 undefined
 ```
 
@@ -211,7 +211,7 @@ We'll need a file to read.
 We can use the following to populate a file with 1MB of data:
 
 ```sh
-node -p "Buffer(1e6).toString()" > file.dat
+$ node -p "Buffer(1e6).toString()" > file.dat
 ```
 
 > #### Allocating Buffers ![](../info.png)
@@ -360,8 +360,8 @@ We're going to convert our recipe once more, this time to using a streaming abst
 First we'll need the third-party `strip-bytes-stream` package:
 
 ```sh
-npm init -y # create package.json if we don't have it
-npm install --save strip-bytes-stream
+$ npm init -y # create package.json if we don't have it
+$ npm install --save strip-bytes-stream
 ```
 
 Now let's alter our code like so:
@@ -421,38 +421,38 @@ To get started, let's create a new folder called `fetching-meta-data`,
 containing a file called `meta.js`:
 
 ```sh
-mkdir fetching-meta-data
-cd fetching-meta-data
-touch meta.js
+$ mkdir fetching-meta-data
+$ cd fetching-meta-data
+$ touch meta.js
 ```
 
 Now let's use `npm` to create `package.json` file,
 
 ```sh
-npm init -y
+$ npm init -y
 ```
 
-We're going to display tabulated and styled meta data in the terminal, 
+We're going to display tabulated and styled metadata in the terminal, 
 instead of manually writing ANSI codes and tabulating code, we'll simply 
 be using the third party `tableaux` module.
 
 We can install it like so
 
 ```sh
-npm install --save tableaux
+$ npm install --save tableaux
 ```
 
 Finally we'll create a folder structure that we can check our program against:
 
 ```sh
-mkdir -p my-folder/my-subdir/my-subsubdir
-cd my-folder
-touch my-file my-private-file
-chmod 000 my-private-file
-echo "my edit" > my-file
-ln -s my-file my-symlink
-touch my-subdir/another-file
-touch my-subdir/my-subsubdir/too-deep
+$ mkdir -p my-folder/my-subdir/my-subsubdir
+$ cd my-folder
+$ touch my-file my-private-file
+$ chmod 000 my-private-file
+$ echo "my edit" > my-file
+$ ln -s my-file my-symlink
+$ touch my-subdir/another-file
+$ touch my-subdir/my-subsubdir/too-deep
 ```
 
 ### How to do it
@@ -540,7 +540,7 @@ print(process.argv[2] || '.')
 Now let's run our program, assuming our current working directory is the `fetching-meta-data` folder, we should be able to successfully run the following:
 
 ```sh
-node meta.js my-folder
+$ node meta.js my-folder
 ```
 
 ![](images/fig1.1.png)
@@ -631,8 +631,8 @@ element, passing each to the `toMeta` function, we are left with a new
 array composed of objects as returned from `toMeta` - containing `file`, 
 `dir`, `info`, and `isDir` properties.
 
-The `forEach` method is called on this array of meta data, and it's passed
-the `output` function. This means that each piece of meta data is processed
+The `forEach` method is called on this array of metadata, and it's passed
+the `output` function. This means that each piece of metadata is processed
 by the `output` function. 
 
 In similar form to the `toMeta` function, the `output` function likewise 
@@ -655,7 +655,7 @@ in bold, if it isn't we write a in a dulled down white color.
 ### There's more
 
 Let's find out how to examine symlinks, check whether files exists and see how to
-actually alter file system meta data.
+actually alter file system metadata.
 
 #### Getting symlink information
 
@@ -732,7 +732,7 @@ function output({file, dir, info, isDir, isSymLink}) {
 Now when we run
 
 ```sh
-node meta.js my-folder
+$ node meta.js my-folder
 ```
 
 We should see the `my-symlink` file in a pretty yellow color. 
@@ -741,15 +741,15 @@ Let's finish up by adding some extra symlinks and seeing how they
 render:
 
 ```sh
-cd my-folder
-ln -s /tmp absolute-symlink
-ln -s my-symlink link-to-symlink
-ln -s ../meta.js relative-symlink
-ln -s my-subdir/my-subsubdir/too-deep too-deep
-cd my-subdir
-ln -s another-file subdir-symlink
-cd ../..
-node meta.js my-folder
+$ cd my-folder
+$ ln -s /tmp absolute-symlink
+$ ln -s my-symlink link-to-symlink
+$ ln -s ../meta.js relative-symlink
+$ ln -s my-subdir/my-subsubdir/too-deep too-deep
+$ cd my-subdir
+$ ln -s another-file subdir-symlink
+$ cd ../..
+$ node meta.js my-folder
 ```
 
 ![](images/fig1.2.png)
@@ -800,14 +800,14 @@ exists(process.argv[2])
 Now if we run the following:
 
 ```sh
-node check.js non-existent-file
+$ node check.js non-existent-file
 "non-existent-file" does not exist
 ```
 
 But if we run:
 
 ```sh
-node check.js check.js
+$ node check.js check.js
 "check.js" does exist
 ```
 
@@ -830,7 +830,7 @@ If there's a problem accessing, an error will be logged, if not `null` will be l
 > For more on `fs.access` see the docs  at https://nodejs.org/api/fs.html#fs_fs_access_path_mode_callback, to learn about bitmasks check out https://abdulapopoola.com/2016/05/30/understanding-bit-masks/
 
 
-#### Manipulating meta data
+#### Manipulating metadata
 
 By now we have learned how to fetch information about a file or directory, but how do we alter specific qualities.
 
@@ -874,7 +874,7 @@ This uses the `execSync` function from the `child_process` module to get the num
 
 Next we use `fs.writeFileSync` to create an empty file, then use `fs.chownSync` to set the user and group to nobody, use `fs.chmodSync` to set the permissions to their minimum possible value, and finally log out a confirmation message.
 
-We can improve our approach a little here. Each operation has to access the file separately, instead of retaining a reference to it throughout. We can make this a little more efficient by using file handles. 
+We can improve our approach a little here. Each operation has to access the file separately, instead of retaining a reference to it throughout. We can make this a little more efficient by using file handles.
 
 Let's rewrite out `makeIt` function like so:
 
@@ -899,29 +899,554 @@ path, we use `fs.fchmodSync` and `fs.fchownSync` which take a file descriptor.
 
 * TODO
 
-
 ## Watching files and directories
 
+The ability to receive notifications when a file is added, removed
+or updated can be extremely useful. Node's `fs` module supplies this
+functionality cross-platform, however as we'll explore the functionality
+across operating systems can be patch.
+
+In this recipe, we'll write a program that watches a file and outputs
+some data about the file when it changes. In the *There's More* section,
+we'll explore the limitation of Node's watch functionality along with a third-party module that wraps the core functionality to make it more consistent.
+
 ### Getting Ready
+
+Let's create a new folder called `watching-files-and-directories`, 
+create a `package.json` in the folder and then install the third 
+party `human-time` module for nicely formatted time outputs.
+
+```sh
+$ mkdir watching-files-and-directories
+$ cd watching-files-and-directories
+$ npm init -y
+$ npm install --save human-time
+```
+
+We'll also create a file to watch:
+
+```sh
+$ echo "some content" > my-file.txt
+```
+
+Finally we want to create a file called `watcher.js` (inside the `watching-files-and-directories` folder) and open it in our favourite editor.
 
 ### How to do it
 
+Let's start by loading the dependencies we'll be needing:
+
+```js
+const fs = require('fs')
+const human = require('human-time')
+```
+
+Next we'll set up some references:
+
+```js
+const interval = 5007
+const file = process.argv[2]
+let exists = false
+```
+
+Do a quick check to make sure we've been supplied a file:
+
+```js
+if (!file) {
+  console.error('supply a file')
+  process.exit(1)
+}
+```
+
+Now we'll set up some utility functions, which will
+help us interpret the file change event:
+
+```js
+const created = ({birthtime}) 
+  => !exists && (Date.now() - birthtime) < interval
+
+const missing = ({birthtime, mtime, atime, ctime}) => 
+  !(birthtime|mtime|atime|ctime)
+
+const updated = (cur, prv) => cur.mtime !== prv.mtime
+```
+
+Finally we use `fs.watchFile` to being polling the 
+specified file and then log out activity from the 
+listener function supplied to `fs.watchFile`.
+
+Like so:
+
+```js
+fs.watchFile(file, {interval}, (cur, prv) => {
+  if (missing(cur)) {
+    const msg = exists ? 'removed' : 'doesn\'t exist'
+    exists = false
+    return console.log(`${file} ${msg}`)
+  }
+
+  if (created(cur)) {
+    exists = true
+    return console.log(`${file} created ${human((cur.birthtime))}`)
+  }
+
+  exists = true
+
+  if (updated(cur, prv)) {
+    return console.log(`${file} updated ${human((cur.mtime))}`)
+  }
+
+  console.log(`${file} modified ${human((cur.mtime))}`)
+})
+```
+
+We should now be able to test our watcher.
+
+In one terminal we can run:
+
+```sh
+$ node watcher my-file.txt
+```
+
+And in another we can make a change
+
+```sh
+$ echo "more content" >> my-file.txt
+```
+
+Or remove the file
+
+```sh
+$ rm my-file.txt
+```
+
+And recreate it
+
+```sh
+$ echo "back again" > my-file.txt
+```
+
+![](images/fig1.3.png)
+*We should be seeing results similar to this*
+
 ### How it works
+
+The `fs` module has two watch methods, `fs.watch` and `fs.watchFile`.
+
+Whilst `fs.watch` is more responsive and can watch entire directories,
+recursively, it has various consistency and operational issues on 
+different platforms (for instance, inability to report filenames on OS X, 
+may report events twice, or not report them at all).
+
+Instead of using an OS relevant notification subsystem (like `fs.watch`) 
+the `fs.watchFile` function polls the file at a specified interval
+(defaulting to 5007 milliseconds).
+
+The listener function (supplied as the last argument to `fs.watchFile`),
+is called every time the file is altered in some way. The listener
+takes two arguments. The first argument is a stats object (as provided by 
+`fs.stat`, see Fetching MetaData) of the file it its current state, the
+second argument is a stats object of the file in its previous state.
+
+We use these objects along with our three lambda functions, 
+`created`, `missing` and `updated` to infer how the file has been altered.
+
+The `created` function checks whether the `birthtime` (time of file creation)
+is less than the polling interval, then it's likely the file was created.
+
+We introduce certainty by setting an `exists` variable and tracking the file
+existence in our listener function. So our `created` function check this variable first, if the file is known to exist then it can't have been created. This caters to situations where a file is updated multiple times within the polling interval period and ensures the first file alteration event is interpreted as a change, whilst subsequent triggers are not (unless the file was detected as removed).
+
+When `fs.watchFile` attempts to poll a non-existent (or at least, inaccessible), 
+file, it signals this eventuality by setting the `birthtime`, `mtime`, `atime` and `ctime` to zero (the Unix epoch). Our `missing` function checks for this by bitwise
+ORing all four dates, this implicitly converts the dates to numerical values and will result either in `0` or some other number (if any of the four values is non-zero). This in turn is converted to a boolean, if the result is `0` missing returns `true` else it returns false.
+
+The `mtime` is the time since file data was last changed. Comparing the `mtime` of
+the file before and after the event allows us to differentiate between a change where the file content was updated, and a change where file metadata was altered. 
+
+The `updated` function compares the `mtime` on the previous and current stat objects,
+if they're not the same then the file content must have been changed, if they are the same then file was modified in some other way (for instance, a chmod).
+
+Our listener function, checks these utility functions and then updates the `exists` variable and logs out messages accordingly.
 
 ### There's more
 
+The core watching functionality is often too basic, let's take a look at the third party alternative, `chokidar`
+
+#### Watching directories with `chokidar`
+
+The `fs.watchFile` method is slow, CPU intensive and only watches an individual file.
+
+The `fs.watch` method is unreliable. 
+
+Enter chokidar. Chokidar wraps the core watching functionality to make it more reliable across platforms, more configurable and less CPU intensive. It also 
+watches entire directories recursively. 
+
+Let's create a new watcher that watches a whole directory tree.
+
+Let's make a new folder, 'watching-with-chokidar', with a subdirectory
+called `my-folder`, which in turn has another subfolder called `my-subfolder`
+
+```sh
+$ mkdir -p watching-with-chokidar/my-folder/my-subfolder
+```
+
+In our `watching-with-chokidar` folder we'll automatically create a new `package.json` and install dependencies with `npm`:
+
+```sh
+$ cd watching-with-chokidar
+$ npm init -y
+$ npm install --save chokidar human-time
+```
+
+Now let's create our new `watcher.js` file.
+
+First we'll require the dependencies and create a chokidar `watcher` instance:
+
+```js
+const chokidar = require('chokidar')
+const human = require('human-time')
+const watcher = chokidar.watch(process.argv[2] || '.', {
+  alwaysStat: true
+})
+```
+
+Now we'll listen for the `ready` event (meaning that chokidar
+has scanned directory contents), and then listen for various
+change events.
+
+```js
+watcher.on('ready', () => {
+  watcher
+    .on('add', (file, stat) => {
+      console.log(`${file} created ${human((stat.birthtime))}`)
+    })
+    .on('unlink', (file) => {
+      console.log(`${file} removed`)
+    })
+    .on('change', (file, stat) => {
+      const msg = (+stat.ctime === +stat.mtime) ? 'updated' : 'modified'
+      console.log(`${file} ${msg} ${human((stat.ctime))}`)
+    })
+    .on('addDir', (dir, stat) => {
+      console.log(`${dir} folder created ${human((stat.birthtime))}`)
+    })
+    .on('unlinkDir', (dir) => {
+      console.log(`${dir} folder removed`)
+    })
+})
+```
+
+Now we should be able to spin up our watcher, point it at `my-folder` and
+being making observable changes.
+
+In one terminal we do:
+
+```sh
+$ node watcher.js my-folder
+```
+
+In another terminal:
+
+```
+cd my-folder
+echo "me again" > my-file.txt
+chmod 700 my-file.txt
+echo "more" >> my-file.txt
+rm my-file.txt
+cd my-subfolder
+echo "deep" > deep.txt
+rm deep.txt
+cd ..
+rm -fr my-subfolder
+mkdir my-subfolder
+```
+
+![](images/fig1.5.png)
+*Watching a directory tree*
+
 ### See also
+
+* Chapter 2, Fetching Metadata
+* TODO - more
+
 
 ## Communicating over sockets
+One way to look at a socket is as a special file. Like a file it's a readable and writable data container. On some Operating Systems network sockets are literally a special type of file whereas on others the implementation is more abstract.
+
+At any rate, the concept of a socket has changed our lives because it allows
+machines to communicate, to co-ordinate I/O across a network. Sockets are the backbone of distributed computing.
+
+In this recipe we'll build a TCP client and server.
 
 ### Getting Ready
 
+Let's create two files `client.js` and `server.js` and open them in our
+favourite editor.
+
 ### How to do it
+
+First, we'll create our server.
+
+In `server.js`, let's write the following:
+
+```js
+const net = require('net')
+
+net.createServer((socket) => {
+  console.log('-> client connected')
+  socket.on('data', name => {
+    socket.write(`Hi ${name}!`)
+  })
+  socket.on('close', () => {
+    console.log('-> client disconnected')
+  })
+}).listen(1337, 'localhost')
+```
+
+Now for the client, our `client.js` should look like this:
+
+```js
+const net = require('net')
+
+const socket = net.connect(1337, 'localhost')
+const name = process.argv[2] || 'Dave'
+
+socket.write(name)
+
+socket.on('data', (data) => {
+  console.log(data.toString())
+})
+
+socket.on('close', () => {
+  console.log('-> disconnected by server')
+})
+```
+
+We should be able to start our server and connect to it with 
+our client.
+
+In one terminal:
+
+```sh
+$ node server.js
+```
+
+In another:
+
+```sh
+$ node client.js "Namey McNameface"
+```
+
+![](images/fig1.4.png)
+*Client server interaction*
+
+Further if we kill the client with `Ctrl+C` the server will output:
+
+```sh
+-> client disconnected
+```
+
+But if we kill the server, the client will output:
+
+```sh
+-> disconnected by server
+```
 
 ### How it works
 
+Our server uses `net.createServer` to instantiate a TCP server.
+
+This returns an object with a `listen` method which is called
+with two arguments, `1337` and `localhost` which instructors
+our server to listen on port `1337` on the local loop network interface.
+
+
+The `net.createServer` method is passed a connection handler function, 
+which is called every time a new connection to the server is established.
+
+This function receives a single argument, the `socket`. 
+
+We listen for a `data` event on the `socket`, and then send the 
+data back to the client embedded inside a greeting message, by
+passing this greeting to the `socket.write` method.
+
+We also listen for a `close` event, which will detect when the
+client closes the connection and log a message if it does.
+
+Our client uses the `net.connect` method passing it the same port
+and hostname as defined in our server, which in turn returns a `socket`.
+
+We immediately write the `name` to the socket, and attach a `data`
+listener in order to receive a response from the server. When 
+we get a response we simply log it to the terminal, we have to 
+call the `toString` method on incoming data because sockets deliver
+raw binary data in the form of Node buffers (this string conversion
+happens implicitly on our server when we embed the Buffer into the
+greeting string).
+
+Finally our client also listens for a `close` event, which will
+trigger in cases where the server ends the connection.
+
 ### There's more
+
+Let's learn a little more about sockets, and the different types of sockets that are available.
+
+#### `net` sockets are streams
+
+Previous recipes in this chapter have alluded to streams, 
+we'll be studying these in depth in **Chapter 3 Using Streams**.
+
+However we would be remiss if we didn't mention that TCP sockets
+implement the streams interface.
+
+In our main recipe, the `client.js` file contains the following code:
+
+```js
+socket.on('data', (data) => {
+  console.log(data.toString())
+})
+```
+
+We can write this more succinctly like so:
+
+```js
+socket.pipe(process.stdout)
+```
+
+Here we pipe from the socket to Standard out (see the first recipe of this chapter, *Interfacing with standard I/O*)
+
+In fact sockets are both readable and writable (known as duplex streams). 
+
+We can even create an echo server in one line of code:
+
+```js
+require('net').createServer((socket) => socket.pipe(socket)).listen(1338)
+```
+
+The readable interface pipes directly back to the writable interface
+so all incoming data is immediately written back out.
+
+Likewise, we can create a client for our echo server in one line:
+
+```js
+process.stdin.pipe(require('net').connect(1338)).pipe(process.stdout)
+```
+
+We pipe Standard input through a socket that's connected to our echo
+server and then pipe anything that comes through the socket to Standard out.
+
+
+#### Unix Sockets
+
+The `net` module also allows us to communicate across Unix sockets, these
+are special files that can be place on the file system.
+
+All we have to do is listen on and connect to a file path instead of a 
+port number and hostname.
+
+In `client.js` we modify the following:
+
+```js
+const socket = net.connect(1337, 'localhost')
+```
+
+To this:
+
+```js
+const socket = net.connect('/tmp/my.socket')
+```
+
+The last line of `server.js` looks like so:
+
+```js
+}).listen(1337, 'localhost')
+```
+
+We simply change it to the following:
+
+```js
+}).listen('/tmp/my.socket')
+```
+
+Now our client and server can talk over a Unix socket instead of the network.
+
+> #### IPC ![](../info.png)
+> Unix sockets are primarily useful for low level IPC (Inter Process Communication),
+however for general IPC needs the `child_process` module supplies a more convenient high level abstraction.
+
+
+#### UDP Sockets
+
+Whilst TCP is a protocol built for reliability, UDP is minimalistic and
+more suited to use cases where speed is more important than consistency
+(for instance gaming or media streaming).
+
+Node supplies UDP via the `dgram` module (UDP stands for User Datagram Protocol).
+
+Let's reimplement our recipe with UDP.
+
+First we'll rewrite `client.js`:
+
+```js
+const dgram = require('dgram')
+
+const socket = dgram.createSocket('udp4')
+const name = process.argv[2] || 'Dave'
+
+socket.bind(1400)
+socket.send(name, 1339)
+
+socket.on('message', (data) => {
+  console.log(data.toString())
+})
+```
+
+Notice that we're no longer listening for a `close` event, 
+this is because it's now pointless to do so because our server
+(as we'll see) is incapable of closing the client connection.
+
+Let's implement the `server.js` file:
+
+```js
+const dgram = require('dgram')
+
+const socket = dgram.createSocket('udp4')
+socket.bind(1339)
+
+socket.on('message', (name) => {
+  socket.send(`Hi ${name}!`, 1400)
+})
+```
+
+Now, the server looks much more like a client than server.
+
+This is because there's no real concept of server-client architecture
+with UDP - that's implemented by the TCP layer. 
+
+There is only sockets, that bind to a specific port and listen.
+
+We cannot bind two processes to the same port, so to get similar functionality
+we actually have to bind to two ports. There is a way to have multiple processes
+bind to the same port (using the `reuseAddr` option), but then we would have to 
+deal with both processes receiving the same packets. Again, this is something TCP usually deals with.
+
+Our client binds to port `1400`, and sends a message to port `1399`, whereas our server binds to port `1339` (so it can receive the clients message) but sends a message to port `1400` (which the client will receive).
+
+Notice we use a `send` method instead of a `write` method as in the main recipe. The `write` method is part of the streams API, UDP sockets are not streams (the paradigm doesn't fit because they're not reliable nor persistent).
+
+Likewise, we no longer listen for a `data` event, but a ` message` event. Again the `data` event belongs to the streams API, whereas `message` is part of the `dgram` module. 
+
+We'll notice that the server (like the client) no longer listens for a `close` event, 
+this is because the sockets are bound to different ports so there's not way
+(without a higher level protocol like TCP) of triggering a close from the other side.
 
 ### See also
 
+* TODO
+* Interfacing with standard I/O
+* making clients and servers chapter
+* streams chapter?
+* wielding express
+* getting hapi
+* microservices chapter? 
 
