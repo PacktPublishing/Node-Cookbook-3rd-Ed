@@ -660,7 +660,415 @@ instead.
 
 TBD
 
-## Recipe title
+## Optimizing an asynchronous function
+
+Node.js is an asynchronous runtime built for I/O heavy applications,
+and most of our code will involve some for of asynchronous callbacks.
+In the previous recipes we covered how to verify if there is a
+performance issue, where is the issue, and how to optimize a single
+Javascript function.
+
+Some times, a performance bottleneck is part of an asynchronous flow,
+and it is hard to pinpoint where the performance issue is. In this recipe,
+we will cover that case in depth.
+
+### Getting Ready
+
+In this recipe, we will optimize an HTTP API built on [Express][expressjs] and [MongoDB][mongo]
+We will use MongoDB version 3.2, which we will need to install from the
+MongoDB [https://www.mongodb.com][mongo] website or the package manager of our
+operating system.
+
+Before starting, we will need to start MongoDB and then load some data
+through a little Node.js script. We save the following as `load.js`:
+
+```js
+const MongoClient = require('mongodb').MongoClient
+const url = 'mongodb://localhost:27017/test';
+var count = 0
+var max = 1000
+
+MongoClient.connect(url, function(err, db) {
+  if (err) { throw err }
+  const collection = db.collection('data')
+
+  function insert (err) {
+    if (err) throw err
+
+    if (count++ === max) {
+      return db.close()
+    }
+
+    collection.insert({
+      value: Math.random() * 1000000
+    }, insert)
+  }
+
+  insert()
+})
+
+```
+
+The above script depends on the `mongodb` module, which we should install via `npm
+i mongodb`.
+By running `node load.js` we will load 1000 entries into our MongoDB database.
+
+### How to do it
+
+We can write a very simple HTTP server that calculates the average of
+all the data points we have inserted.
+
+```js
+const MongoClient = require('mongodb').MongoClient
+const express = require('express')
+const app = express()
+
+var url = 'mongodb://localhost:27017/test';
+
+
+MongoClient.connect(url, function(err, db) {
+  if (err) { throw err }
+  const collection = db.collection('data')
+  app.get('/hello', (req, res) => {
+    collection.find({}).toArray(function (err, data) {
+      if (err) {
+        res.send(err)
+        return
+      }
+      const sum = data.reduce((acc, d) => acc + d.value, 0)
+      const result = sum / data.length
+      res.send('' + result)
+    })
+  })
+
+  app.listen(3000)
+})
+```
+
+We can save this server as `server.js`, and generate a benchmark:
+
+```
+$ autocannon -c 1000 -d 5 http://localhost:3000/hello
+Running 5s test @ http://localhost:3000/hello
+1000 connections
+
+Stat         Avg      Stdev    Max
+Latency (ms) 2373.5   573.86   3352
+Req/Sec      315.8    154.76   433
+Bytes/Sec    68.02 kB 33.03 kB 94.21 kB
+
+2k requests in 5s, 342.64 kB read
+2 errors
+```
+
+We can now generate a flamegraph with `0x server.js` and `autocannon -c
+1000 -d 5 http://localhost:3000/hello`.
+
+![MongoDB server flamegraph](./images/flamegraph4.png)
+
+In the above flamegraph, we can see that the darker areas are related
+to `deserializeObject` and `slowToString`.
+These are related to the amount of data being received from MongoDB.
+The _best_ way to fix this issue would be to not doing this
+computation at all, and store (and update) the computed value
+whenever it changes.
+In some situations, this is not possible, and in this recipe we will
+focus on those.
+
+
+![MongoDB server flamegraph detail](./images/flamegraph4-detail.png)
+
+In the flamegraph, there is a little "tower" of stacked function calls in the
+middle, if we zoom in by clicking on a function in there, we can see
+that there is some time spent into reduce. As we know, ES5
+collections might causes slowdown, so we can rewrite our server as:
+
+```js
+const MongoClient = require('mongodb').MongoClient
+const express = require('express')
+const app = express()
+
+var url = 'mongodb://localhost:27017/test';
+
+MongoClient.connect(url, function(err, db) {
+  if (err) { throw err }
+  const collection = db.collection('data')
+  app.get('/hello', (req, res) => {
+    collection.find({}).toArray(function sum (err, data) {
+      if (err) {
+        res.send(err)
+        return
+      }
+      var sum = 0
+      const l = data.length
+      for (var i = 0; i < l; i++) {
+        sum += data[i].value
+      }
+      const result = sum / data.length
+      res.send('' + result)
+    })
+  })
+
+  app.listen(3000)
+})
+```
+
+We can then run autocannon to see how it performs:
+
+```
+$ autocannon -c 1000 -d 5 http://localhost:3000/hello
+Running 5s test @ http://localhost:3000/hello
+1000 connections
+
+Stat         Avg      Stdev    Max
+Latency (ms) 2293.1   569.38   3244
+Req/Sec      331.8    142.23   456
+Bytes/Sec    71.53 kB 30.94 kB 102.4 kB
+
+2k requests in 5s, 360 kB read
+5 errors
+```
+
+We had a very small increase in throughput (5%). We can also generate
+a new flamegraph to see how our `sum` function is now performing.
+
+![MongoDB server flamegraph detail](./images/flamegraph5-detail.png)
+
+Once we have generated a flamegraph with `0x`, we can use the `search`
+box to locate `sum` function calls. In the above detail of  the flamegraph, we can see that the `sum` function was not optimized (not opt'd).
+
+The `sum` function was not optimized because it is instantiated for
+every request, and then it need to be optimized by V8. However, it is
+only executed once, and it has no possibility of being optimized.
+
+We can work around this problem by changing our `server.js` to:
+
+```js
+const MongoClient = require('mongodb').MongoClient
+const express = require('express')
+const app = express()
+
+var url = 'mongodb://localhost:27017/test';
+
+function sum (data) {
+  var sum = 0
+  const l = data.length
+  for (var i = 0; i < l; i++) {
+    sum += data[i].value
+  }
+  return sum
+}
+
+MongoClient.connect(url, function(err, db) {
+  if (err) { throw err }
+  const collection = db.collection('data')
+  app.get('/hello', (req, res) => {
+    collection.find({}).toArray(function (err, data) {
+      if (err) {
+        res.send(err)
+        return
+      }
+      const result = sum(data) / data.length
+      res.send('' + result)
+    })
+  })
+
+  app.listen(3000)
+})
+```
+
+We have extracted the actual iteration of the array into a top-level
+function that can be optimized by V8 and reused throughout the life of
+our process. Let's see how it performs:
+
+```
+$ autocannon -c 1000 -d 5 http://localhost:3000/hello
+Running 5s test @ http://localhost:3000/hello
+1000 connections
+
+Stat         Avg      Stdev    Max
+Latency (ms) 2164.37  526.15   2960
+Req/Sec      359.4    138.31   457
+Bytes/Sec    77.93 kB 29.74 kB 102.4 kB
+
+2k requests in 5s, 389.95 kB read
+```
+
+From our starting point of 315 request per second, we have achieved a
+14% performance improvement just by optimizing a very hot for loop.
+
+### How it works
+
+Whenever we allocate a new function, it needs to be optimized by V8.
+The soonest V8 can optimize a new function, is after its first
+invocation.
+Node.js is built around callbacks and functions: when we need to wait
+for some I/O, we allocate a new function, wrapping the state in a
+closure.
+By using top-level functions for CPU-intesive behavior, we can assure we
+deliver amazing performance to our user.
+
+### There's more
+
+#### A database solution
+
+The recipe focuses on Javascript code that we can change, as some
+times we cannot change how the data is stored in our database easily. However, some times it is possible.
+
+We can write another Node.js script to calculate our average, to be run
+whenever one of the data point changes:
+
+```js
+const MongoClient = require('mongodb').MongoClient
+const url = 'mongodb://localhost:27017/test';
+var count = 0
+var max = 1000
+
+MongoClient.connect(url, function(err, db) {
+  if (err) { throw err }
+  const collection = db.collection('data')
+  const average = db.collection('averages')
+
+  collection.find({}).toArray(function (err, data) {
+    if (err) { throw err }
+    average.insert({
+      value: data.reduce((acc, v) => acc + v, 0) / data.length
+    }, function (err) {
+      if (err) { throw err }
+      db.close()
+    })
+  })
+})
+```
+
+Then, we can rewrite our server as:
+
+```js
+const MongoClient = require('mongodb').MongoClient
+const express = require('express')
+const app = express()
+
+var url = 'mongodb://localhost:27017/test';
+
+MongoClient.connect(url, function(err, db) {
+  if (err) { throw err }
+  const collection = db.collection('data')
+  app.get('/hello', (req, res) => {
+    collection.findOne({}, function sum (err, data) {
+      res.send('' + data.value)
+    })
+  })
+
+  app.listen(3000)
+})
+```
+
+And finally, we can verify the throughput of this work:
+
+```
+$ autocannon -c 1000 -d 5 http://localhost:3000/hello
+Running 5s test @ http://localhost:3000/hello
+1000 connections
+
+Stat         Avg      Stdev    Max
+Latency (ms) 391.47   66.91    746
+Req/Sec      2473.2   385.05   2849
+Bytes/Sec    537.4 kB 82.99 kB 622.59 kB
+
+12k requests in 5s, 2.68 MB read
+```
+
+Avoiding computation at all is the first solution for any performance issue.
+
+#### A caching solution
+
+For high-performance applications, we might want to leverage
+in-process caching to save time for repeated CPU-bound tasks.
+We will use two modules for this: [`lru-cache`][lrucache] and [`fastq`][fastq].
+
+`lru-cache` implements an performant _least recently used_
+cache, where values are stored with a time to live. `fastq` is a
+performant queue implementation, to sequentialize the calls to
+compute the average. We want to fetch the data and compute the
+result once. Here is `server.js` implementing this behavior:
+
+```
+const MongoClient = require('mongodb').MongoClient
+const express = require('express')
+const LRU = require('lru-cache')
+const fastq = require('fastq')
+const app = express()
+
+var url = 'mongodb://localhost:27017/test';
+
+function sum (data) {
+  var sum = 0
+  const l = data.length
+  for (var i = 0; i < l; i++) {
+    sum += data[i].value
+  }
+  return sum
+}
+
+MongoClient.connect(url, function(err, db) {
+  if (err) { throw err }
+  const collection = db.collection('data')
+  const queue = fastq(work)
+  const cache = LRU({
+    maxAge: 1000 * 5 // 5 seconds
+  })
+
+  function work (req, done) {
+    const elem = cache.get('average')
+    if (elem) {
+      done(null, elem)
+      return
+    }
+    collection.find({}).toArray(function (err, data) {
+      if (err) {
+        done(err)
+        return
+      }
+      const result = sum(data) / data.length
+      cache.set('average', result)
+      done(null, result)
+    })
+  }
+
+  app.get('/hello', (req, res) => {
+    queue.push(req, function (err, result) {
+      if (err) {
+        res.send(err.message)
+        return
+      }
+      res.send('' + result)
+    })
+  })
+
+  app.listen(3000)
+})
+```
+
+This is the best-performing solution so far:
+
+```
+$ autocannon -c 1000 -d 5 http://localhost:3000/hello
+Running 5s test @ http://localhost:3000/hello
+1000 connections
+
+Stat         Avg       Stdev     Max
+Latency (ms) 107.58    423.06    5024
+Req/Sec      3660.4    1488.23   4675
+Bytes/Sec    792.17 kB 321.93 kB 1.02 MB
+
+18k requests in 5s, 3.97 MB read
+```
+
+### See also
+
+TBD
+
+## Recipe Title
 
 ### Getting Ready
 
@@ -679,3 +1087,6 @@ TBD
 [benchmark]: https://github.com/bestiejs/benchmark.js
 [v8]: https://developers.google.com/v8/
 [0x]: https://github.com/davidmarkclements/0x
+[mongo]: https://www.mongodb.com
+[lru-cache]: https://github.com/isaacs/node-lru-cache
+[fastq]: https://github.com/mcollina/fastq
