@@ -110,7 +110,12 @@ the previous one to finish.
 #### Be careful on the configuration
 
 We should take care of running out application using a similar
-configuration of our production environment. If we install the
+configuration of our production environment. As an example, we are now
+focusing on rendering HTML.
+
+[`jade`][jade] is an HTML template language inpsired by
+[Haml][http://haml.info/] that allows to write concise HTML.
+To use it, we install the
 [`jade`][jade] module, and replace `server.js` with:
 
 ```js
@@ -128,6 +133,18 @@ app.get('/hello', (req, res) => {
 })
 
 app.listen(3000)
+```
+
+We also need to save our Jade template as `views/hello.jade`:
+
+```jade
+doctype html
+html
+  head
+    title= title
+    link(rel='stylesheet', href='/stylesheets/style.css')
+  body
+    h1= title
 ```
 
 After running this server with `node server.js`, we can then benchmark
@@ -164,6 +181,7 @@ Bytes/Sec    1.85 MB 260.17 kB 2.03 MB
 Running the application in the production environment will trigger
 several optimization inside [`express`][express], in this case the
 increase in throughput is due to the caching of the template.
+`express` reload the template for every request if `NODE_ENV=production` is not set.
 
 #### Testing POST behavior
 
@@ -832,10 +850,14 @@ Bytes/Sec    71.53 kB 30.94 kB 102.4 kB
 We had a very small increase in throughput (5%). We can also generate
 a new flamegraph to see how our `sum` function is now performing.
 
-![MongoDB server flamegraph detail](./images/flamegraph5-detail.png)
+![MongoDB server flamegraph](./images/flamegraph5.png)
 
 Once we have generated a flamegraph with `0x`, we can use the `search`
-box to locate `sum` function calls. In the above detail of  the flamegraph, we can see that the `sum` function was not optimized (not opt'd).
+box on the top-right conrent to locate `sum` function calls. If we click on one of functions, we get:
+
+![MongoDB server flamegraph detail](./images/flamegraph5-detail.png)
+
+In the above detail of  the flamegraph, we can see that the `sum` function was not optimized (not opt'd).
 
 The `sum` function was not optimized because it is instantiated for
 every request, and then it need to be optimized by V8. However, it is
