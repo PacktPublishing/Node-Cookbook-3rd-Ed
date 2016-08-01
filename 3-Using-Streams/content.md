@@ -58,9 +58,123 @@ Sometimes you want to make a stream that is both readable and writable at the sa
 
 A special case of a duplex stream is a stream that transforms the data being written to it and makes the transformed data available to read out of the stream. We call these *Transform streams*. An example of a transform stream could be a gzip stream that compresses the input data written to it.
 
-Node core provides base implementations of all these variations of streams that we can extend to support various usecases.
+### How to do it
+
+A good way to start understanding how streams work is to look at how Node.js core uses them. Let us investage ways or reading / writing files with Node and see try to see how streams fit into this. If you wanted to read a file from disk using Node.js we can use the `fs.readFile` method.
+
+``` js
+var fs = require('fs')
+
+fs.readFile('example.txt', function (err, buf) {
+  if (err) throw err
+  console.log('Read entire file:', buf)
+})
+```
+
+We can replace `example.txt` with any other filename, as long as the file is small enough to fit in memory. Similar to the module counting example we played around with above this way or dealing with files has the disadvantage that we have to read the entire contents of the file into memory before we can start working with it. Luckily Node.js exposes other ways of reading files that makes this a bit more flexible.
+
+Using the `fs.createReadStream` method we can read files as a *Readable stream* instead. Let's try that
+
+``` js
+var rs = fs.createReadStream('example.txt')
+```
+
+First thing we notice is that this method is synchronous. Normally when we work with I/O in Node.js we have to provide a callback. Streams abstract this away by returning an object instance that represents the entire contents of the file. How do we get the file data out of this abstraction? We can attach a data listener that will be called every time a new small chunk of the file has been read.
+
+``` js
+var rs = fs.createReadStream('example.txt')
+
+rs.on('data', function (data) {
+  console.log('Read chunk:', data)
+})
+
+rs.on('end', function () {
+  console.log('No more data')
+})
+```
+
+When we are done reading the file the stream will emit an `end` event will be as well. Using the `data` event we can process the file a small chunk of the time instead without using a lot of memory. For example, if we wanted to count the number of bytes in a file we could easily do it like this
+
+``` js
+var rs = fs.createReadStream('example.txt')
+var size = 0
+
+rs.on('data', function (data) {
+  size += data.length
+  console.log('File size:', size)
+})
+```
+
+This will work for any size of files, not just small ones. Scalability is one of the best features about streams in general as most of the programs written using streams will scale well with any input size. Assuming we are using a Unix machine we can try to tweak this example to count the number of bytes in `/dev/urandom`. `/dev/urandom` is an infinite file that contains random data.
+
+``` js
+// Try and count the number of bytes in an infite file
+var rs = fs.createReadStream('/dev/urandom')
+var size = 0
+
+rs.on('data', function (data) {
+  size += data.length
+  console.log('File size:', size)
+})
+```
+
+Try running this program. Notice that the program does not crash even though the file is infite. It just keeps counting bytes!
+
+### How it works
+
+### There's more
+
+For more information about the different stream base classes checkout the Node stream docs.
+
+#### Understanding stream events
+
+All streams inherit from EventEmitter and emit a series of different events. When working with streams it is a good idea to understand some of the more important events being emitted. Knowing what each event means will make debugging streams a lot easier.
+
+* `data`. Emitted when new data is read from a readable stream. The data is provided as the first argument to the event handler. Beware that unlike other event handlers attaching a data listener has side effects. When the first data listener is attached your stream will be unpaused. You should never emit `data` yourself. Always use the `.push()` function instead.
+
+* `end`. Emitted when a readable stream has no more data available AND all available data has been read. You should never emit `end` yourself. Use `.push(null)` instead.
+
+* `finish`. Emitted when a writable stream has been ended AND all pending writes has been completed. Similar to the above events you should never emit `finish` yourself. Use `.end()` to trigger finish manually pipe a readable stream to it.
+
+* `close`. Loosely defined in the stream docs, `close` is usually emitted when the stream is fully closed. Contrary to `end` and `finish` a stream is *not* guaranteed to emit this event. It is fully up to the implementer to do this.
+
+* `error`. Emitted when a stream has experienced an error. Tends to followed by a `close` event although, again, no guarantees that this will happen.
+
+* `pause`. Emitted when a readable stream has been paused. Pausing will happen when either backpressure happens or if the `.pause` method is explicitly called. For most use cases you can just ignore this event although it is useful to listen for, for debugging purposes sometimes.
+
+* `resume`. Emitted when a readable stream goes from being paused to being resumed again. Will happen when the writable stream you are piping to has been drained or if `.resume` has been explicitly called.
+
+#### `pump` instead of `.pipe`
+
+### See also
+
+## Making a pipeline
+
+// request.pipe(decrompress).pipe(parse).pipe(analyse)
+
+### Getting Ready
 
 ### How to do it
+
+### How it works
+
+### There's more
+
+#### `pumpify`?
+
+#### `passthrough`
+
+### See also
+
+## Creating our own streams
+
+// through2, from2
+
+### Getting Ready
+
+### How to do it
+
+Node core provides base implementations of all these variations of streams that we can extend to support various usecases.
 
 We can access the core base implementations by requiring the stream module in node.
 
@@ -132,57 +246,6 @@ ws._write = function (data, enc, cb) {
 // Move all the data from rs to ws
 rs.pipe(ws)
 ```
-
-### How it works
-
-### There's more
-
-For more information about the different stream base classes checkout the Node stream docs.
-
-#### Understanding stream events
-
-All streams inherit from EventEmitter and emit a series of different events. When working with streams it is a good idea to understand some of the more important events being emitted. Knowing what each event means will make debugging streams a lot easier.
-
-* `data`. Emitted when new data is read from a readable stream. The data is provided as the first argument to the event handler. Beware that unlike other event handlers attaching a data listener has side effects. When the first data listener is attached your stream will be unpaused. You should never emit `data` yourself. Always use the `.push()` function instead.
-
-* `end`. Emitted when a readable stream has no more data available AND all available data has been read. You should never emit `end` yourself. Use `.push(null)` instead.
-
-* `finish`. Emitted when a writable stream has been ended AND all pending writes has been completed. Similar to the above events you should never emit `finish` yourself. Use `.end()` to trigger finish manually pipe a readable stream to it.
-
-* `close`.
-* `error`.
-* `pause`.
-* `resume`.
-
-#### `pump` instead of `.pipe`
-
-### See also
-
-## Making a pipeline
-
-// request.pipe(decrompress).pipe(parse).pipe(analyse)
-
-### Getting Ready
-
-### How to do it
-
-### How it works
-
-### There's more
-
-#### `pumpify`?
-
-#### `passthrough`
-
-### See also
-
-## Creating our own streams
-
-// through2, from2
-
-### Getting Ready
-
-### How to do it
 
 ### How it works
 
