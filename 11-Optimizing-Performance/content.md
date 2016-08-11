@@ -21,7 +21,11 @@ This chapter is about making our JavaScript code as fast as possible in order to
 
 ## Benchmarking HTTP
 
-Optimizing performance can be an endless activity. Our application can always be faster, more responsive and cheaper to run. However there's a trade of between the developer time and compute time. Therefore it's important to assess the current performance of an application, and then set goals based on that. For instance, we find we can handle 200 requests per second, so we set a goal based on business requirements to reach 600 requests per second.
+Optimizing performance can be an endless activity. Our application can always be faster, more responsive and cheaper to run. However there's a trade off between developer time and compute time. 
+
+We can address the rabbit-hole nature of performance work in two steps. First we assess the current performance of an application, this is known as finding the baseline. Once the baseline is established we can set realistic goals based on our findings in the context of business requirements. 
+
+For instance, we find we can handle 200 requests per second but we wish to reduce server costs by one third. So we set a goal to reach 600 requests per second.
 
 In this section, we will learn how to benchmark an HTTP server.
 
@@ -36,14 +40,14 @@ $ npm install -g autocannon`
 ```
 
 > ![](../info.png)
-> Autocannon is superior to other load testing tools in two main ways. Firstly it's cross-platform (macOS, Windows and Linux) whereas alternatives (such as `wrk` and `ab`) either do not run on Windows or are non-trivial to setup. Secondly, autocannon supports pipelining which allows for around 10% more saturation than common alternatives
+> Autocannon is superior to other load testing tools in two main ways. Firstly it's cross-platform (macOS, Windows and Linux) whereas alternatives (such as `wrk` and `ab`) either do not run on Windows or are non-trivial to setup. Secondly, autocannon supports pipelining which allows for around 10% higher saturation than common alternatives
 
 
 ### How to do it
 
 Let's create a small [express][express] application with a `/hello` endpoint.
 
-First we'll create a folder with a `package.json` file and install express
+First we'll create a folder with a `package.json` file and install express:
 
 ```sh
 $ mkdir http-bench
@@ -67,7 +71,7 @@ app.listen(3000)
 
 We've created a server listening on port 3000, that exposes a `/hello` endpoint.
 
-Now we'll  launch it, in the command line we run:
+Now we'll launch it. On the command line we run:
 
 ```sh
 $ node server
@@ -89,11 +93,14 @@ Bytes/Sec    1.2 MB 73 kB  1.31 MB
 58k requests in 10s, 12.19 MB read
 ```
 
+Our results show an average of 5800 requests per second, with throughput of 1.2MB per second.
+
 The `-c 100` flag instructs `autocannon` to open 100 sockets and connect them to our server.
 
-We can alter this number to whatever suits, but it's imperative that the connection count remains constant throughout an optimization life cycle.
+We can alter this number to whatever suits, but it's imperative that the connection count remains constant throughout an optimization cycle to avoid confounding comparisons between data sets.
 
-Duration defaults to 10 seconds but can be set with the `-d` flag passing a number representing amount of seconds.
+> ![](../tip.png)
+> Duration defaults to 10 seconds but can be specified with the `-d` flag, followed by a number representing the amount of seconds to run the load test for. For instance `-d 20` will load the server for 20 seconds.
 
 ### How it works
 
