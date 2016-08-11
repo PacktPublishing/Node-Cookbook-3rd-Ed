@@ -104,10 +104,9 @@ We can alter this number to whatever suits, but it's imperative that the connect
 
 ### How it works
 
-The `autocannon` tool allocates a pool of connections (`-c 100` option),
-issuing a request on each socket immediately after the previous has completed.
+The `autocannon` tool allocates a pool of connections (as per the `-c 100` setting), issuing a request on each socket immediately after the previous has completed.
 
-This techniques emulates a steady level of concurrency whilst
+This techniques emulates a steady concurrency level whilst
 driving the target to maximum resource utilization without
 over saturating.
 
@@ -116,6 +115,8 @@ over saturating.
 
 
 ### There's more
+
+Let's take a look at a common profiling pitfall, and learn how to benchmark POST requests.
 
 #### Profiling for Production
 
@@ -169,7 +170,7 @@ html
     h1= title
 ```
 
-Now we're ready to profile, first in one terminal we run the server
+Now we're ready to profile, first in one terminal we run the server:
 
 ```sh
 node server.js
@@ -194,9 +195,9 @@ That's a significant decrease in requests per second, only 10% of the prior rate
 
 Not in production.
 
-If we run our Express application in __production mode__, by setting the `NODE_ENV` environment variable to "production" we'll get a results much closer to reasonable expectations.
+If we run our Express application in __production mode__, by setting the `NODE_ENV` environment variable to "production" we'll see results much closer to reasonable expectations.
 
-If we kill our server, and spin it up again like so:
+Let's kill our server, then spin it up again like so:
 
 ```sh
 NODE_ENV=production node server.js
@@ -227,7 +228,7 @@ In development mode (when `NODE_ENV` isn't explicitly set to production), Expres
 
 #### Measuring POST performance
 
-The `autocannon` load tester can also test POST request, we simply have to add a few flags. 
+The `autocannon` load tester can also profile POST request, we simply have to add a few flags.
 
 Let's modify our `server.js` file so it can handle POST request at an endpoint we'll call `/echo`.
 
@@ -250,7 +251,7 @@ app.listen(3000)
 
 We've removed our previous route, added in request body parser middleware and created an `/echo` route which mirrors the request body back to the client.
 
-We can now profile our `/echo endpoint, using the `-m`, `-H` and `-b`:
+We can now profile our `/echo` endpoint, using the `-m`, `-H` and `-b` flags:
 
 ```
 $ autocannon -c 100 -m POST -H 'content-type=application/json' -b '{ "hello": "world"}' http://localhost:3000/echo
@@ -265,10 +266,10 @@ Bytes/Sec    850.48 kB 58.22 kB 917.5 kB
 420k requests in 10s, 9.35 MB read
 ```
 
-We can see that POST requests are around 65% as performant as GET requests when compared to the results from the main recipe.
+We can see that POST requests have roughly 65% the performance of GET requests when compared to the results from the main recipe.
 
 > ![](../tip.png)
-> If we wish to get our POST body from a file, `autocannon` supports this via the `-i` flag
+> If we wish to get our POST body from a file, `autocannon` supports this via the `-i` flag.
 
 ### See also
 
