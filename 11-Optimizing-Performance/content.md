@@ -12,45 +12,49 @@ This chapter covers the following topics
 ## Introduction
 
 Node.js is a runtime built for evented I/O where multiple execution
-flows, e.g. HTTP requests, are progressed concurrently but not in parallel.
-Only one of them is being executed at any given time.
-Thus, the performance of our application is tied to how fast we can
-process any of those flows, before asking for more I/O.
-This chapter is about making our Node.js code as fast as possible to
-get our application to handle more I/O.
+flows are processed concurrently but not in parallel. An example of this could be an HTTP server, tens of thousands of requests can be processed per second but only one instruction is being executed at any given time.
+
+The performance of our application is tied to how fast we can
+process an individual execution flow prior to performing the next I/O operation.
+
+This chapter is about making our JavaScript code as fast as possible in order to increase I/O handling capacity, thus decreasing costs and increasing user experience.
 
 ## Benchmarking HTTP
 
-Optimizing performance is a task without an end. Our application can
-always be faster, more responsive and cheaper to run. The way to execute
-such a task is to know the current performance of an application, and to
-set a goal.
-In this section, we will learn how to perform an HTTP benchmark.
+Optimizing performance can be an endless activity. Our application can always be faster, more responsive and cheaper to run. However there's a trade of between the developer time and compute time. Therefore it's important to assess the current performance of an application, and then set goals based on that. For instance, we find we can handle 200 requests per second, so we set a goal based on business requirements to reach 600 requests per second.
+
+In this section, we will learn how to benchmark an HTTP server.
 
 ### Getting Ready
 
-We will the [`autocannon`][autocannon] tool, which we can install by running
-`npm install autocannong -g` in our terminal.
-[`Autocannon`][autocannon] depends on a binary module, so we
-will need to have the full node-gyp setup. If the installation fails,
-follow this guide (https://github.com/nodejs/node-gyp#installation).
+We will need the [`autocannon`][autocannon] load testing tool.
 
-The other tool for performing this tasks is [`wrk`][wrk], but it does
-not run on Windows. `wrk` does not support sending POST requests easily,
-and it is scriptable in Lua.
+So let's run the following command in our terminal:
+
+```sh
+$ npm install -g autocannon`
+```
+
+> ![](../info.png)
+> Autocannon is superior to other load testing tools in two main ways. Firstly it's cross-platform (macOS, Windows and Linux) whereas alternatives (such as `wrk` and `ab`) either do not run on Windows or are non-trivial to setup. Secondly, autocannon supports pipelining which allows for around 10% more saturation than common alternatives
+
 
 ### How to do it
 
-Let's consider the following REST endpoint:
+Let's create a small [express][express] application with a `/hello` endpoint.
 
-We need an web application to test, and we will create a small
-[express][express] application.
-Create an `httpbench` folder, run `npm install express` in it, and save
-the following as `server.js`.
+First we'll create a folder with a `package.json` file and install express
+
+```sh
+$ mkdir http-bench
+$ cd http-bench
+$ npm init -y
+$ npm install express --save
+```
+
+Now we'll create a `server.js` file with following content:
 
 ```js
-'use strict'
-
 const express = require('express')
 const app = express()
 
@@ -61,10 +65,18 @@ app.get('/hello', (req, res) => {
 app.listen(3000)
 ```
 
-Then, launch it with `node server`. We can now run a benchmark with
-`autocannon`:
+We've created a server listening on port 3000, that exposes a `/hello` endpoint.
 
+Now we'll  launch it, in the command line we run:
+
+```sh
+$ node server
 ```
+
+Next, if we open another terminal we can run a load test
+against our server and obtain a benchmark:
+
+```sh
 $ autocannon -c 100 http://localhost:3000/hello
 Running 10s test @ http://localhost:3000/hello
 100 connections
@@ -77,50 +89,45 @@ Bytes/Sec    1.2 MB 73 kB  1.31 MB
 58k requests in 10s, 12.19 MB read
 ```
 
-The `-c 100` flag tells autocannon to open 100 connections.
-We can increase this number as will, as long as we keep it constant
-throughout our performance optimization activity.
-We can change the duration of the benchmark by adding a `-d SECONDS`
-flag.
+The `-c 100` flag instructs `autocannon` to open 100 sockets and connect them to our server.
 
-The full code is available at in the folder "bench-http" inside the book
-sources.
+We can alter this number to whatever suits, but it's imperative that the connection count remains constant throughout an optimization life cycle.
+
+Duration defaults to 10 seconds but can be set with the `-d` flag passing a number representing amount of seconds.
 
 ### How it works
 
-`autocannon` is a tool for performing benchmarks on HTTP endpoints.
-`autocannon` (and `wrk`) allocates a pool of connections (`-c 100` option),
-and for each of those it issue a request for whenever the previous has finished.
-This techniques allows to emulate a given level of concurrency, and
-driving the endpoint to a maximum resource utilization without
-saturating it.
+The `autocannon` tool allocates a pool of connections (`-c 100` option),
+issuing a request on each socket immediately after the previous has completed.
 
-Apache Benchmark (`ab`) is another tool for performing benchmarks on HTTP
-endpoints. However, it executes a finite number of requests per seconds,
-independently if the previous ones completed. Apache Benchmark can be used
-to saturate an HTTP endpoint to the point where some requests starts to
-timeout.
+This techniques emulates a steady level of concurrency whilst
+driving the target to maximum resource utilization without
+over saturating.
 
-`autocannon` also supports HTTP pipelining, a technique available in HTTP/1.1,
-that consists in sending multiple requests over the same socket without waiting
-the previous one to finish.
+> ![](../info.png)
+> Apache Benchmark (`ab`) is another tool for load testing HTTP servers. However `ab` adopts a different paradigm, executes a specific amount of requests per second, regardless of whether prior requests have completed. Apache Benchmark can be used to saturate an HTTP endpoint to the point where some requests start to timeout, this can be useful for finding the saturation limit of a server but can also be problematic when it comes to troubleshooting a problem.
+
 
 ### There's more
 
-#### Be careful on the configuration
+#### Profiling for Production
 
-We should take care of running out application using a similar
-configuration of our production environment. As an example, we are now
-focusing on rendering HTML.
+When measuring performance, we want the measurement to be relative to a production system. Modules may behave differently in development for convenience reasons, so being aware that this behavior can confound our results can prevent hours of wasted developer time.
 
-[`jade`][jade] is an HTML template language inpsired by
-[Haml][http://haml.info/] that allows to write concise HTML.
-To use it, we install the
-[`jade`][jade] module, and replace `server.js` with:
+Let's see how environment disparity can affect profiling output.
+
+First we'll install Jade:
+
+```sh
+$ npm install -g jade
+```
+
+> ![](../tip.png)
+> We cover Jade in detail in Chapter 6 Wielding Express
+
+Next we'll update our `server.js` code
 
 ```js
-'use strict'
-
 const express = require('express')
 const path = require('path')
 const app = express()
@@ -135,7 +142,15 @@ app.get('/hello', (req, res) => {
 app.listen(3000)
 ```
 
-We also need to save our Jade template as `views/hello.jade`:
+We've setup Express to use the `views` folder for templates and use Jade to render them.
+
+Let's create the views folder:
+
+```sh
+$ mkdir views
+```
+
+Finally we'll create a `views/hello.jade` file, with the following content:
 
 ```jade
 doctype html
@@ -147,8 +162,13 @@ html
     h1= title
 ```
 
-After running this server with `node server.js`, we can then benchmark
-it to obtain the following results:
+Now we're ready to profile, first in one terminal we run the server
+
+```sh
+node server.js
+```
+
+Now in another terminal window, we'll use `autocannon` to obtain a benchmark:
 
 ```
 $ autocannon -c 100 http://localhost:3000/hello
@@ -163,7 +183,19 @@ Bytes/Sec    181.25 kB 28.34 kB 204.8 kB
 5k requests in 10s, 1.82 MB read
 ```
 
-However, if we run the express application in __production mode__ with `NODE_ENV=production node server.js`, we will get very different results:
+That's a significant decrease in requests per second, only 10% of the prior rate in the main recipe. Are Jade templates really that expensive?
+
+Not in production.
+
+If we run our Express application in __production mode__, by setting the `NODE_ENV` environment variable to "production" we'll get a results much closer to reasonable expectations.
+
+If we kill our server, and spin it up again like so:
+
+```sh
+NODE_ENV=production node server.js
+```
+
+Again, in a second terminal window we use `autocannon` to benchmark:
 
 ```
 $ autocannon -c 100 http://localhost:3000/hello
@@ -178,26 +210,29 @@ Bytes/Sec    1.85 MB 260.17 kB 2.03 MB
 54k requests in 10s, 18.55 MB read
 ```
 
-Running the application in the production environment will trigger
-several optimization inside [`express`][express], in this case the
-increase in throughput is due to the caching of the template.
-`express` reload the template for every request if `NODE_ENV=production` is not set.
+Now results are much closer to those of our main recipe, around 90% of the performance of the `hello` route.
 
-#### Testing POST behavior
+Running the application in production mode causes Express to make several production relevant optimizations. 
 
-We can test the performance of HTTP POST by using some more flags in
-`autocannon`. First, we need a `server.js` that can handle a POST, so we
-type the following and save it:
+In this case the increase in throughput is due to template caching.
+
+In development mode (when `NODE_ENV` isn't explicitly set to production), Express will reload the template for every request which allows template changes without reloading the server.
+
+#### Measuring POST performance
+
+The `autocannon` load tester can also test POST request, we simply have to add a few flags. 
+
+Let's modify our `server.js` file so it can handle POST request at an endpoint we'll call `/echo`.
+
+We change our `server.js` file to the following:
 
 ```js
-'use strict'
-
 const express = require('express')
 const bodyParser = require('body-parser')
 const app = express()
 
 app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.urlencoded({extended: false}));
 
 app.post('/echo', (req, res) => {
   res.send(req.body)
@@ -206,11 +241,12 @@ app.post('/echo', (req, res) => {
 app.listen(3000)
 ```
 
-We can now verufy the peformance of the `/echo` POST endpoint by
-using the `-m`, `-H` and `-b` flags of `autocannon`:
+We've removed our previous route, added in request body parser middleware and created an `/echo` route which mirrors the request body back to the client.
+
+We can now profile our `/echo endpoint, using the `-m`, `-H` and `-b`:
 
 ```
-$ autocannon -c 100 -m POST -H 'content-type=application/json' -b '{ "hello": "world" }' http://localhost:3000/echo
+$ autocannon -c 100 -m POST -H 'content-type=application/json' -b '{ "hello": "world"}' http://localhost:3000/echo
 Running 10s test @ http://localhost:3000/echo
 100 connections with 1 pipelining factor
 
@@ -222,11 +258,14 @@ Bytes/Sec    850.48 kB 58.22 kB 917.5 kB
 420k requests in 10s, 9.35 MB read
 ```
 
-We can also use `-i` if we want to send the content of a file.
+We can see that POST requests are around 65% as performant as GET requests when compared to the results from the main recipe.
+
+> ![](../tip.png)
+> If we wish to get our POST body from a file, `autocannon` supports this via the `-i` flag
 
 ### See also
 
-TBD
+* TBD
 
 ## Generating a Flamegraph
 
