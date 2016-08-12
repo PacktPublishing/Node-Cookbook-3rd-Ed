@@ -39,7 +39,7 @@ So let's run the following command in our terminal:
 $ npm install -g autocannon`
 ```
 
-> ![](../info.png)
+> #### About Autocannon ![](../info.png)
 > Autocannon is superior to other load testing tools in two main ways. Firstly it's cross-platform (macOS, Windows and Linux) whereas alternatives (such as `wrk` and `ab`) either do not run on Windows or are non-trivial to setup. Secondly, autocannon supports pipelining which allows for around 10% higher saturation than common alternatives
 
 
@@ -99,7 +99,7 @@ The `-c 100` flag instructs `autocannon` to open 100 sockets and connect them to
 
 We can alter this number to whatever suits, but it's imperative that the connection count remains constant throughout an optimization cycle to avoid confounding comparisons between data sets.
 
-> ![](../tip.png)
+> #### Load test duration ![](../tip.png)
 > Duration defaults to 10 seconds but can be specified with the `-d` flag, followed by a number representing the amount of seconds to run the load test for. For instance `-d 20` will load the server for 20 seconds.
 
 ### How it works
@@ -110,7 +110,7 @@ This techniques emulates a steady concurrency level whilst
 driving the target to maximum resource utilization without
 over saturating.
 
-> ![](../info.png)
+> #### Apache Benchmark ![](../info.png)
 > Apache Benchmark (`ab`) is another tool for load testing HTTP servers. However `ab` adopts a different paradigm, executes a specific amount of requests per second, regardless of whether prior requests have completed. Apache Benchmark can be used to saturate an HTTP endpoint to the point where some requests start to timeout, this can be useful for finding the saturation limit of a server but can also be problematic when it comes to troubleshooting a problem.
 
 
@@ -226,6 +226,9 @@ In this case the increase in throughput is due to template caching.
 
 In development mode (when `NODE_ENV` isn't explicitly set to production), Express will reload the template for every request which allows template changes without reloading the server.
 
+> ##### Express Production Performance ![](../tip.png)
+> Find out more about the production performance of Express at http://expressjs.com/en/advanced/best-practice-performance.html#env
+
 #### Measuring POST performance
 
 The `autocannon` load tester can also profile POST request, we simply have to add a few flags.
@@ -268,41 +271,58 @@ Bytes/Sec    850.48 kB 58.22 kB 917.5 kB
 
 We can see that POST requests have roughly 65% the performance of GET requests when compared to the results from the main recipe.
 
-> ![](../tip.png)
+> #### Loading the body from a file ![](../tip.png)
 > If we wish to get our POST body from a file, `autocannon` supports this via the `-i` flag.
 
 ### See also
 
 * TBD
 
-## Finding bottlenecks with Flamegraphs
+## Finding Bottlenecks with Flamegraphs
 
 ![example flamegraph](./images/flamegraph1.png)
 
 A flamegraph is an extremely powerful visual tool. It helps us to identify hot code paths in our application, and solve performance issues around those hot paths.
 
-Flamegraphs abstract the concept of time, and allows us to analyze how our application works at holistic level.
+Flamegraphs compile stacks capturing during CPU profiling into a graphical representation thats abstracts away the concept of time allowing us to analyze how our application works at a holistic level.
+
+To put it another way, flamegraphs allow us to quickly determine how long each function (from C to JavaScript) has spent on the CPU, and which functions are causing the rest of the stack to be on CPU longer than it should be. 
+
+In this recipe we'll load-test a single route of an Express server, and use the [`0x`][0x] flamegraphing tool to capture stacks and convert them into a flamegraph.
 
 ### Getting Ready
 
 In order to generate a flamegraph, we need Mac OS X (10.8 -
 10.10), a recent Linux distribution, or SmartOS. 
 
-On Windows, we need to set up a virtual machine running Linux.
+> Windows ![../tip.png]
+> If we're using Windows, flamegraph tooling is limited,
+> the best option is to install a virtual machine with 
+> Linux. See <http://www.storagecraft.com/blog/the-dead-simple-guide-to-installing-a-linux-virtual-machine-on-windows/> for details.
 
-The tool for generating flamegraphs is
-[`0x`][0x]: we can install it with
-`npm install 0x -g`.
+We'll also need to install [`0x`][0x], the flamegraph tool that can be installed as a global module:
+
+```sh
+$ npm install -g 0x
+```
+
+We'll also need to quickly scaffold an Express app, and efficient way to do this is install the `express-generator` module, and allow it generate an app for us. 
 
 ### How to do it
 
-In this recipe, we generate a flamegraph of a REST endpoint of an
-express application. Open an editor and type the following
-server:
+Let's create a folder called `hello-server`, 
+initialize a package.json and install `Express` and Jade:
+
+```sh
+$ mkdir hello-server
+$ cd hello-server
+$ npm init -y
+$ npm install --save express jade
+```
+
+Now we'll create our `server.js` file
 
 ```js
-'use strict'
-
 const express = require('express')
 const path = require('path')
 const app = express()
@@ -317,15 +337,40 @@ app.get('/hello', (req, res) => {
 app.listen(3000)
 ```
 
-We will need to install jade, and write a little jade template.
+Next, we'll create the views folder
 
-We can generate a flamegraph by running:
+```sh
+$ mkdir views
+```
+
+Now we create a file in `views/hello.jade`, with the following content:
+
+```
+doctype html
+html
+  head
+    title= title
+    link(rel='stylesheet', href='/stylesheets/style.css')
+  body
+    h1= title
+```
+
+Okay, now we're ready to profile the server and generate a flamegraph.
+
+Instead of starting our server with the `node` binary, we use the globally installed `0x` executable. 
+
+We start our server with the following command:
 
 ```
 0x server.js
 ```
 
-Then, we can run our `autocannon` benchmark:
+Now we can use the `autocannon` benchmarking tool to generate some server activity.
+
+> #### Autocannon ![](../info.png)
+> See previous recipet etc. 
+
+In another terminal window we use `autocannon` to generate load:
 
 ```
 $ autocannon -c 100 http://localhost:3000/hello
@@ -340,71 +385,107 @@ Bytes/Sec    131.4 kB 35.84 kB 155.65 kB
 40k requests in 10s, 1.45 MB read
 ```
 
-When the benchmark finishes, hit CTRL-C in the server terminal.
-when that finishes, a long URL will be printed in the terminal:
+When the benchmark finishes, we hit CTRL-C in the server terminal.
+This will cause 0x to begin converting captured stacks into a flamegraph. 
+
+When the flamegraph has been generated a long URL should be printed in the terminal:
 
 ```
-$ 0x server2.js
+$ 0x server.js
 file:///path/to/profile-86501/flamegraph.html
 ```
 
-The `0x` tool has created a folder named `profile-XXXXX`, where `XXXX`
-is the PID of our node process.
+The `0x` tool has created a folder named `profile-XXXX`, where `XXXX`
+is the PID of the server process.
 
-We can open that file with Google Chrome to obtain something like:
+If we open that file with Google Chrome where we'll be presented with some controls,
+and a flamegraph resembling the following:
 
 ![the flamegraph for the main example](./images/flamegraph2.png)
 
-### How it works
+> #### 0x Theme ![](../tip.png)
+> By default 0x presents flamegraphs with a black background, the flamegraph displayed here has a white background (for practical purposes). We can hit the "Theme" button (bottom left) to switch between black and white 0x themes.
 
-A flamegraph is generated by sampling the execution stack of our
-application during a benchmark.
-A sample is a snapshot of all the functions being executed (nested) at the time it was taken.
-It records the function that is currently executed by the CPU at that time, plus all the others that called it.
+Functions that may be bottlenecks are displayed in darker shades of orange and red.
 
-The sampled stacks are collected, and
-grouped together based on the functions called in them. Each of those group is a "flame".
-Flames have common function calls at various level of the stack.
+Hot spots at the bottom of the chart are usually less relevant to application and module developers, since they tend to relate to the inner workings of Node core. So if we ignore those, we can see that most of the hot areas appear within the two macro flames in the middle of the chart. A quick study of these show that many of the same functions appear within each - which means overall both stakcs represent almost the same logical paths.
 
-Each line (Y axis) in a flame is a function call, and they are colored by the
-number of samples where the function sits at the top of
-the stack. The more a function is sampled at the top of the stack,
-the darker it gets.
-If a function is at the top of the stack for many samples, it means that the
-function is preventing other I/O events for being processed.
+> #### Graphical Reproducibility ![](../info.png)
+> We may find that our particular flamegraph doesn't exactly match the one included here. This is because of the non-deterministic nature of the profiling process. Overall however the general meaning of the flamegraph should be the same.
 
-The length of each function call (X axis) represent how many times that function
-was sampled. Thus, the larger is a flame on the graph the more "time" our application
-spent processing it.
+The right hand stack has a cluster of hot stacks some way up the main stack in the horizontal center of other diverging stacks.
 
-Every line ina flame also contain some other important information:
-where the function is defined and if the function has been optimized or
-not by [V8][v8] (the Node.js Javascript runtime).
+TODO IMAGE HIGHLIGHTING PLACE MENTIONED
 
-### There's more
-
-#### Solving a simple performance issue
-
-In the above example, we generated the flamegraph of an application
-rendering an HTML file. In the same flamegraph, we can click on a single
-flame to get something like:
+Let's click that a frame in that stack (or the equivalent identified stack if our current flamegraph is slightly different). Upon clicking the frame, 0x allows us to delve deeper by unfold the parent and child stacks to fill the screen, like so:
 
 ![a zoomed in view of the flamegraph](./images/flamegraph3.png)
 
-This image tells us where Node.js is spending most of the execution
-time: in some function of [`acorn`](https://www.npmjs.com/package/acorn),
-a dependency of [`jade`](https://www.npmjs.com/package/jade), our
-templating language. `acorn` is a Javascript parser. Thus, our
-application is spending most of its time in parsing `.jade` files (through
+We should be able to see a pattern of darker orange stack frames, 
+in each case the function is the same function appearing on line
+48 of a `walk.js` in one of our sub-dependencies.
+
+> #### What's the cause? ![](../tip.png)
+> Figured out what the root cause is? Check the There's more section of this recipe to find out!
+
+### How it works
+
+A flamegraph is generated by sampling the execution stack of our application during a benchmark.
+
+A sample is a snapshot of all the functions being executed (nested) at the time it was taken.
+It records the function that were currently executed by the CPU at that time, plus all the others that called it.
+
+The sampled stacks are collected, and grouped together based on the functions called in them. 
+
+Each of those group is a "flame".
+
+Flames have common function calls at various level of the stack.
+
+Each line (Y axis) in a flame is a function call - known as a frame.
+
+The width of each frame corresponds to the amount of time it (or it's children) 
+was observed on the CPU.
+
+If the frame is a darker shade of orange or red, then this particular function
+call was seen at the top of a stack more often than others. 
+
+If a stack frame is frequently observed at the top of the stack, 
+it means that the function is preventing other instructions and I/O events from being processed.
+
+In other words, it's blocking the event loop.
+
+Each block representing a function call also contains other useful information,
+such as where the function is located in the code base, and if the function has 
+been optimized or not by Node's JavaScript engine ([V8][v8]).
+
+
+### There's more
+
+What's the underlying cause of our bottleneck?
+
+#### Finding a solution
+
+In this case Node.js is spending most of the execution
+time in the [`acorn`](https://www.npmjs.com/package/acorn) dependency, 
+which is  a dependency of [`jade`](https://www.npmjs.com/package/jade).
+
+So we can conclude that template rendering is the bottleneck, 
+our application is spending most of its time in parsing `.jade` files (through
 `acorn`).
 
-We can now optimize our application by caching the parsed file. By
-looking at the express documentation, we know that setting
-`NODE_ENV=production` will enable view template caching:
-http://expressjs.com/en/advanced/best-practice-performance.html#env.
+In the previous recipe's **There's More** section we talked about **Profiling for Production**.
+Essentially if the server is in development mode templates are rendered each time whereas
+in production mode templates are cached. Our flamegraph has just made this abundantly clear.
 
-We can check the difference by starting our server with `NODE_ENV=production node server.js`,
-and then running `autocannon`:
+Let's take a look at the resulting flamegraph generating from running the same benchmark on the same server running in production mode. 
+
+This time when we use 0x to spin up our server we ensure `NODE_ENV` is set to production:
+
+```sh
+$ NODE_ENV=production 0x server
+```
+
+Now bench it with `autocannon` in another terminal window:
 
 ```
 $ autocannon -c 100 http://localhost:3000/hello
@@ -419,6 +500,15 @@ Bytes/Sec    1.85 MB 260.17 kB 2.03 MB
 54k requests in 10s, 18.55 MB read
 ```
 
+Note the difference in requests per second. 
+
+Now we hit CTRL-C on our server, once the flamegraph is generated it should look something like the following
+
+![the flamegraph for the main example](./images/flamegraph2-production.png)
+
+The flamegraph has a completely different shape, much fewer functions and the hottest areas are where data is being written to a socket, this is the ideal since that's the data's exit point - that **should** be hot.
+
+
 #### Delivering a performance optimization task
 
 ![bdd-flowchart](./images/bdd-flowchart.png)
@@ -428,13 +518,11 @@ applications:
 
 1. establish a baseline, by executing `autocannon` and generating a
    number in the form of req/sec (request per second).
-2. launch the application with `0x`, launch `autocannon` and then generate
-   a flamegraph.
+2. launch the application with `0x`, launch `autocannon` and then generate a flamegraph.
 3. identify any performance issue and fix them.
 4. launch the application without `0x`, and generate another figure of
    req/sec.
-5. if this number is higher than our baseline, go to 1; if not, discard ourr
-   work and try again.
+5. if this number is higher than our baseline, go to 1; if not, discard our work and try again.
 
 ### See also
 
