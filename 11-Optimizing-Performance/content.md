@@ -275,20 +275,20 @@ We can see that POST requests have roughly 65% the performance of GET requests w
 
 * TBD
 
-## Generating a Flamegraph
+## Finding bottlenecks with Flamegraphs
 
 ![example flamegraph](./images/flamegraph1.png)
 
-A flamegraph is the most powerful tool to identify hot code paths in
-ourr application, and to solve performance issues that might arise.
-Flamegraphs abstract the concept of time, and allows us to analyze how our
-application work holistically.
+A flamegraph is an extremely powerful visual tool. It helps us to identify hot code paths in our application, and solve performance issues around those hot paths.
+
+Flamegraphs abstract the concept of time, and allows us to analyze how our application works at holistic level.
 
 ### Getting Ready
 
 In order to generate a flamegraph, we need Mac OS X (10.8 -
-10.10), a recent Linux distribution, or SmartOS. On Windows, we need
-to set up a virtual machine.
+10.10), a recent Linux distribution, or SmartOS. 
+
+On Windows, we need to set up a virtual machine running Linux.
 
 The tool for generating flamegraphs is
 [`0x`][0x]: we can install it with
