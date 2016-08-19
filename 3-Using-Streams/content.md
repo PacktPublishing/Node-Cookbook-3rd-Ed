@@ -144,8 +144,6 @@ All streams inherit from EventEmitter and emit a series of different events. Whe
 
 * `resume`. Emitted when a readable stream goes from being paused to being resumed again. Will happen when the writable stream you are piping to has been drained or if `.resume` has been explicitly called.
 
-#### `pump` instead of `.pipe`
-
 ### See also
 
 ## Making a pipeline
@@ -160,9 +158,88 @@ All streams inherit from EventEmitter and emit a series of different events. Whe
 
 ### There's more
 
-#### `pumpify`?
+#### `pump` instead of `.pipe`
 
-#### `passthrough`
+The `.pipe` method is one of the most well known features of streams. It allows us to compose advanced streaming pipelines as a single line of code.
+Unfortunately it lacks a very important feature, error handling. If one of the streams in a pipeline composed with `.pipe` fails, pipe simply "unpipes" the pipeline. It is up to us to detect the error and then afterwards destroy the remaining streams so they do not leak any resources. Consider the following example
+
+``` js
+var http = require('http')
+var fs = require('fs')
+
+var server = http.createServer(function (request, response) {
+  fs.createReadStream('big.file').pipe(response)
+})
+
+server.listen(8080)
+```
+
+A simple, straight forward, http server that serves a big file to its users. Since this server is using `.pipe` to send back the file there is a big chance that this server will produce memory and file descriptor leaks while running. Why is that? Notice that we do not do any manual error handling in this example. This means that if http response were to close before the file has been fully streamed to the user (they might close their browser for example), we will leak a file descriptor and a bit of memory used by the file stream as it is never closed. To fix this we can add error handling
+
+``` js
+var server = http.createServer(function (request, response) {
+  var stream = fs.createReadStream('big.file')
+  stream.pipe(response)
+  response.on('close', function () {
+    stream.destroy()
+  })
+})
+```
+
+If our pipeline consisted of more than two streams this quickly translates into a lot of boilerplate code.
+
+Instead of doing this manually however we can use the pump module from npm. pump works the same way as pipe except it applies error handling and makes sure to destroy all remaining streams in the pipeline if one of the fails. It also allows us to pass a callback that is called when the pipeline has finished.
+
+``` js
+var pump = require('pump')
+
+var server = http.createServer(function (request, response) {
+  pump(fs.createReadStream('big.file'), response, function (err) {
+    console.log('File was fully streamed to the user?', !err)
+  })
+})
+```
+
+If our pipeline has more than two streams simply pass all of them to pump
+
+``` js
+pump(stream1, stream2, stream3, ...)
+```
+
+There are very few use cases where we wanna use `.pipe` (sometimes we want to apply manual error handling) instead of `pump` so in general it is a lot safer to always use `pump` instead `.pipe`.
+
+#### Use `pumpify` to expose pipelines
+
+When writing pipelines, especially as part of module, we might wanna expose these pipelines to a user.
+So how do we do that? As described above a pipeline consists of a series of transform streams. We write data to the first stream in the pipeline and the data flows through it until it is written to the final stream.
+
+``` js
+function pipeline () {
+  pump(stream1, stream2, stream3, stream4)
+}
+```
+
+If we were to expose the above pipeline to a user we would need to both return `stream1` and `stream4`. `stream1` is the stream a user should write the pipeline data to and `stream4` is the stream the user should read the pipeline results from. Since we only need to write to `stream1` and only read from `stream4` we could just combine to two streams into a new duplex stream that would then represent the entire pipeline.
+
+The npm module pumpify does *exactly* this
+
+``` js
+var pipe = pipeline()
+
+pipe.write('hello') // written to stream1
+
+pipe.on('data', function (data) {
+  console.log(data) // read from stream4
+})
+
+pipe.on('finish', function () {
+  // all data was succesfully flushe to stream4
+})
+
+function pipeline () {
+  return pumpify(stream1, stream2, stream3, stream4)
+}
+```
 
 ### See also
 
@@ -246,6 +323,37 @@ ws._write = function (data, enc, cb) {
 // Move all the data from rs to ws
 rs.pipe(ws)
 ```
+
+The `.pipe` method, as described in a previous section, will transfer all the data from the readable stream to the writable one.
+
+As you may have noticed that creating our own streams is a little bit cumbersome. We need to override methods and there is a lot of ways we can do it it wrong. For example the `_read` method on readable streams does not accept a callback. Since a stream usually contains more than just a single buffer of data the stream needs to call the `_read` method more than once. The way it does this is by waiting for us to call `.push` and then calling `_read` again if the internal buffer of the stream has available space. A problem with this approach is that if we want to call `.push` more than once in the same `_read` context things become tricky. Here is an example:
+
+``` js
+// THIS EXAMPLE DOES NOT WORK AS EXPECTED
+var rs = new stream.Readable()
+
+rs._read = function () {
+  setTimeout(function () {
+    rs.push('Data 0')
+    setTimeout(function () {
+      rs.push('Data 1')
+    }, 50)
+  }, 100)
+}
+
+rs.on('data', function (data) {
+  console.log(data.toString())
+})
+```
+
+Try running this example. We might expect it to produce a stream of alternating `Data 0`, `Data 1` buffers but in reality it has undefined behaivor.
+
+Luckily we can use some modules from npm to make all of this easier.
+
+* from2
+* through2
+* to2
+* duplexify
 
 ### How it works
 
