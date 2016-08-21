@@ -552,19 +552,33 @@ TBD
 
 ## Optimizing a synchronous function call
 
-HTTP benchmarking and flamegraphs help us to understand our applications logical flow and rapidly pinpoint the areas which require optimization.
+Node.js is an evented I/O platform built on top of [V8][v8], Google Chrome's Javascript VM.
 
-We're able to use the top-of-stack indicator (quickly recognized by darker orange or red areas in the flamegraph) along with some applied thought reasoning to pinpoint our performance issue to a specific synchronous function (or in some cases a group of synchronous functions).
+Node applications receive I/O events (file read, data available on
+a socket, write completed) and then execute a Javascript callback (a function).
 
-Having covered Steps 1-3 of the Optimization Workflow (Establish a baseline, Generate a flamegraph, Identify the bottleneck) we will now venture into one permutation of Step 4, Solve the performance issue. 
+The next I/O event is processed after the Javascript function (the callback) terminates.
+
+In order to write fast Node.js applications, our Javascript functions (particularly callbacks) need to terminate as fast as possible.
+
+Any function that takes a long time to process prevents all other I/O and other functions from executing.
+
+HTTP benchmarking and flamegraphs help us to understand our applications logical flow and rapidly pinpoint the areas which require optimization (the functions that prevent I/O and other instructions from executing).
+
+[V8][v8] uses two Just-In-Time (JIT) compilers. The Full-codegen compiler and the 
+Optimizing compiler which is used for hot functions. Hot functions are functions that are either executed often or they take a long time to complete.  
+
+The Full-codegen compiler is used when a function is loaded. If that function becomes hot the Optimizing compiler will attempt apply relevant optimizations (inlining being one such possible optimization). When V8 fails to optimize a hot function, this can become a bottleneck for an application.
+
+Having covered Steps 1-3 of the Optimization Workflow (Establish a baseline, Generate a flamegraph, Identify the bottleneck) we will now venture into one permutation of Step 4: Solve the performance issue. 
 
 In this recipe we show how to isolate, profile and solve a synchronous function bottleneck.
 
 ### Getting Ready
 
-Having understood the area of our code that needs work, our next step is to isolate the problem area and put together a micro-benchmark around it.
+Having understood the portion of our code that needs work, our next step is to isolate the problem area and put together a micro-benchmark around it.
 
-We'll be using [benchmark.js][benchmark] to create our micro-benchmarks for single functions. 
+We'll be using [benchmark.js][benchmark] to create micro-benchmarks for single functions. 
 
 Let's create a new folder called `sync-opt`, initialize a `package.json` file and install the `benchmark` module as a development dependency:
 
@@ -577,7 +591,7 @@ $ npm install --save-dev benchmark
 
 ### How to do it
 
-Let's assume that we've identified a bottleneck in our code base, and it happens to be a function called `divideByAndSum` which our flamegraph has revealed is appearing over 10% of time on the top of stack over multiple samples.
+Let's assume that we've identified a bottleneck in our code base, and it happens to be a function called `divideByAndSum`. A hypothetical flamegraph has revealed this function is appearing over 10% of time at stack-top over multiple samples.
 
 The function looks like this:
 
@@ -619,10 +633,9 @@ function divideByAndSum (num, array) {
 module.exports = divideByAndSum
 ```
 
-This is what an optimization candidate should look like. We've taken the function from the code base, put it in it's own file and exported it with `module.exports`.
+This is what an optimization candidate should look like. The idea is that we take the function from the code base and place it in its own file, exposing the function with `module.exports`.
 
-The goal is to have an independent module, that we can benchmark in
-isolation. 
+The goal is to have an independent module, that we can benchmark in isolation. 
 
 We can now write a simple benchmark for it:
 
@@ -654,23 +667,73 @@ function print () {
 }
 ```
 
-Let's save this as `bench.js` and run our micro-benchmark to get a baseline:
+Let's save this as `initial-bench.js` and run our micro-benchmark to get a baseline:
 
-```
-$ node bench.js
+```sh
+$ node initial-bench.js
 slow x 11,014 ops/sec ±1.12% (87 runs sampled)
 Fastest is slow
 ```
 
-#### Remove the use of the collections
+One the most powerful optimizations that the V8 JavaScript engine can make is function inlining. Let's run our benchmark again with a special flag that shows V8's inlining activity:
 
-The fastest way to iterate over an array is a for loop. Even thought
-idiomatic Javascript prefers to use `forEach()`, `map()` and `reduce()`,
-iterating by calling a function is slower than a for loop.
+```sh
+$ node --trace-inlining initial-bench.js
+```
 
-We save the following module as `no-collections.js`:
+This will produce lots of output, but if we look for our `dividByAndSum` function we should see something like the following:
+
+```
+Did not inline divideByAndSum called from  (target not inlineable).
+Did not inline Array called from ArraySpeciesCreate (Dont inline [new] Array(n) where n isn't constant.).
+Inlined baseToString called from toString.
+Inlined isObject called from isIterateeCall.
+Did not inline Array called from arrayMap (Dont inline [new] Array(n) where n isn't constant.).
+```
+
+We can see our `divideAndSum` function isn't being inlined. The other functions that aren't inlined supply a clue. Is `arrayMap` related to the fact we're using `map` in our function? What about `ArraySpeciesCreate`. 
+
+Let's follow that lead by seeing if a flamegraph can help at all:
+
+```sh
+$ 0x initial-bench.js
+```
+
+![](../images/divideByAndSum.png)
+*flamegraph of our initial benchmark*
+
+Again we can see that several pieces of code in `array.js` (the internal V8 array library), seems very hot, both in relation to `map` and `reduce` functionality. Note also how hot the internal `DefineIndexProperty` call is.
+
+Let's confirm out suspicions by looking directly at the internal code for the native `map` function. 
+
+```sh
+$ node --allow-natives-syntax -p "%FunctionGetSourceCode([].map)"
+(br,bs){
+if((%IS_VAR(this)===null)||(this===(void 0)))throw k(18,"Array.prototype.map");
+var w=(%_ToObject(this));
+var x=(%_ToLength(w.length));
+if(!(typeof(br)==='function'))throw k(15,br);
+var B=ArraySpeciesCreate(w,x);
+var U=(%_IsArray(w));
+for(var z=0;z<x;z++){
+if(((U&&%_HasFastPackedElements(%IS_VAR(w)))?(z<w.length):(z in w))){
+var aN=w[z];
+DefineIndexedProperty(B,z,%_Call(br,bs,aN,z,w));
+}
+}
+return B;
+}
+```
+
+Well now, there's the `ArraySpeciesCreate` function noted in our traced inlining output, and the very hot `DefineIndexedProperty`.
+
+The evidence is suggesting that the use of `map` and `reduce` is slowing our function down.
+
+Let's rewrite it with procedural code, like so:
 
 ```js
+'use strict'
+
 function divideByAndSum (num, array) {
   var result = 0
   try {
@@ -686,23 +749,81 @@ function divideByAndSum (num, array) {
 module.exports = divideByAndSum
 ```
 
-We can then edit our `bench.js` file to add a test for this new module:
+We'll save that as `no-collections.js` and add it to our benchmark suite:
 
 ```js
+'use strict'
+
+const benchmark = require('benchmark')
+const slow = require('./slow')
 const noCollection = require('./no-collections')
+const suite = new benchmark.Suite()
+
+const numbers = []
+
+for (let i = 0; i < 1000; i++) {
+  numbers.push(Math.random() * i)
+}
+
+suite.add('slow', function () {
+  slow(12, numbers)
+})
+
 suite.add('no-collections', function () {
   noCollection(12, numbers)
 })
+
+suite.on('complete', print)
+
+suite.run()
+
+function print () {
+  for (var i = 0; i < this.length; i++) {
+    console.log(this[i].toString())
+  }
+
+  console.log('Fastest is', this.filter('fastest').map('name')[0])
+}
 ```
 
-The results is impressive:
+We'll save this a `slow-vs-no-collections.js`.
 
-```
-$ node bench.js
-slow x 11,014 ops/sec ±1.12% (87 runs sampled)
-no-collections x 58,190 ops/sec ±1.11% (87 runs sampled)
+Finally let's run our benchmarks to see if we made any progress:
+
+```sh
+$ node slow-vs-no-collections.js
+slow x 6,320 ops/sec ±0.93% (91 runs sampled)
+no-collections x 66,293 ops/sec ±0.79% (91 runs sampled)
 Fastest is no-collections
 ```
+
+Wow! A ten-fold improvement.
+
+### How it works
+
+Our workflow in this recipe is investigatory in nature. We discover interesting clues, follow leads and attempt to confirm our working hypotheses until we establish evidence that allows us to define a concrete plan of action. Basically, we poke around until we get an idea. In this case we found that the use of `map` and `reduce` in our hot function (`divideByAndSum`) seem to prime culprits.
+
+We discovered this by using several techniques. 
+
+First we checked which functions were being inlined by V8 and found that our function was not being inlined (and still isn't, we'll find out how to successfully inline it in the **There's More** section). We also saw what that on two occasions a call to `Array` wasn't being inlined, what was more interesting here was where `Array` was being called from `ArraySpeciesCreate` and `arrayMap`. Neither of these functions are defined in our code or in Benchmark.js, so they must be internal.
+
+Next we decided to cross-check our findings by generating a flamegraph. It showed a lot of heat around the internal V8 `array.js` file, with function names that seemed to be related to internal `map` and `reduce` code. We also saw a very hot `DefineIndexedProperty` function which seemed of interest.
+
+Finally our third strategy was to dig even deeper by picking the internal code for the `map` method apart by using a special "Native Syntax" function. The `allow-natives-syntax` flag allows for a host of internal V8 helper functions which are always prefixed by the percent sign (`%`). The one we used is `%FunctionGetSourceCode` to print out the internal "native" Arrays `map` method. Had we used `console.log([].map + '')` we would have only seen `function map() { [native code] }`. The special `%FunctionGetSourceCode` gives us the native code. We saw this code correlated to our earlier findings, namely we could see `ArraySpeciesCreate` and the hot `DefineIndexedProperty` function. At this point it was time to test that hypothesis that `map` (and by inference, `reduce`) was slowing our code down.
+
+We converted our function to use a plain old `for` loop, and setup a benchmark to compare the two approaches. This revealed a ten-fold speed increase.
+
+> # Best Practices vs Performance ![](../images/tip.png)
+> This recipe has shown the functional programming in JavaScript (e.g. use of `map`, `reduce` and others) can cause bottlnecks. Does this mean we should use a procedural approach everywhere? We think not. The highest priority should be code that's easy to maintain, collaborate on, and debug. Functional programming is a powerful paradigm for these goals, and great for rapid prototyping. Not every function will be a bottleneck, for these functions use of `map`, `reduce` or any such methods is perfectly fine. Only after profiling should we revert to a procedural approach, and in these cases reasons for doing so should be clearly commented. 
+
+
+> # Optimization Killers ![](../images/tip.png)
+> While we advocate an evidence-based approach to performance analysis, there is a list of identified rules that prevent function optimization compiled by those who have gone before us. We call these [V8 Optimization Killers](https://github.com/petkaantonov/bluebird/wiki/Optimization-killers). Knowledge of these can enhance our investigations, but at the same time we should resist confirmation bias.
+
+
+### There's more
+
+TODO - FROM HERE
 
 #### The danger of try-catch
 
@@ -745,30 +866,6 @@ Fastest is no-try-catch
 ```
 
 We achieved a 20 times throughput improvement.
-
-### How it works
-
-Node.js is an evented I/O platform built on top of [V8][v8], Google Chrome's Javascript VM.
-Node.js applications receive an I/O event (file read, data available on
-a socket, write completed), and then execute a Javascript callback. The
-next I/O event is processed after the Javascript function terminates.
-In order to write fast Node.js applications, our Javascript functions
-need to terminate as fast as possible.
-
-[V8][v8] offers two just-in-time compilers: one is activated when a
-function is loaded, and one when a function becomes "hot", and certain
-conditions are satistified.
-
-"Hot" functions are functions that either executed often or they take a
-long time to complete. If a function is not "hot", it will not show
-up in the flamegraph at the top of the stack, or in darker colors.
-
-Both compiler generate machine code, but the optimizing compiler takes
-also into account the types and the code within the function. The rules
-that prevent a function to be optimized are called [V8 Optimization
-Killers](https://github.com/petkaantonov/bluebird/wiki/Optimization-killers).
-
-### There's more
 
 #### Checking the optimization status
 
