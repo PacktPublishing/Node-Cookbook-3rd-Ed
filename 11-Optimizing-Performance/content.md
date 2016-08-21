@@ -2,20 +2,31 @@
 
 This chapter covers the following topics
 
-* measuring a web application performance
-* identifying hot code paths using flamegraphs
-* measuring a synchronous function performance
-* optimizing a synchronous function
-* measuring an asynchronous function performance
-* optimizing an asynchronous function
+* The performance optimization workflow
+* Measuring a web applications performance
+* Identifying hot code paths using flamegraphs
+* Measuring the performance of a synchronous function
+* Optimizing a synchronous function
+* Measuring the performance of an asynchronous function
+* Optimizing an asynchronous function
 
 ## Introduction
 
-Node.js is a runtime built for evented I/O where multiple execution
+> #### Guest Author
+> This chapter was co-authored with Node.js Performance Guru and IOT expert Matteo Collina.
+
+JavaScript runs in a single threaded event-loop. Node.js is a runtime built for evented I/O where multiple execution
 flows are processed concurrently but not in parallel. An example of this could be an HTTP server, tens of thousands of requests can be processed per second but only one instruction is being executed at any given time.
 
 The performance of our application is tied to how fast we can
 process an individual execution flow prior to performing the next I/O operation.
+
+Through several recipes, this chapter demonstrates the Optimization Workflow as shown here:
+
+![bdd-flowchart](./images/bdd-flowchart.png)
+* Optimization Workflow *
+
+We'll be referencing the workflow throughout this chapter.
 
 This chapter is about making our JavaScript code as fast as possible in order to increase I/O handling capacity, thus decreasing costs and increasing user experience.
 
@@ -27,7 +38,7 @@ We can address the rabbit-hole nature of performance work in two steps. First we
 
 For instance, we find we can handle 200 requests per second but we wish to reduce server costs by one third. So we set a goal to reach 600 requests per second.
 
-In this section, we will learn how to benchmark an HTTP server.
+In this recipe, we'll be applying the first step in the optimization work-flow "Establish a baseline" to an HTTP server.
 
 ### Getting Ready
 
@@ -47,7 +58,7 @@ $ npm install -g autocannon`
 
 Let's create a small [express][express] application with a `/hello` endpoint.
 
-First we'll create a folder with a `package.json` file and install express:
+First we'll create a folder with a `package.json` file and install Express:
 
 ```sh
 $ mkdir http-bench
@@ -94,6 +105,10 @@ Bytes/Sec    1.2 MB 73 kB  1.31 MB
 ```
 
 Our results show an average of 5800 requests per second, with throughput of 1.2MB per second.
+
+> #### The Optimization Workflow ![](../tip.png)
+> When it comes to HTTP servers we should now know how to **establish a baseline**: by executing `autocannon` and generating a number in the form of req/sec (request per second).
+
 
 The `-c 100` flag instructs `autocannon` to open 100 sockets and connect them to our server.
 
@@ -160,7 +175,7 @@ $ mkdir views
 
 Finally we'll create a `views/hello.jade` file, with the following content:
 
-```jade
+```
 doctype html
 html
   head
@@ -254,7 +269,7 @@ app.listen(3000)
 
 We've removed our previous route, added in request body parser middleware and created an `/echo` route which mirrors the request body back to the client.
 
-We can now profile our `/echo` endpoint, using the `-m`, `-H` and `-b` flags:
+Now we can profile our `/echo` endpoint, using the `-m`, `-H` and `-b` flags:
 
 ```
 $ autocannon -c 100 -m POST -H 'content-type=application/json' -b '{ "hello": "world"}' http://localhost:3000/echo
@@ -269,7 +284,7 @@ Bytes/Sec    850.48 kB 58.22 kB 917.5 kB
 420k requests in 10s, 9.35 MB read
 ```
 
-We can see that POST requests have roughly 65% the performance of GET requests when compared to the results from the main recipe.
+POST requests have roughly 65% the performance of GET requests when compared to the results from the main recipe.
 
 > #### Loading the body from a file ![](../tip.png)
 > If we wish to get our POST body from a file, `autocannon` supports this via the `-i` flag.
@@ -288,12 +303,14 @@ Flamegraphs compile stacks capturing during CPU profiling into a graphical repre
 
 To put it another way, flamegraphs allow us to quickly determine how long each function (from C to JavaScript) has spent on the CPU, and which functions are causing the rest of the stack to be on CPU longer than it should be. 
 
-In this recipe we'll load-test a single route of an Express server, and use the [`0x`][0x] flamegraphing tool to capture stacks and convert them into a flamegraph.
+We're going to load-test a single route of an Express server, and use the [`0x`][0x] flamegraphing tool to capture stacks and convert them into a flamegraph.
+
+This recipe explores the second and third steps of the optimization workflow: "Generate a flamegraph" and "Identify the bottleneck". 
 
 ### Getting Ready
 
 In order to generate a flamegraph, we need Mac OS X (10.8 -
-10.10), a recent Linux distribution, or SmartOS. 
+10.10)/macOS, a recent Linux distribution, or SmartOS. 
 
 > Windows ![../tip.png]
 > If we're using Windows, flamegraph tooling is limited,
@@ -311,7 +328,7 @@ We'll also need to quickly scaffold an Express app, and efficient way to do this
 ### How to do it
 
 Let's create a folder called `hello-server`, 
-initialize a package.json and install `Express` and Jade:
+initialize a `package.json` and install `Express` and Jade:
 
 ```sh
 $ mkdir hello-server
@@ -386,9 +403,9 @@ Bytes/Sec    131.4 kB 35.84 kB 155.65 kB
 ```
 
 When the benchmark finishes, we hit CTRL-C in the server terminal.
-This will cause 0x to begin converting captured stacks into a flamegraph. 
+This will cause `0x` to begin converting captured stacks into a flamegraph. 
 
-When the flamegraph has been generated a long URL should be printed in the terminal:
+When the flamegraph has been generated a long URL will be printed to the terminal:
 
 ```
 $ 0x server.js
@@ -398,17 +415,20 @@ file:///path/to/profile-86501/flamegraph.html
 The `0x` tool has created a folder named `profile-XXXX`, where `XXXX`
 is the PID of the server process.
 
-If we open that file with Google Chrome where we'll be presented with some controls,
-and a flamegraph resembling the following:
+If we open the `flamegraph.html` file with Google Chrome where we'll be presented with some controls, and a flamegraph resembling the following:
 
-![the flamegraph for the main example](./images/flamegraph2.png)
+![](./images/flamegraph2.png)
+*A flamegraph representing our `/hello` route under load*
 
-> #### 0x Theme ![](../tip.png)
-> By default 0x presents flamegraphs with a black background, the flamegraph displayed here has a white background (for practical purposes). We can hit the "Theme" button (bottom left) to switch between black and white 0x themes.
+> #### `0x` Theme ![](../info.png)
+> By default `0x` presents flamegraphs with a black background, the flamegraph displayed here has a white background (for practical purposes). We can hit the "Theme" button (bottom left) to switch between black and white `0x` themes.
+
+> #### The Optimization Workflow ![](../tip.png)
+> We should know now how to conduct step 2 of the Optimization Workflow laid in the introduction to this chapter: We launch the application with [`0x`](0x) to generate a flamegraph. 
 
 Functions that may be bottlenecks are displayed in darker shades of orange and red.
 
-Hot spots at the bottom of the chart are usually less relevant to application and module developers, since they tend to relate to the inner workings of Node core. So if we ignore those, we can see that most of the hot areas appear within the two macro flames in the middle of the chart. A quick study of these show that many of the same functions appear within each - which means overall both stakcs represent almost the same logical paths.
+Hot spots at the bottom of the chart are usually less relevant to application and module developers, since they tend to relate to the inner workings of Node core. So if we ignore those, we can see that most of the hot areas appear within the two macro flames in the middle of the chart. A quick study of these show that many of the same functions appear within each - which means overall both stacks represent very similar logical paths.
 
 > #### Graphical Reproducibility ![](../info.png)
 > We may find that our particular flamegraph doesn't exactly match the one included here. This is because of the non-deterministic nature of the profiling process. Overall however the general meaning of the flamegraph should be the same.
@@ -417,22 +437,27 @@ The right hand stack has a cluster of hot stacks some way up the main stack in t
 
 TODO IMAGE HIGHLIGHTING PLACE MENTIONED
 
-Let's click that a frame in that stack (or the equivalent identified stack if our current flamegraph is slightly different). Upon clicking the frame, 0x allows us to delve deeper by unfold the parent and child stacks to fill the screen, like so:
+Let's click near the illustrated frame (or the equivalent identified stack if our current flamegraph is slightly different). Upon clicking the frame, `0x` allows us to delve deeper by unfold the parent and child stacks to fill the screen, like so:
 
-![a zoomed in view of the flamegraph](./images/flamegraph3.png)
+![](./images/flamegraph3.png)
+*Unfolded stacks*
 
 We should be able to see a pattern of darker orange stack frames, 
 in each case the function is the same function appearing on line
-48 of a `walk.js` in one of our sub-dependencies.
+48 of a `walk.js` file in one of our sub-dependencies. We have found our bottleneck.
+
+> #### The Optimization Workflow ![](../tip.png)
+> We've now covered step 3 of the Optimization Workflow: Find the bottlneck. We've used the flamegraph structure and color coding to  quickly understand where the slowest part of our server is.
 
 > #### What's the cause? ![](../tip.png)
 > Figured out what the root cause is? Check the There's more section of this recipe to find out!
 
 ### How it works
 
-A flamegraph is generated by sampling the execution stack of our application during a benchmark.
+A flamegraph is generated by sampling the execution stack of our application during a benchmark. 
 
 A sample is a snapshot of all the functions being executed (nested) at the time it was taken.
+
 It records the function that were currently executed by the CPU at that time, plus all the others that called it.
 
 The sampled stacks are collected, and grouped together based on the functions called in them. 
@@ -443,25 +468,23 @@ Flames have common function calls at various level of the stack.
 
 Each line (Y axis) in a flame is a function call - known as a frame.
 
-The width of each frame corresponds to the amount of time it (or it's children) 
-was observed on the CPU.
+The width of each frame corresponds to the amount of time it was observed on the CPU. The time representation is an aggregate of all nested function calls. 
 
-If the frame is a darker shade of orange or red, then this particular function
-call was seen at the top of a stack more often than others. 
+For instance if function `A` calls function `B` the width of function `A` in the flamegraph will represent the time it took to execute both `A` and `B`.
+
+If the frame is a darker shade of orange or red, then this particular function call was seen at the top of a stack more often than others. 
 
 If a stack frame is frequently observed at the top of the stack, 
 it means that the function is preventing other instructions and I/O events from being processed.
 
 In other words, it's blocking the event loop.
 
-Each block representing a function call also contains other useful information,
-such as where the function is located in the code base, and if the function has 
-been optimized or not by Node's JavaScript engine ([V8][v8]).
+Each block representing a function call also contains other useful information, such as where the function is located in the code base, and if the function has been optimized or not by Node's JavaScript engine ([V8][v8]).
 
 
 ### There's more
 
-What's the underlying cause of our bottleneck?
+What's the underlying cause of our bottleneck, how does 0x actually profile our code, and how would we go about creating flamegraphs from production servers?
 
 #### Finding a solution
 
@@ -479,10 +502,10 @@ in production mode templates are cached. Our flamegraph has just made this abund
 
 Let's take a look at the resulting flamegraph generating from running the same benchmark on the same server running in production mode. 
 
-This time when we use 0x to spin up our server we ensure `NODE_ENV` is set to production:
+This time when we use `0x` to spin up our server we ensure `NODE_ENV` is set to production:
 
 ```sh
-$ NODE_ENV=production 0x server
+$ NODE_ENV=production `0x` server
 ```
 
 Now bench it with `autocannon` in another terminal window:
@@ -506,23 +529,22 @@ Now we hit CTRL-C on our server, once the flamegraph is generated it should look
 
 ![the flamegraph for the main example](./images/flamegraph2-production.png)
 
-The flamegraph has a completely different shape, much fewer functions and the hottest areas are where data is being written to a socket, this is the ideal since that's the data's exit point - that **should** be hot.
+This flamegraph has different shape it's much simpler. It has fewer functions and the hottest areas are where data is being written to a socket, this is the ideal since that's the exit point - that **should** be hot.
 
+#### How `0x` works
 
-#### Delivering a performance optimization task
+When we use `0x` to start our server, two processes are started. The first is `node` binary, `0x` simply passes all non-0x arguments to `node` so our code is executed.
 
-![bdd-flowchart](./images/bdd-flowchart.png)
+The second process is a system stack tracing tool (`perf` in the case of Linux and `dtrace` in the case of macOS and SmartOS) to capture every function call in the C layer. 
 
-We can now execute a full task of performance optimization for our web
-applications:
+When `0x` starts the node process, it adds a flag named `--perf-basic-prof` which is a V8 option (the JavaScript engine) which essentially enables the mapping of C++ V8 function calls to the corresponding JavaScript function calls. 
 
-1. establish a baseline, by executing `autocannon` and generating a
-   number in the form of req/sec (request per second).
-2. launch the application with `0x`, launch `autocannon` and then generate a flamegraph.
-3. identify any performance issue and fix them.
-4. launch the application without `0x`, and generate another figure of
-   req/sec.
-5. if this number is higher than our baseline, go to 1; if not, discard our work and try again.
+The stacks are output to a folder, and in the case of macOS further mapping is applied. The stack output contains snapshots of the callstack for each 1 millisecond period the CPU was sampled. If a function is observed at the top of the stack for a particular snapshot (and it's not the ultimate parent of the stack) then it's taken a full millisecond on stack. If this happens multiple times, that's a strong indicator that it's a bottleneck.
+
+To generate the flamegraph `0x` processes these stacks into a JSON tree of parent and child stacks, then creates an HTML file containing the JSON plus a script that uses D3.js to visualize the parent child relationships and other meta-data in a flamegraph format.
+
+#### Flamegraphs and Production Servers
+
 
 ### See also
 
@@ -530,24 +552,55 @@ TBD
 
 ## Optimizing a synchronous function call
 
-HTTP benchmarking and flamegraphs can help in understanding where there
-is a problem, and which areas in our application needs an optimization.
-With some reasoning, we are now able to pinpoint the performance issue
-to a specific synchronous function (or a group of).
-In this recipe, we cover the task of optimizing a single function call.
+HTTP benchmarking and flamegraphs help us to understand our applications logical flow and rapidly pinpoint the areas which require optimization.
+
+We're able to use the top-of-stack indicator (quickly recognized by darker orange or red areas in the flamegraph) along with some applied thought reasoning to pinpoint our performance issue to a specific synchronous function (or in some cases a group of synchronous functions).
+
+Having covered Steps 1-3 of the Optimization Workflow (Establish a baseline, Generate a flamegraph, Identify the bottleneck) we will now venture into one permutation of Step 4, Solve the performance issue. 
+
+In this recipe we show how to isolate, profile and solve a synchronous function bottleneck.
 
 ### Getting Ready
 
-We use [benchmark.js][benchmark] to create benchmarks for single
-functions. Create a new folder, launch `npm init` to create a
-`package.json`, and run `npm i benchmark --save-dev`.
+Having understood the area of our code that needs work, our next step is to isolate the problem area and put together a micro-benchmark around it.
+
+We'll be using [benchmark.js][benchmark] to create our micro-benchmarks for single functions. 
+
+Let's create a new folder called `sync-opt`, initialize a `package.json` file and install the `benchmark` module as a development dependency:
+
+
+```sh
+$ mkdir sync-opt
+$ npm init -y
+$ npm install --save-dev benchmark
+```
 
 ### How to do it
 
-Somewhere in our codebase we have a function `divideByAndSum` to optimize,
-as it comes up 10% of the time on top of the stack in our flamegraph.
-The first step is to extract that function into its own module. This is what an
-optimization candidate will look like:
+Let's assume that we've identified a bottleneck in our code base, and it happens to be a function called `divideByAndSum` which our flamegraph has revealed is appearing over 10% of time on the top of stack over multiple samples.
+
+The function looks like this:
+
+```js
+function divideByAndSum (num, array) {
+  try {
+    array.map(function (item) {
+      return item / num
+    }).reduce(function (acc, item) {
+      return acc + item
+    }, 0)
+  } catch (err) {
+    // to guard for division by zero
+    return 0
+  }
+}
+```
+
+Our task now is to make this function faster.
+
+The first step is to extract that function into its own module. 
+
+Let's create a file called `slow.js`:
 
 ```js
 function divideByAndSum (num, array) {
@@ -566,10 +619,12 @@ function divideByAndSum (num, array) {
 module.exports = divideByAndSum
 ```
 
-Write this into a `slow.js` file.
+This is what an optimization candidate should look like. We've taken the function from the code base, put it in it's own file and exported it with `module.exports`.
 
 The goal is to have an independent module, that we can benchmark in
-isolation. We can now write a simple benchmark for it:
+isolation. 
+
+We can now write a simple benchmark for it:
 
 ```js
 const benchmark = require('benchmark')
@@ -599,9 +654,7 @@ function print () {
 }
 ```
 
-Save this as `bench.js`, we will edit this file multiple times.
-
-We can now run it with:
+Let's save this as `bench.js` and run our micro-benchmark to get a baseline:
 
 ```
 $ node bench.js
@@ -618,8 +671,6 @@ iterating by calling a function is slower than a for loop.
 We save the following module as `no-collections.js`:
 
 ```js
-'use strict'
-
 function divideByAndSum (num, array) {
   var result = 0
   try {
