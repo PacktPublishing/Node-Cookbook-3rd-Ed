@@ -24,7 +24,7 @@ process an individual execution flow prior to performing the next I/O operation.
 Through several recipes, this chapter demonstrates the Optimization Workflow as shown here:
 
 ![bdd-flowchart](./images/bdd-flowchart.png)
-* Optimization Workflow *
+*Optimization Workflow*
 
 We'll be referencing the workflow throughout this chapter.
 
