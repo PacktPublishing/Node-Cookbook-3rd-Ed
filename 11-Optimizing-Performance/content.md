@@ -786,18 +786,18 @@ function print () {
 }
 ```
 
-We'll save this a `slow-vs-no-collections.js`.
+We'll save this as `bench.js`.
 
 Finally let's run our benchmarks to see if we made any progress:
 
 ```sh
-$ node slow-vs-no-collections.js
+$ node bench.js
 slow x 6,320 ops/sec ±0.93% (91 runs sampled)
 no-collections x 66,293 ops/sec ±0.79% (91 runs sampled)
 Fastest is no-collections
 ```
 
-Wow! A ten-fold improvement.
+Wow! More than a ten-fold improvement.
 
 ### How it works
 
@@ -807,28 +807,95 @@ We discovered this by using several techniques.
 
 First we checked which functions were being inlined by V8 and found that our function was not being inlined (and still isn't, we'll find out how to successfully inline it in the **There's More** section). We also saw what that on two occasions a call to `Array` wasn't being inlined, what was more interesting here was where `Array` was being called from `ArraySpeciesCreate` and `arrayMap`. Neither of these functions are defined in our code or in Benchmark.js, so they must be internal.
 
+> ##### Advanced Optimizations ![](../images/tip.png)
+> See the There's More section for more advanced techniques such as inlining and optimization tracing. 
+
 Next we decided to cross-check our findings by generating a flamegraph. It showed a lot of heat around the internal V8 `array.js` file, with function names that seemed to be related to internal `map` and `reduce` code. We also saw a very hot `DefineIndexedProperty` function which seemed of interest.
 
 Finally our third strategy was to dig even deeper by picking the internal code for the `map` method apart by using a special "Native Syntax" function. The `allow-natives-syntax` flag allows for a host of internal V8 helper functions which are always prefixed by the percent sign (`%`). The one we used is `%FunctionGetSourceCode` to print out the internal "native" Arrays `map` method. Had we used `console.log([].map + '')` we would have only seen `function map() { [native code] }`. The special `%FunctionGetSourceCode` gives us the native code. We saw this code correlated to our earlier findings, namely we could see `ArraySpeciesCreate` and the hot `DefineIndexedProperty` function. At this point it was time to test that hypothesis that `map` (and by inference, `reduce`) was slowing our code down.
 
-We converted our function to use a plain old `for` loop, and setup a benchmark to compare the two approaches. This revealed a ten-fold speed increase.
+We converted our function to use a plain old `for` loop, and set up a benchmark to compare the two approaches. This revealed more than a ten-fold speed increase.
 
 > # Best Practices vs Performance ![](../images/tip.png)
 > This recipe has shown the functional programming in JavaScript (e.g. use of `map`, `reduce` and others) can cause bottlnecks. Does this mean we should use a procedural approach everywhere? We think not. The highest priority should be code that's easy to maintain, collaborate on, and debug. Functional programming is a powerful paradigm for these goals, and great for rapid prototyping. Not every function will be a bottleneck, for these functions use of `map`, `reduce` or any such methods is perfectly fine. Only after profiling should we revert to a procedural approach, and in these cases reasons for doing so should be clearly commented. 
 
 
+### There's more
+
+We're going to cover some more advanced optimization techniques around tracing V8 performance activities. This There's More section is definitely worth the read.
+
+#### Function inlining
+
+In the main recipe we learned where our logic was spending a lot of time,
+and solved the problem by removing the overhead of one approach by replacing
+code with a lower impact alternative (the `for` loop).
+
+Let's see if we can make the function faster.
+
+We'll start by creating a new folder called `function-inlining`, then copy
+our `no-collections.js` and `bench.js` files into it.
+
+```sh
+$ mkdir function-inlining
+$ cp no-collection.js function-inlining
+$ cp bench.js function-inlining/initial-bench.js
+```
+
+As we copied our `bench.js` file into `function-inlining` we also renamed it to `initial-bench` since we're starting a new optimization cycle. 
+
+We need to modify `function-inlining/initial-bench.js` by removing the `slow` benchmarks, leaving only our latest version of `divideByAndSum`.
+
+Let's alter `function-inlining/initial-bench.js` to the following:
+
+```js
+const benchmark = require('benchmark')
+const noCollection = require('./no-collections')
+
+const suite = new benchmark.Suite()
+
+const numbers = []
+
+for (let i = 0; i < 1000; i++) {
+  numbers.push(Math.random() * i)
+}
+
+suite.add('no-collections', function () {
+  noCollection(12, numbers)
+})
+
+suite.on('complete', print)
+
+suite.run()
+
+function print () {
+  for (var i = 0; i < this.length; i++) {
+    console.log(this[i].toString())
+  }
+
+  console.log('Fastest is', this.filter('fastest').map('name')[0])
+}
+```
+
+Now, from the `function-inlining` folder let's run the benchmark with the `--trace-inlining` flag to see if our function is being inlined by V8:
+
+```sh
+$ node --trace-inlining initial-bench | grep divideByAndSum
+Did not inline divideByAndSum called from  (target not inlineable).
+```
+
+We used `grep` here to limit output to the function we're interested in. 
+
+The trace output shows that our function is not being inlined by V8,
+and the reason given is ambiguous: `(target not inlineable)`. 
+
+At this point we must rely on trial and error, experience and general knowledge of "optimization killers"  to figure out how to inline our function.
+
 > # Optimization Killers ![](../images/tip.png)
 > While we advocate an evidence-based approach to performance analysis, there is a list of identified rules that prevent function optimization compiled by those who have gone before us. We call these [V8 Optimization Killers](https://github.com/petkaantonov/bluebird/wiki/Optimization-killers). Knowledge of these can enhance our investigations, but at the same time we should resist confirmation bias.
 
+There are a limited amount of occasions where a try-catch block is unavoidable (such as when attempting to `JSON.parse`) however in the case of `divideByAndSum` using try-catch is completely unnecessary. Let's see if removing the try-catch from our function helps. 
 
-### There's more
-
-TODO - FROM HERE
-
-#### The danger of try-catch
-
-Execptions are hard, and sometimes we must use a try/catch block. This
-is not the case:
+We'll create a new file called `no-try-catch.js` where our `divideByAndSum` function looks like the following:
 
 ```js
 function divideByAndSum (num, array) {
@@ -844,28 +911,121 @@ function divideByAndSum (num, array) {
 
   return result
 }
+
+module.exports = divideByAndSum
 ```
 
-Save this as `no-try-catch.js`, and then we edit our `bench.js` file to add a test for this new module:
+Now let's copy `initial-bench.js` to `no-try-catch-bench.js` and 
+convert it to testing our `no-try-catch.js` file:
+
+```sh
+$ cp initial-bench.js no-try-catch-bench.js
+```
+
+The `no-try-catch-bench.js` file should look like this:
 
 ```js
+const benchmark = require('benchmark')
 const noTryCatch = require('./no-try-catch')
+
+const suite = new benchmark.Suite()
+
+const numbers = []
+
+for (let i = 0; i < 1000; i++) {
+  numbers.push(Math.random() * i)
+}
+
 suite.add('no-try-catch', function () {
   noTryCatch(12, numbers)
 })
+
+suite.on('complete', print)
+
+suite.run()
+
+function print () {
+  for (var i = 0; i < this.length; i++) {
+    console.log(this[i].toString())
+  }
+
+  console.log('Fastest is', this.filter('fastest').map('name')[0])
+}
 ```
 
-The results are even more relevant:
+Now let's see if our new `divideByAndSum` is being inlined:
+
+```sh
+$ node --trace-inlining no-try-catch-bench | grep divideByAndSum
+Inlined divideByAndSum called from .
+```
+
+Hooray it's being inlined! 
+
+Ok let's compare approaches in a single `bench.js` file.
+
+Let's copy `slow.js` into the `function-inlining` folder:
+
+```sh
+$ cp ../slow.js .
+```
+
+Now we'll benchmark all three approaches.
+
+We need to make `bench.js` look like the following:
+
+```js
+const benchmark = require('benchmark')
+const slow = require('./slow')
+const noCollection = require('./no-collections')
+const noTryCatch = require('./no-try-catch')
+
+const suite = new benchmark.Suite()
+
+const numbers = []
+
+for (let i = 0; i < 1000; i++) {
+  numbers.push(Math.random() * i)
+}
+
+suite.add('slow', function () {
+  slow(12, numbers)
+})
+
+suite.add('no-collections', function () {
+  noCollection(12, numbers)
+})
+
+suite.add('no-try-catch', function () {
+  noTryCatch(12, numbers)
+})
+
+suite.on('complete', print)
+
+suite.run()
+
+function print () {
+  for (var i = 0; i < this.length; i++) {
+    console.log(this[i].toString())
+  }
+
+  console.log('Fastest is', this.filter('fastest').map('name')[0])
+}
+```
+
+Finally let's compare the approaches:
 
 ```
-$ node bench.js
-slow x 11,014 ops/sec ±1.12% (87 runs sampled)
-no-collections x 58,190 ops/sec ±1.11% (87 runs sampled)
-no-try-catch x 231,196 ops/sec ±0.58% (92 runs sampled)
+$ node bench.js 
+slow x 6,206 ops/sec ±0.81% (90 runs sampled)
+no-collections x 65,088 ops/sec ±0.93% (90 runs sampled)
+no-try-catch x 255,860 ops/sec ±0.87% (91 runs sampled)
 Fastest is no-try-catch
 ```
 
-We achieved a 20 times throughput improvement.
+Wow! The no-try-catch version of `divieByAndSum` is nearly four times faster than the no-collections version, and it's 40 times faster than our original function.
+
+Allowing V8 to inline our functions can be very powerful indeed.
 
 #### Checking the optimization status
 

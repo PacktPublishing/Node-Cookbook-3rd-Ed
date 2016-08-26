@@ -1,8 +1,7 @@
 'use strict'
 
 const benchmark = require('benchmark')
-const slow = require('./slow')
-const noCollection = require('./no-collections')
+const noTryCatch = require('./no-try-catch')
 
 const suite = new benchmark.Suite()
 
@@ -12,12 +11,8 @@ for (let i = 0; i < 1000; i++) {
   numbers.push(Math.random() * i)
 }
 
-suite.add('slow', function () {
-  slow(12, numbers)
-})
-
-suite.add('no-collections', function () {
-  noCollection(12, numbers)
+suite.add('no-try-catch', function () {
+  noTryCatch(12, numbers)
 })
 
 suite.on('complete', print)
