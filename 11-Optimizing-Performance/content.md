@@ -436,14 +436,16 @@ The right hand stack has a cluster of hot stacks some way up the main stack in t
 ![](./images/flamegraph2-highlight.png)
 *A hot function*
 
-Let's click near the illustrated frame (or the equivalent identified stack if our current flamegraph is slightly different). Upon clicking the frame, `0x` allows us to delve deeper by unfold the parent and child stacks to fill the screen, like so:
+Let's click near the illustrated frame (or the equivalent identified stack if our current flamegraph is slightly different). Upon clicking the frame, `0x` allows us to delve deeper by unfolding the parent and child stacks to fill the screen, like so:
 
 ![](./images/flamegraph3.png)
 *Unfolded stacks*
 
 We should be able to see a pattern of darker orange stack frames, 
 in each case the function is the same function appearing on line
-48 of a `walk.js` file in one of our sub-dependencies. We have found our bottleneck.
+48 of a `walk.js` file in one of our sub-dependencies. 
+
+We have located our bottleneck!
 
 > #### The Optimization Workflow ![](../tip.png)
 > We've now covered step 3 of the Optimization Workflow: Find the bottleneck. We've used the flamegraph structure and color coding to  quickly understand where the slowest part of our server is.
@@ -478,7 +480,7 @@ it means that the function is preventing other instructions and I/O events from 
 
 In other words, it's blocking the event loop.
 
-Each block representing a function call also contains other useful information, such as where the function is located in the code base, and if the function has been optimized or not by Node's JavaScript engine ([V8][v8]).
+Each block representing a function call also contains other useful information, such as where the function is located in the code base, and if the function has been optimized or not by Node's JavaScript engine ([V8][V8]).
 
 
 ### There's more
@@ -549,7 +551,7 @@ TBD
 
 ## Optimizing a synchronous function call
 
-Node.js is an evented I/O platform built on top of [V8][v8], Google Chrome's Javascript VM.
+Node.js is an evented I/O platform built on top of [V8][V8], Google Chrome's Javascript VM.
 
 Node applications receive I/O events (file read, data available on
 a socket, write completed) and then execute a Javascript callback (a function).
@@ -562,7 +564,7 @@ Any function that takes a long time to process prevents all other I/O and other 
 
 HTTP benchmarking and flamegraphs help us to understand our applications logical flow and rapidly pinpoint the areas which require optimization (the functions that prevent I/O and other instructions from executing).
 
-[V8][v8] uses two Just-In-Time (JIT) compilers. The Full-codegen compiler and the 
+[V8][V8] uses two Just-In-Time (JIT) compilers. The Full-codegen compiler and the 
 Optimizing compiler which is used for hot functions. Hot functions are functions that are either executed often or they take a long time to complete.  
 
 The Full-codegen compiler is used when a function is loaded. If that function becomes hot the Optimizing compiler will attempt apply relevant optimizations (inlining being one such possible optimization). When V8 fails to optimize a hot function, this can become a bottleneck for an application.
@@ -1396,7 +1398,7 @@ We had a very small increase in throughput (5%), it's something but we can do be
 
 What else do we have control over, which also sits in the hotpath for the `/hello` route? The `sum` function that we're passing to `toArray`.
 
-Let's see if the `sum` function is being optimized by v8. 
+Let's see if the `sum` function is being optimized by V8. 
 
 For ease, we'll use `0x` to determine if it's being optimized.
 
@@ -1713,7 +1715,7 @@ TBD
 [wrk]: https://github.com/wg/wrk
 [express]: http://expressjs.com
 [benchmark]: https://github.com/bestiejs/benchmark.js
-[v8]: https://developers.google.com/v8/
+[V8]: https://developers.google.com/v8/
 [0x]: https://github.com/davidmarkclements/0x
 [mongo]: https://www.mongodb.com
 [lru-cache]: https://github.com/isaacs/node-lru-cache
