@@ -9,6 +9,7 @@ This chapter covers the following topics
 * Optimizing a synchronous function
 * Measuring the performance of an asynchronous application
 * Optimizing asynchronous callbacks
+* Profiling and optimizing memory
 
 ## Introduction
 
@@ -485,7 +486,7 @@ Each block representing a function call also contains other useful information, 
 
 ### There's more
 
-What's the underlying cause of our bottleneck, how does 0x actually profile our code, and how would we go about creating flamegraphs from production servers?
+What's the underlying cause of our bottleneck, how does 0x actually profile our code, and what about Chrome Devtools?
 
 #### Finding a solution
 
@@ -544,6 +545,68 @@ The stacks are output to a folder, and in the case of macOS further mapping is a
 
 To generate the flamegraph `0x` processes these stacks into a JSON tree of parent and child stacks, then creates an HTML file containing the JSON plus a script that uses D3.js to visualize the parent child relationships and other meta-data in a flamegraph format.
 
+#### CPU Profiling with Chrome Devtools
+
+From Node version 6.3 it's possible to use the `--inspect` flag to allow a Node process to be debugged and profiled with Chrome Devtools. 
+
+Let's try it:
+
+```sh
+$ node --inspect server.js
+Debugger listening on port 9229.
+Warning: This is an experimental feature and could change at any time.
+To start debugging, open the following URL in Chrome:
+    chrome-devtools://devtools/remote/serve_file/@60cd6e859b9f557d2312f5bf532f6aec5f284980/inspector.html?experiments=true&v8only=true&ws=localhost:9229/node
+```
+
+If we copy and paste the entire `chrome-devtools://` URI into Chrome we should get an instance of Chrome Devtools connected to our process. 
+
+Now we can select the profile tab, select the "Record JavaScript CPU profile"
+and hit Start to begin profile. 
+
+The next figure illustrates the UI interactions described:
+
+![](images/devtools-profile.png)
+
+Now we use `autocannon` to load the server: 
+
+```sh
+$ autocannon -c 100 http://localhost:3000/hello
+```
+
+Once the `autocannon` has completed, we hit the "Stop" button in Devtools (located in the same place as the Start button before it was clicked).
+
+This should result in the following screen:
+
+![](images/devtools-cpu-profile.png)
+
+The table is sorted by "self-time" - the amount of time a particular instance of the function was observed on CPU. We can see that the `c` function in `walk.js` is located fifth from the top (the other functions above it are related to the same bottleneck, the `c` function also has a higher total time than the anonymous functions).
+
+In the top right corner of the profiling panel there's a drop down menu currently labelled with "Heavy (Bottom Up)"
+
+![](images/devtools-cpu-profile-tab.png)
+
+If we click this and select "Chart" we'll see a visualization of the captured stacks, that looks something like this:
+
+![](images/chart.png)
+
+This is known as a Flamechart (as opposed to a Flamegraph). Flamecharts are conceptually similar Flamegraphs in that stacks are represented by visual blocks atop one another. However in a Flamechart stacks are repeated on the X-axis as a function of time, instead of aggregated into one block. Stacks also aren't colored according to time at the top of stack on CPU. This can be useful in some situations where we want dissect exact formations of stacks calls over a time period. But, as we can see, for complex applications (like our current case), this can be quite difficult to read. 
+
+The devtools Flamechart is shown in two ways, first as overview the top chart, the general shape of the stacks captured of time can be seen. This can be useful for gauging general complexity. The bottom graph is "upside down", in that the first function call is at the top (instead of the bottom) and the last function call is at the bottom.
+
+If we take a very small time slice and look around we'll eventually be able to locate the `c` function, and see something like the following:
+
+![](images/chart-zoom.png)
+
+We can see the `c` function repeatedly being called, when we hover over it can see the time of the individual time plus the aggregate time **for that instance** of `c` (as opposed to the aggregate time for all calls of the same function).
+
+A useful feature of Devtools CPU profiling is we can click a particular frame and it will reveal it in the Source view:
+
+![](images/code.png)
+
+Devtools also shows the time-on-cpu of each function (again only for that particular instance, related to the function block we clicked) next to relevant lines of code. 
+
+In our particular case, the Flamegraph was more suitable than the Flamechart provided by Chrome Devtools, on the other hand Chrome Devtools can allow us greater inspection capabilities when required.
 
 ### See also
 
@@ -1699,7 +1762,12 @@ Unsurprisingly, this is the best-performing solution so far, over a ten-fold imp
 
 TBD
 
-## Recipe Title
+## Profiling and optimizing memory
+
+* memory leak
+* devtools memory analysis
+* more: garbage collection and how it affects cpu perf
+* more: climem
 
 ### Getting Ready
 
