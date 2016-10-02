@@ -7,8 +7,8 @@ This chapter covers the following topics
 * Identifying hot code paths using flamegraphs
 * Measuring the performance of a synchronous function
 * Optimizing a synchronous function
-* Measuring the performance of an asynchronous function
-* Optimizing an asynchronous function
+* Measuring the performance of an asynchronous application
+* Optimizing asynchronous callbacks
 
 ## Introduction
 
@@ -312,7 +312,7 @@ This recipe explores the second and third steps of the optimization workflow: "G
 In order to generate a flamegraph, we need Mac OS X (10.8 -
 10.10)/macOS, a recent Linux distribution, or SmartOS. 
 
-> Windows ![../tip.png]
+> Windows ![](../tip.png)
 > If we're using Windows, flamegraph tooling is limited,
 > the best option is to install a virtual machine with 
 > Linux. See <http://www.storagecraft.com/blog/the-dead-simple-guide-to-installing-a-linux-virtual-machine-on-windows/> for details.
@@ -322,8 +322,6 @@ We'll also need to install [`0x`][0x], the flamegraph tool that can be installed
 ```sh
 $ npm install -g 0x
 ```
-
-We'll also need to quickly scaffold an Express app, and efficient way to do this is install the `express-generator` module, and allow it generate an app for us. 
 
 ### How to do it
 
@@ -385,7 +383,7 @@ We start our server with the following command:
 Now we can use the `autocannon` benchmarking tool to generate some server activity.
 
 > #### Autocannon ![](../info.png)
-> See previous recipet etc. 
+> We explored `autocannon` in the previous recipe, **Benchmarking HTTP**
 
 In another terminal window we use `autocannon` to generate load:
 
@@ -409,13 +407,13 @@ When the flamegraph has been generated a long URL will be printed to the termina
 
 ```
 $ 0x server.js
-file:///path/to/profile-86501/flamegraph.html
+file://path/to/profile-86501/flamegraph.html
 ```
 
 The `0x` tool has created a folder named `profile-XXXX`, where `XXXX`
 is the PID of the server process.
 
-If we open the `flamegraph.html` file with Google Chrome where we'll be presented with some controls, and a flamegraph resembling the following:
+If we open the `flamegraph.html` file with Google Chrome we'll be presented with some controls, and a flamegraph resembling the following:
 
 ![](./images/flamegraph2.png)
 *A flamegraph representing our `/hello` route under load*
@@ -431,11 +429,12 @@ Functions that may be bottlenecks are displayed in darker shades of orange and r
 Hot spots at the bottom of the chart are usually less relevant to application and module developers, since they tend to relate to the inner workings of Node core. So if we ignore those, we can see that most of the hot areas appear within the two macro flames in the middle of the chart. A quick study of these show that many of the same functions appear within each - which means overall both stacks represent very similar logical paths.
 
 > #### Graphical Reproducibility ![](../info.png)
-> We may find that our particular flamegraph doesn't exactly match the one included here. This is because of the non-deterministic nature of the profiling process. Overall however the general meaning of the flamegraph should be the same.
+> We may find that our particular flamegraph doesn't exactly match the one included here. This is because of the non-deterministic nature of the profiling process. Further, the text on each frame will almost certainly differ, since its based on the location of files on your system. Overall however the general meaning of the flamegraph should be the same.
 
 The right hand stack has a cluster of hot stacks some way up the main stack in the horizontal center of other diverging stacks.
 
-TODO IMAGE HIGHLIGHTING PLACE MENTIONED
+![](./images/flamegraph2-highlight.png)
+*A hot function*
 
 Let's click near the illustrated frame (or the equivalent identified stack if our current flamegraph is slightly different). Upon clicking the frame, `0x` allows us to delve deeper by unfold the parent and child stacks to fill the screen, like so:
 
@@ -447,7 +446,7 @@ in each case the function is the same function appearing on line
 48 of a `walk.js` file in one of our sub-dependencies. We have found our bottleneck.
 
 > #### The Optimization Workflow ![](../tip.png)
-> We've now covered step 3 of the Optimization Workflow: Find the bottlneck. We've used the flamegraph structure and color coding to  quickly understand where the slowest part of our server is.
+> We've now covered step 3 of the Optimization Workflow: Find the bottleneck. We've used the flamegraph structure and color coding to  quickly understand where the slowest part of our server is.
 
 > #### What's the cause? ![](../tip.png)
 > Figured out what the root cause is? Check the There's more section of this recipe to find out!
@@ -542,8 +541,6 @@ When `0x` starts the node process, it adds a flag named `--perf-basic-prof` whic
 The stacks are output to a folder, and in the case of macOS further mapping is applied. The stack output contains snapshots of the callstack for each 1 millisecond period the CPU was sampled. If a function is observed at the top of the stack for a particular snapshot (and it's not the ultimate parent of the stack) then it's taken a full millisecond on stack. If this happens multiple times, that's a strong indicator that it's a bottleneck.
 
 To generate the flamegraph `0x` processes these stacks into a JSON tree of parent and child stacks, then creates an HTML file containing the JSON plus a script that uses D3.js to visualize the parent child relationships and other meta-data in a flamegraph format.
-
-#### Flamegraphs and Production Servers
 
 
 ### See also
@@ -699,12 +696,12 @@ Let's follow that lead by seeing if a flamegraph can help at all:
 $ 0x initial-bench.js
 ```
 
-![](../images/divideByAndSum.png)
+![](images/divideByAndSum.png)
 *flamegraph of our initial benchmark*
 
 Again we can see that several pieces of code in `array.js` (the internal V8 array library), seems very hot, both in relation to `map` and `reduce` functionality. Note also how hot the internal `DefineIndexProperty` call is.
 
-Let's confirm out suspicions by looking directly at the internal code for the native `map` function. 
+Let's confirm our suspicions by looking directly at the internal code for the native `map` function. 
 
 ```sh
 $ node --allow-natives-syntax -p "%FunctionGetSourceCode([].map)"
@@ -732,8 +729,6 @@ The evidence is suggesting that the use of `map` and `reduce` is slowing our fun
 Let's rewrite it with procedural code, like so:
 
 ```js
-'use strict'
-
 function divideByAndSum (num, array) {
   var result = 0
   try {
@@ -752,8 +747,6 @@ module.exports = divideByAndSum
 We'll save that as `no-collections.js` and add it to our benchmark suite:
 
 ```js
-'use strict'
-
 const benchmark = require('benchmark')
 const slow = require('./slow')
 const noCollection = require('./no-collections')
@@ -807,22 +800,22 @@ We discovered this by using several techniques.
 
 First we checked which functions were being inlined by V8 and found that our function was not being inlined (and still isn't, we'll find out how to successfully inline it in the **There's More** section). We also saw what that on two occasions a call to `Array` wasn't being inlined, what was more interesting here was where `Array` was being called from `ArraySpeciesCreate` and `arrayMap`. Neither of these functions are defined in our code or in Benchmark.js, so they must be internal.
 
-> ##### Advanced Optimizations ![](../images/tip.png)
+> ##### Advanced Optimizations ![](../tip.png)
 > See the There's More section for more advanced techniques such as inlining and optimization tracing. 
 
 Next we decided to cross-check our findings by generating a flamegraph. It showed a lot of heat around the internal V8 `array.js` file, with function names that seemed to be related to internal `map` and `reduce` code. We also saw a very hot `DefineIndexedProperty` function which seemed of interest.
 
-Finally our third strategy was to dig even deeper by picking the internal code for the `map` method apart by using a special "Native Syntax" function. The `allow-natives-syntax` flag allows for a host of internal V8 helper functions which are always prefixed by the percent sign (`%`). The one we used is `%FunctionGetSourceCode` to print out the internal "native" Arrays `map` method. Had we used `console.log([].map + '')` we would have only seen `function map() { [native code] }`. The special `%FunctionGetSourceCode` gives us the native code. We saw this code correlated to our earlier findings, namely we could see `ArraySpeciesCreate` and the hot `DefineIndexedProperty` function. At this point it was time to test that hypothesis that `map` (and by inference, `reduce`) was slowing our code down.
+Finally our third strategy was to dig even deeper by picking the internal code for the `map` method apart by using a special "Native Syntax" function. The `allow-natives-syntax` flag allows for a host of internal V8 helper functions which are always prefixed by the percent sign (`%`). The one we used is `%FunctionGetSourceCode` to print out the internal "native" Arrays `map` method. Had we used `console.log([].map + '')` we would have only seen `function map() { [native code] }`. The special `%FunctionGetSourceCode` gives us the native code. We saw this code correlated to our earlier findings, namely we could see `ArraySpeciesCreate` and the hot `DefineIndexedProperty` function. At this point it was time to test the hypothesis that `map` (and by inference, `reduce`) was slowing our code down.
 
 We converted our function to use a plain old `for` loop, and set up a benchmark to compare the two approaches. This revealed more than a ten-fold speed increase.
 
-> # Best Practices vs Performance ![](../images/tip.png)
+> # Best Practices vs Performance ![](../tip.png)
 > This recipe has shown the functional programming in JavaScript (e.g. use of `map`, `reduce` and others) can cause bottlnecks. Does this mean we should use a procedural approach everywhere? We think not. The highest priority should be code that's easy to maintain, collaborate on, and debug. Functional programming is a powerful paradigm for these goals, and great for rapid prototyping. Not every function will be a bottleneck, for these functions use of `map`, `reduce` or any such methods is perfectly fine. Only after profiling should we revert to a procedural approach, and in these cases reasons for doing so should be clearly commented. 
 
 
 ### There's more
 
-We're going to cover some more advanced optimization techniques around tracing V8 performance activities. This There's More section is definitely worth the read.
+We're going to cover some more advanced optimization techniques around tracing V8 performance activities.
 
 #### Function inlining
 
@@ -890,7 +883,7 @@ and the reason given is ambiguous: `(target not inlineable)`.
 
 At this point we must rely on trial and error, experience and general knowledge of "optimization killers"  to figure out how to inline our function.
 
-> # Optimization Killers ![](../images/tip.png)
+> # Optimization Killers ![](../tip.png)
 > While we advocate an evidence-based approach to performance analysis, there is a list of identified rules that prevent function optimization compiled by those who have gone before us. We call these [V8 Optimization Killers](https://github.com/petkaantonov/bluebird/wiki/Optimization-killers). Knowledge of these can enhance our investigations, but at the same time we should resist confirmation bias.
 
 There are a limited amount of occasions where a try-catch block is unavoidable (such as when attempting to `JSON.parse`) however in the case of `divideByAndSum` using try-catch is completely unnecessary. Let's see if removing the try-catch from our function helps. 
@@ -915,7 +908,7 @@ function divideByAndSum (num, array) {
 module.exports = divideByAndSum
 ```
 
-Now let's copy `initial-bench.js` to `no-try-catch-bench.js` and 
+We'll copy `initial-bench.js` to `no-try-catch-bench.js` and 
 convert it to testing our `no-try-catch.js` file:
 
 ```sh
@@ -1023,7 +1016,7 @@ no-try-catch x 255,860 ops/sec ±0.87% (91 runs sampled)
 Fastest is no-try-catch
 ```
 
-Wow! The no-try-catch version of `divieByAndSum` is nearly four times faster than the no-collections version, and it's 40 times faster than our original function.
+Wow! The no-try-catch version of `divideByAndSum` is nearly four times faster than the no-collections version, and it's 40 times faster than our original function.
 
 Allowing V8 to inline our functions can be very powerful indeed.
 
@@ -1042,32 +1035,86 @@ We can then instrument the code like the following:
 We can even write a little module to help us debugging these conditions:
 
 ```
-function printStatus(fn) {
+function printStatus (name, fn) {
   switch(%GetOptimizationStatus(fn)) {
-    case 1: console.log("Function is optimized"); break;
-    case 2: console.log("Function is not optimized"); break;
-    case 3: console.log("Function is always optimized"); break;
-    case 4: console.log("Function is never optimized"); break;
-    case 6: console.log("Function is maybe deoptimized"); break;
-    case 7: console.log("Function is optimized by TurboFan"); break;
-    default: console.log("Unknown optimization status"); break;
+    case 1: console.log(`${name} function is optimized`); break;
+    case 2: console.log(`${name} function is not optimized`); break;
+    case 3: console.log(`${name} function is always optimized`); break;
+    case 4: console.log(`${name} function is never optimized`); break;
+    case 6: console.log(`${name} function is maybe deoptimized`); break;
+    case 7: console.log(`${name} function is optimized by TurboFan`); break;
+    default: console.log(`${name} function optimization status unknown`); break;
   }
 }
 
 module.exports = printStatus
 ```
 
-We can then modify our `bench.js` file to verify that
-`no-try-collections.js` is optimized.
+We'll save this a `func-status.js`.
 
-We can also see the optimization status of a function through the
-flamegraph generated by [0x][0x].
+We can then modify our `bench.js` file (from the previous function inlining section, `function-inlining/bench.js` in code samples) to check the optimization status of each version of the `divideByAndSum` function.
+
+Let's make sure `func-status.js` is in the same folder as `bench.js` and then modify bench.js in two ways. First at the top we'll add our `func-status` module:
+
+```js
+const benchmark = require('benchmark')
+const slow = require('./slow')
+const noCollection = require('./no-collections')
+const noTryCatch = require('./no-try-catch')
+const funcStatus = require('./func-status')
+```
+
+At the bottom of `bench.js` we alter the `print` function like so:
+
+```js
+function print () {
+  for (var i = 0; i < this.length; i++) {
+    console.log(this[i].toString())
+  }
+  funcStatus('slow', slow)
+  funcStatus('noCollection', noCollection)
+  funcStatus('noTryCatch', noTryCatch)
+
+  console.log('Fastest is', this.filter('fastest').map('name')[0])
+}
+```
+
+Now we must run our bench.js file like so:
+
+```sh
+node --allow-natives-syntax bench.js
+```
+
+Whic should output something like:
+
+```sh
+slow x 2,742 ops/sec ±0.60% (94 runs sampled)
+no-collections x 63,821 ops/sec ±1.36% (87 runs sampled)
+no-try-catch x 241,958 ops/sec ±2.17% (84 runs sampled)
+slow function is not optimized
+noCollection function is not optimized
+noTryCatch function is optimized
+Fastest is no-try-catch
+```
+
+
+> #### Getting Optimization Status with 0x ![](../tip.png)
+> For a holistic view of the optimization status of an entire app, the flamegraph generated by 0x has "+Optimized" and "+Not Optimized" control buttons. 0x will highlight optimized functions in yellow and non-optimized functions in salmon pink.
+> ![](images/opt-not-opt.png)
+
 
 #### Tracing optimization and deoptimization events
 
 We can tap into the V8 decision process regarding when to optimize a
-function by running our code with `node --trace-opt --trace-deopt
-app.js`. We will get some lines that resemble this:
+function using the `--trace-opt` and `trace-deopt` flags. 
+
+Imagine we had an application with an entry point of `app.js`, we could watch optimization events with the following
+
+ ```sh
+ $ node --trace-opt --trace-deopt app.js
+ ```
+
+This would yield output resembling the following:
 
 ```
 [marking 0x21e29c142521 <JS Function varOf (SharedFunctionInfo 0x1031e5bfa4b9)> for recompilation, reason: hot and stable, ICs with typeinfo: 3/3 (100%), generic ICs: 0/3 (0%)]
@@ -1076,10 +1123,10 @@ app.js`. We will get some lines that resemble this:
 [completed optimizing 0x21e29c142521 <JS Function varOf (SharedFunctionInfo 0x1031e5bfa4b9)>]
 ```
 
-In the abot snippet, a function named `varOf` is marked for optimization and
-then it is optimized.
+Here we see a a function named `varOf` is marked for optimization and
+then optimized shortly after.
 
-While reading the output, we would also notice lines like this:
+We may also observe the following output:
 
 ```
 [marking 0x21e29d33b401 <JS Function (SharedFunctionInfo 0x363485de4f69)> for recompilation, reason: small function, ICs with typeinfo: 1/1 (100%), generic ICs: 0/1 (0%)]
@@ -1087,10 +1134,7 @@ While reading the output, we would also notice lines like this:
 [optimizing 0x21e29d33b401 <JS Function (SharedFunctionInfo 0x363485de4f69)> - took 0.012, 0.072, 0.021 ms]
 ```
 
-This is an anononymous function: it is really hard to know where this is
-defined. [`0x`][0x] use several techniques to reconstruct the line of
-code where that is defined, but we can only access that if that line happear
-in the flamegraph. We must remember to always name our functions.
+In this case an anonymous function is being marked for recompilation. It can be very difficult to know where this function is defined. Naming functions is highly important in profiling situations.
 
 From time to time, we can also see a deoptimizatition happening:
 
@@ -1121,27 +1165,47 @@ instead.
 
 TBD
 
-## Optimizing an asynchronous function
+## Optimizing asynchronous callbacks
 
 Node.js is an asynchronous runtime built for I/O heavy applications,
-and most of our code will involve some for of asynchronous callbacks.
-In the previous recipes we covered how to verify if there is a
-performance issue, where is the issue, and how to optimize a single
-Javascript function.
+and much of our code will involve asynchronous callbacks.
 
-Some times, a performance bottleneck is part of an asynchronous flow,
-and it is hard to pinpoint where the performance issue is. In this recipe,
-we will cover that case in depth.
+In the previous recipes in this chapter we've explored how to determine a performance issue, locate the issue to single synchronous Javascript function and optimize that function.
+
+Sometimes, however, a performance bottleneck can be part of an asynchronous flow, in these scenarios it can be difficult to pinpoint where the performance issue is. 
+
+In this recipe, we'll cover profiling and optimizing an asynchronous performance problem in depth. 
 
 ### Getting Ready
 
-In this recipe, we will optimize an HTTP API built on [Express][expressjs] and [MongoDB][mongo]
-We will use MongoDB version 3.2, which we will need to install from the
-MongoDB [https://www.mongodb.com][mongo] website or the package manager of our
-operating system.
+In this recipe, we will optimize an HTTP API built on [Express][express] and [MongoDB][mongo].
 
-Before starting, we will need to start MongoDB and then load some data
-through a little Node.js script. We save the following as `load.js`:
+
+We'll be using MongoDB version 3.2, which we will need to install from the
+MongoDB [https://www.mongodb.com][mongo] website or via our systems package manager. 
+
+> #### MongoDB ![](../tip.png)
+> For more on MongoDB (and on installing it) see Chapter 5: Working with Databases
+
+Once MongoDB is installed we can make a data directory for it and  start it like so:
+
+```sh
+$ mkdir data
+$ mongod --port 27017 --dbpath data
+```
+
+Next let's initialize our project and install relevant dependencies:
+
+```sh
+$ mkdir async-opt
+$ cd async-opt
+$ npm init -y
+$ npm install mongodb express  --save
+```
+
+Now we need to pre-populate our database with some data. 
+
+Let's create a population script, saving it as `load.js`:
 
 ```js
 const MongoClient = require('mongodb').MongoClient
@@ -1170,14 +1234,19 @@ MongoClient.connect(url, function(err, db) {
 
 ```
 
-The above script depends on the `mongodb` module, which we should install via `npm
-i mongodb`.
-By running `node load.js` we will load 1000 entries into our MongoDB database.
+Great! Let's populate our database:
+
+```sh
+$ node load.js
+```
+
+This will load 1000 entries into our MongoDB database.
 
 ### How to do it
 
-We can write a very simple HTTP server that calculates the average of
-all the data points we have inserted.
+Our under-performing server is a very simple HTTP application that calculates the average of all the data points we have inserted. 
+
+Let's take the following code and save it as `server.js`:
 
 ```js
 const MongoClient = require('mongodb').MongoClient
@@ -1186,18 +1255,17 @@ const app = express()
 
 var url = 'mongodb://localhost:27017/test';
 
-
 MongoClient.connect(url, function(err, db) {
   if (err) { throw err }
   const collection = db.collection('data')
   app.get('/hello', (req, res) => {
-    collection.find({}).toArray(function (err, data) {
+    collection.find({}).toArray(function sum (err, data) {
       if (err) {
         res.send(err)
         return
       }
-      const sum = data.reduce((acc, d) => acc + d.value, 0)
-      const result = sum / data.length
+      const total = data.reduce((acc, d) => acc + d.value, 0)
+      const result = total / data.length
       res.send('' + result)
     })
   })
@@ -1206,9 +1274,15 @@ MongoClient.connect(url, function(err, db) {
 })
 ```
 
-We can save this server as `server.js`, and generate a benchmark:
+Now we'll run it:
 
+```sh
+$ node server.js
 ```
+
+And in second terminal, generate a benchmark:
+
+```sh
 $ autocannon -c 1000 -d 5 http://localhost:3000/hello
 Running 5s test @ http://localhost:3000/hello
 1000 connections
@@ -1222,34 +1296,54 @@ Bytes/Sec    68.02 kB 33.03 kB 94.21 kB
 2 errors
 ```
 
-We can now generate a flamegraph with `0x server.js` and `autocannon -c
-1000 -d 5 http://localhost:3000/hello`.
+Ok we have our baseline, now let's kill our server (Ctrl-C) and run the benchmark again with `0x` to get a flamegraph:
+
+```sh
+$ 0x server.js
+```
+
+```sh
+$ autocannon -c 1000 -d 5 http://localhost:3000/hello
+```
+
+Of course the benchmark results aren't important here (they're skewed by profiling), we're just trying to simulate load in order to diagnose the bottleneck.
+
+This should generate a flamegraph that looks something like the figure below:
 
 ![MongoDB server flamegraph](./images/flamegraph4.png)
+* Flamegraph of our server *
 
-In the above flamegraph, we can see that the darker areas are related
-to `deserializeObject` and `slowToString`.
-These are related to the amount of data being received from MongoDB.
-The _best_ way to fix this issue would be to not doing this
-computation at all, and store (and update) the computed value
-whenever it changes.
-In some situations, this is not possible, and in this recipe we will
-focus on those.
+Flamegraph shows some dark red areas related to two functions, `deserializeObject` and `slowToString`.
 
+These particular bottlenecks are typical to MongoDB applications, and are related to the amount of data being received from MongoDB. The only way to optimize this (other than somehow making MongoDB entity deserialization faster), is to change the data flow.
 
-![MongoDB server flamegraph detail](./images/flamegraph4-detail.png)
+The _best_ way to fix this issue is to avoid the computation on the server at all. Instead we could store (and update) the computed value whenever it changes.
 
-In the flamegraph, there is a little "tower" of stacked function calls in the
-middle, if we zoom in by clicking on a function in there, we can see
-that there is some time spent into reduce. As we know, ES5
-collections might causes slowdown, so we can rewrite our server as:
+But what if our use case doesn't allow for pre-computation? The next best option is to ignore that parts we don't have control over (due to architectural, technical and business constraints) and see if we can squeeze out extra performance around the edges.
+
+Our flamegraph has a small "tower" stack, reminiscent of a sky-scraper.
+
+![](./images/flamegraph4-highlight.png)
+*The towering stack*
+
+We can click one of the lower frames in the stack to "zoom-in", doing so should so something like the following:
+
+![](./images/flamegraph4-detail.png)
+*Zoomed in flamegraph* 
+
+At the top of our zoomed in view, we can see two hot frames, both representing time spent in the native `reduce` method. 
+
+As we know from the recipe "Optimizing a synchronous function call", using ES5
+collection methods in the wrong place can cause bottlenecks.
+
+We can rewrite our server like so:
 
 ```js
 const MongoClient = require('mongodb').MongoClient
 const express = require('express')
 const app = express()
 
-var url = 'mongodb://localhost:27017/test';
+var url = 'mongodb://localhost:27017/test'
 
 MongoClient.connect(url, function(err, db) {
   if (err) { throw err }
@@ -1274,7 +1368,15 @@ MongoClient.connect(url, function(err, db) {
 })
 ```
 
-We can then run autocannon to see how it performs:
+We'll save this as `server-no-reduce.js`.
+
+We can then run it:
+
+```sh
+$ node server-no-reduce.js
+```
+
+And benchmark with `autocannon` to see how it performs:
 
 ```
 $ autocannon -c 1000 -d 5 http://localhost:3000/hello
@@ -1290,23 +1392,39 @@ Bytes/Sec    71.53 kB 30.94 kB 102.4 kB
 5 errors
 ```
 
-We had a very small increase in throughput (5%). We can also generate
-a new flamegraph to see how our `sum` function is now performing.
+We had a very small increase in throughput (5%), it's something but we can do better.
+
+What else do we have control over, which also sits in the hotpath for the `/hello` route? The `sum` function that we're passing to `toArray`.
+
+Let's see if the `sum` function is being optimized by v8. 
+
+For ease, we'll use `0x` to determine if it's being optimized.
+
+Let's create a new flamegraph:
+
+```
+$ 0x server-no-reduce.js
+```
+
+```
+$ autocannon -c 1000 -d 5 http://localhost:3000/hello
+```
+
+Once we have generated a flamegraph with `0x`, we can use the `search`
+box in the top-right corner to locate `sum` function calls, we can see them in the following figure, highlighted purple:
 
 ![MongoDB server flamegraph](./images/flamegraph5.png)
 
-Once we have generated a flamegraph with `0x`, we can use the `search`
-box on the top-right conrent to locate `sum` function calls. If we click on one of functions, we get:
+If we click on one of functions, we get:
 
 ![MongoDB server flamegraph detail](./images/flamegraph5-detail.png)
 
-In the above detail of  the flamegraph, we can see that the `sum` function was not optimized (not opt'd).
+In the above detail of  the flamegraph, we can see that the `sum` function was not optimized (at the end of the text for the `sum` frame we can see the words `not opt'd`).
 
 The `sum` function was not optimized because it is instantiated for
-every request, and then it need to be optimized by V8. However, it is
-only executed once, and it has no possibility of being optimized.
+every request. Each instantiation of the function is only executed once, which means it will never be "hot" enough for V8 to mark it for optimization.
 
-We can work around this problem by changing our `server.js` to:
+We can work around this problem by moving the sum function outside the hotpath, thus instantiating it only once, like so:
 
 ```js
 const MongoClient = require('mongodb').MongoClient
@@ -1342,9 +1460,14 @@ MongoClient.connect(url, function(err, db) {
 })
 ```
 
-We have extracted the actual iteration of the array into a top-level
-function that can be optimized by V8 and reused throughout the life of
-our process. Let's see how it performs:
+We have extracted the expensive piece (the iteration of the array) into a top-level function that can be optimized by V8 and reused throughout the life of
+our process.
+
+Let's save this as `server-one-sum-fn.js` and see how it performs:
+
+```sh
+$ node server-one-sum-fn.js
+```
 
 ```
 $ autocannon -c 1000 -d 5 http://localhost:3000/hello
@@ -1364,24 +1487,35 @@ From our starting point of 315 request per second, we have achieved a
 
 ### How it works
 
-Whenever we allocate a new function, it needs to be optimized by V8.
+We know from the "Optimizing a synchronous function call" recipe that `reduce` is potentially expensive, this was proved again by profiling and flamegraph visualisation. 
+
+Once that was removed the only remaining user-land code (code we have direct control over) was the sum function. So we checked to see whether it was being optimized. We could have checked this using `--trace-opt`, `trace-deopt` and maybe `--trace-inlining` or using the native syntax `%GetOptimizationStatus` function, but in this case we used flamegraphs to quickly locate and check the optimization status of our `sum` function.
+
+Whenever we allocate a new function that's going to be called many times, we ideally want it to be optimized by V8.
+
 The soonest V8 can optimize a new function, is after its first
 invocation.
-Node.js is built around callbacks and functions: when we need to wait
-for some I/O, we allocate a new function, wrapping the state in a
-closure.
-By using top-level functions for CPU-intesive behavior, we can assure we
-deliver amazing performance to our user.
+
+Node.js is built around callbacks and functions, the prevailing pattern for asynchronous interaction (when we need to wait for some I/O), is to allocate new function thereby wrapping the state in a closure.
+
+However by identifying areas of of CPU-intensive behavior within an asynchonrous context and ensuring that such logic is instantiated in a function once only at the top-level, we can assure we deliver the best possible performance for our users.
+
+> #### Reusify ![](../tip.png)
+> For an advanced function-reuse method to trigger V8 optimizations check out the [reusify](http://npm.im/reusify) utility module
+
 
 ### There's more
 
+Let's explore ways to make our server even faster
+
 #### A database solution
 
-The recipe focuses on Javascript code that we can change, as some
-times we cannot change how the data is stored in our database easily. However, some times it is possible.
+Sometimes we cannot change how the data is stored in our database easily, which is why our main recipe focuses on alternative optimizations. 
 
-We can write another Node.js script to calculate our average, to be run
-whenever one of the data point changes:
+However, in cases where we can we can simply pre-compute our data and serve it verbatim.
+
+Let's write another Node.js script to calculate our average, to be run
+each time a data point changes:
 
 ```js
 const MongoClient = require('mongodb').MongoClient
@@ -1428,7 +1562,19 @@ MongoClient.connect(url, function(err, db) {
 })
 ```
 
-And finally, we can verify the throughput of this work:
+We'll save this as `calcute-average.js` and run it
+
+```sh
+$ node calculate-average
+```
+
+Now averages are also stored in MongoDB.
+
+Let's see how this affects the throughput of our (`server-one-sum-fn.js`) app:
+
+```sh
+$ node server-one-sum-fn
+```
 
 ```
 $ autocannon -c 1000 -d 5 http://localhost:3000/hello
@@ -1443,19 +1589,26 @@ Bytes/Sec    537.4 kB 82.99 kB 622.59 kB
 12k requests in 5s, 2.68 MB read
 ```
 
-Avoiding computation at all is the first solution for any performance issue.
+Avoiding computation in a live server is the first solution for any performance issue.
 
 #### A caching solution
 
 For high-performance applications, we might want to leverage
 in-process caching to save time for repeated CPU-bound tasks.
+
 We will use two modules for this: [`lru-cache`][lrucache] and [`fastq`][fastq].
+
+```sh
+npm install --save lru-cache fastq
+```
 
 `lru-cache` implements an performant _least recently used_
 cache, where values are stored with a time to live. `fastq` is a
-performant queue implementation, to sequentialize the calls to
-compute the average. We want to fetch the data and compute the
-result once. Here is `server.js` implementing this behavior:
+performant queue implementation, which we need to control the asynchronous flow 
+
+We want to fetch the data and compute the result once. 
+
+Here is `server-cache.js` implementing this behavior:
 
 ```
 const MongoClient = require('mongodb').MongoClient
@@ -1514,7 +1667,15 @@ MongoClient.connect(url, function(err, db) {
 })
 ```
 
-This is the best-performing solution so far:
+Th queue ensures the responses are sent out in the correct order and, importantly, prevents subsequent requests from triggering additional database lookups before the first lookup is resolved. 
+
+The cache holds results in memory and simply replays them out, which cuts out the I/O and expensive de-serialization process.
+
+Let's run `server-cache.js` and take a benchmark
+
+```
+$ node server-cache.js
+```
 
 ```
 $ autocannon -c 1000 -d 5 http://localhost:3000/hello
@@ -1528,6 +1689,8 @@ Bytes/Sec    792.17 kB 321.93 kB 1.02 MB
 
 18k requests in 5s, 3.97 MB read
 ```
+
+Unsurprisingly, this is the best-performing solution so far, over a ten-fold improvement on the original
 
 ### See also
 

@@ -11,13 +11,13 @@ MongoClient.connect(url, function(err, db) {
   if (err) { throw err }
   const collection = db.collection('data')
   app.get('/hello', (req, res) => {
-    collection.find({}).toArray(function (err, data) {
+    collection.find({}).toArray(function sum (err, data) {
       if (err) {
         res.send(err)
         return
       }
-      const sum = data.reduce((acc, d) => acc + d.value, 0)
-      const result = sum / data.length
+      const total = data.reduce((acc, d) => acc + d.value, 0)
+      const result = total / data.length
       res.send('' + result)
     })
   })
