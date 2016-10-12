@@ -9,12 +9,9 @@ This chapter covers the following topics
 * Optimizing a synchronous function
 * Measuring the performance of an asynchronous application
 * Optimizing asynchronous callbacks
-* Profiling and optimizing memory
+* Profiling memory
 
 ## Introduction
-
-> #### Guest Author
-> This chapter was co-authored with Node.js Performance Guru and IOT expert Matteo Collina.
 
 JavaScript runs in a single threaded event-loop. Node.js is a runtime built for evented I/O where multiple execution
 flows are processed concurrently but not in parallel. An example of this could be an HTTP server, tens of thousands of requests can be processed per second but only one instruction is being executed at any given time.
@@ -547,7 +544,7 @@ To generate the flamegraph `0x` processes these stacks into a JSON tree of paren
 
 #### CPU Profiling with Chrome Devtools
 
-From Node version 6.3 it's possible to use the `--inspect` flag to allow a Node process to be debugged and profiled with Chrome Devtools. 
+From Node version 6.3.x it's possible to use the `--inspect` flag to allow a Node process to be debugged and profiled with Chrome Devtools. 
 
 Let's try it:
 
@@ -880,7 +877,7 @@ We converted our function to use a plain old `for` loop, and set up a benchmark 
 
 ### There's more
 
-We're going to cover some more advanced optimization techniques around tracing V8 performance activities.
+Let's look at some more advanced optimization techniques around tracing V8 performance activities.
 
 #### Function inlining
 
@@ -1399,10 +1396,10 @@ We can click one of the lower frames in the stack to "zoom-in", doing so should 
 
 At the top of our zoomed in view, we can see two hot frames, both representing time spent in the native `reduce` method. 
 
-As we know from the recipe "Optimizing a synchronous function call", using ES5
+As we know from the recipe **Optimizing a synchronous function call**, using ES5
 collection methods in the wrong place can cause bottlenecks.
 
-We can rewrite our server like so:
+So let's rewrite our server like so:
 
 ```js
 const MongoClient = require('mongodb').MongoClient
@@ -1535,7 +1532,7 @@ Let's save this as `server-one-sum-fn.js` and see how it performs:
 $ node server-one-sum-fn.js
 ```
 
-```
+```sh
 $ autocannon -c 1000 -d 5 http://localhost:3000/hello
 Running 5s test @ http://localhost:3000/hello
 1000 connections
@@ -1642,7 +1639,7 @@ Let's see how this affects the throughput of our (`server-one-sum-fn.js`) app:
 $ node server-one-sum-fn
 ```
 
-```
+```sh
 $ autocannon -c 1000 -d 5 http://localhost:3000/hello
 Running 5s test @ http://localhost:3000/hello
 1000 connections
@@ -1676,7 +1673,7 @@ We want to fetch the data and compute the result once.
 
 Here is `server-cache.js` implementing this behavior:
 
-```
+```js
 const MongoClient = require('mongodb').MongoClient
 const express = require('express')
 const LRU = require('lru-cache')
@@ -1739,11 +1736,11 @@ The cache holds results in memory and simply replays them out, which cuts out th
 
 Let's run `server-cache.js` and take a benchmark
 
-```
+```sh
 $ node server-cache.js
 ```
 
-```
+```sh
 $ autocannon -c 1000 -d 5 http://localhost:3000/hello
 Running 5s test @ http://localhost:3000/hello
 1000 connections
@@ -1762,22 +1759,181 @@ Unsurprisingly, this is the best-performing solution so far, over a ten-fold imp
 
 TBD
 
-## Profiling and optimizing memory
+## Profiling memory
 
-* memory leak
-* devtools memory analysis
-* more: garbage collection and how it affects cpu perf
-* more: climem
+This chapter has mostly focused on CPU performance, but memory leaks can also be bad for overall performance, or even cause down time.
+
+In this final recipe we'll look at memory profiling and fixing a memory leak.
 
 ### Getting Ready
 
+We'll be using Chrome Devtools in this recipe, so if we don't have Google Chrome Browser installed, we'll need to download and install the relevant binaries for our operating system (head to <https://www.google.com/chrome> to get started).
+
+If we haven't already installed `autocannon` we'll be using it in this recipe:
+
+```sh
+$ npm install -g autocannon
+```
+
+We're going profile a server that gives us a unique, Star Wars inspired, name. 
+
+Let's create a folder and install relevant dependencies:
+
+```sh
+$ mkdir name-server
+$ cd name-server
+$ npm init -y
+$ npm install --save starwars-names
+```
+
+Now we'll create a file called `index.js` with the following code:
+
+```js
+const http = require('http')
+const starwarsName = require('starwars-names').random
+const names = {}
+
+http.createServer((req, res) => {
+  res.end(`Your unique name is:  ${createName(req)} \n`)
+}).listen(8080)
+
+function createName () {
+  var result = starwarsName()
+  if (names[result]) {
+    result += names[result]++
+  }
+  names[result] = 1
+  return result
+}
+```
+
+We can test out our server by starting it and sending a curl request:
+
+```sh
+$ node index.js
+```
+
+```sh
+$ curl http://localhost:8008
+Your unique name is:  Han Solo
+```
+
+To ensure uniqueness, if the server happens to generate the name "Han Solo" again, a counter will be suffixed ("Han Solo1", "Han Solo2" and so forth).
+
 ### How to do it
+
+This server can work just fine for months, but eventually it crashes with log output mentioning "allocation failure"
+
+![](images/allocation-failure.png)
+*Eventually our server crashes*
+
+We can use the `--inspect` flag to start our server and initialize the Chrome Devtools Inspect Debugger protocol.
+
+```sh
+$ node --inspect index.js
+Debugger listening on port 9229.
+Warning: This is an experimental feature and could change at any time.
+To start debugging, open the following URL in Chrome:
+    chrome-devtools://devtools/remote/serve_file/@60cd6e859b9f557d2312f5bf532f6aec5f284980/inspector.html?experiments=true&v8only=true&ws=localhost:9229/node
+```
+
+If we copy and paste the `chrome-devtools://` URI into Chrome we'll be presented an instance of Devtools.
+
+![](images/devtools-top.png)
+*Devtools Connected to Node*
+
+> #### Inspecting Node below v6.3.x
+> If we need to debug memory usage in a version of Node that pre-dates `--inspect` flag support we can achieve the equivalent with [node-inspector](http://npm.im/node-inspector)
+
+There are three tabs at the top of Devtools ("Console", "Sources" and "Profile"), for our purposes we want to select the "Profiles" tab.
+
+We'll then be presented with the profiling section, we need to select the "Take Heap Snapshot" radio button, and then press the "Take Snapshot" button. 
+
+![](images/devtools-profiling.png)
+*Profile -> Take Heap Snapshot -> Take Snapshot*
+
+This should create the following screen:
+
+![](images/heap-snapshot-1.png)
+*Our initial snapshot*
+
+Now we'll use `autocannon` to put the server under some pressure, so we can expose the leak. 
+
+In a terminal we run:
+
+```sh
+$ autocannon localhost:8080
+```
+
+This will use `autocannon` defaults (10 connections, 10 seconds) to bombard the server with requests.
+
+Now we'll take another heap snapshot, we can return to the main profiles screen by hitting the "Profiles" label, above the "Heap Snapshots" heading in the left panel.
+
+![](images/profiles-from-heap-snapshot.png)
+*Returning to the main profiles screen*
+
+From here we can press the "Take Snapshot" button again, will generate a second snapshot (named "Snapshot 2" in the left panel). Notice how the second snapshot is 10 times the size of the first (~50mb vs ~5mb).
+
+Next we can use the "Comparison" view to compare our first snapshot to the second, this is located in a drop down currently displaying a label titled "Summary". 
+
+![](images/summary-select.png)
+*Heapdump View Dropdown*
+
+When we click this, we're presented with a menu which has a "Comparison" option, this is selection we want to make.
+
+![](images/heap-dropdown.png)
+*Heapdump View Options*
+
+Every entity in the heap is grouped by Constructor (the JavaScript equivalent of a base class). Some of the constructors are named after v8 native types (`(array)`, `(string)`, some after built-in JavaScript types (`Object`) and others have the name as defined in user space `HTTPPARSER`. 
+
+The Comparison view calculates entity count and memory size deltas between the two snapshots, summarising these deltas at the constructor group level. The constructor types are then ordered according to delta size, with the biggest deltas at the top.
+
+![](images/heap-comparison-view.png)
+*Comparison View*
+
+
+If we drill down into the top constructor (by clicking the small right arrow next to the `(array)` constructor) we may have a clue to where the leak is happening, and why:
+
+![](images/heap-dropdown.png)
+
+Instead of *just* keeping a counter for the amount of times a name is used, we're accidentally storing each unique name. This means our `names` object is going to incrementally grow on each and every request.
+
+Let's fix it, by rewriting our `createName` function like so:
+
+```js
+function createName () {
+  var result = starwarsName()
+  names[result] = names[result] ? 
+    names[result] + 1 :
+    1
+  return result + names[result]
+}
+```
+
+We can save these changes in a new folder (which we'll call `non-leaky`). 
+
+Now, if we we're to follow the same exact process with the `non-leaky` server, generating two snapshots and going into "Comparison" view we should see a different story.
+
+![](images/non-leaky-heap.png)
+*Heap Snapshot of our non-leaky server*
 
 ### How it works
 
+
+
+Now our second snapshot is still marginally larger - the `names` object will still be populated, but only with the total amount of possible Star Wars names, there is also likely
+
 ### There's more
 
+Let's check out an easy way to monitor and visualize memory usage in the terminal, and explore another aspect of memory management in Node: Garbage collection.
+
+#### Visualizing Memory Usage in the Terminal
+
+#### How Garbage Collection affects performance
+
 ### See also
+
+TBD
 
 
 [autocannon]: https://github.com/mcollina/autocannon
