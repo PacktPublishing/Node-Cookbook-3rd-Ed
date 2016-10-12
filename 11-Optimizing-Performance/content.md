@@ -1881,7 +1881,7 @@ Next we can use the "Comparison" view to compare our first snapshot to the secon
 
 When we click this, we're presented with a menu which has a "Comparison" option, this is selection we want to make.
 
-![](images/heap-dropdown.png)
+![](images/heap-dropdown.png)<br>
 *Heapdump View Options*
 
 Every entity in the heap is grouped by Constructor (the JavaScript equivalent of a base class). Some of the constructors are named after v8 native types (`(array)`, `(string)`, some after built-in JavaScript types (`Object`) and others have the name as defined in user space `HTTPPARSER`. 
@@ -1894,7 +1894,8 @@ The Comparison view calculates entity count and memory size deltas between the t
 
 If we drill down into the top constructor (by clicking the small right arrow next to the `(array)` constructor) we may have a clue to where the leak is happening, and why:
 
-![](images/heap-dropdown.png)
+![](images/heap-drilldown.png)
+*Drilling down into the constructor with largest delta*
 
 Instead of *just* keeping a counter for the amount of times a name is used, we're accidentally storing each unique name. This means our `names` object is going to incrementally grow on each and every request.
 
