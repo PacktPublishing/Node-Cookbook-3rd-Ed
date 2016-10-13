@@ -1373,8 +1373,8 @@ Of course the benchmark results aren't important here (they're skewed by profili
 
 This should generate a flamegraph that looks something like the figure below:
 
-![MongoDB server flamegraph](./images/flamegraph4.png)
-* Flamegraph of our server *
+![MongoDB server flamegraph](images/flamegraph4.png)
+*Flamegraph of our server*
 
 Flamegraph shows some dark red areas related to two functions, `deserializeObject` and `slowToString`.
 
@@ -1949,6 +1949,64 @@ The second snapshot on our non-leaky code is still marginally larger - the `name
 Let's check out an easy way to monitor and visualize memory usage in the terminal, and explore another aspect of memory management in Node: Garbage collection.
 
 #### Visualizing Memory Usage in the Terminal
+
+There are plenty of tools for visualising a processes memory usage, however these will only supply total memory usage. 
+
+We can get a more granular breakdown of memory by asking V8. 
+
+Node's `process.memoryUsage` function will output three memory usage figures, the Resident Set Size (`rss`), Total Heap Size (`heapTotal`), and Heap Used (`heapUsed`). 
+
+```sh
+$ node -p "process.memoryUsage()"
+{ rss: 19095552, heapTotal: 8425472, heapUsed: 3949936 }
+```
+
+These terms are relevant to V8's memory scheme. The Resident Set is the amount of memory a process has allocated for itself - the total memory that has been reserved. Similarly the Total Heap Size is also an amount of memory set aside by the process for the heap. Finally the heap used portion relates to items that actually have references (are not assigned for garbage collection). 
+
+The V8 memory scheme also includes a code segment (our code, dependency code, core code) and a stack. Since the code segment is essentially static, and the stack is rapidly changing these data points are less relevant. 
+
+The [climem](http://npm.im) tool can be used to graph the `rss`, `heapTotal` and `heapUsed` indicators in the terminal!
+
+First we need to install it globally
+
+```sh
+$ npm install -g climem
+```
+
+Then locally into our project
+
+```sh
+$ npm install --save-dev climem
+```
+
+Now we use the `-r` flag to externally require `climem` into our (leaky) process:
+
+```sh
+$ node -r climem index.js
+```
+
+This will create a file in the same directory named `climem-{PID}` where `{PID}` is the process ID of our node process. 
+
+Let's say the process ID is 30277, the name of the file in our current folder would be `climem-30277`
+
+To begin graphing memory usage, we open a new terminal and run 
+
+```sh
+$ climem climem-30277
+```
+
+Now we can put our leaky server under some load and see what happens to memory over time:
+
+```sh
+$ autocannon localhost:8080
+```
+
+This will cause climem to graph something similar to the following:
+
+![](images/climem-graph.png)
+*`climem` graph*
+
+The initial jump at the start of the graph is where climem connects to the process. The big climb in the middle is where we ran `autocannon` against the server. The drop in the middle of the climb appears to be a garbage collection. The steep climb in memory would have forced V8 to do a GC sweep and wipe anything laying around. The straight line followed by a drop off at the end is essentially V8 de-escalating defensive memory provisioning. That is, the process memory isn't under pressure any more, it's probably safe to deallocate additionally allocated memory. Notice that the severe declines apply to RSS and Heap Total, whereas Heap Used drops only very slightly (possibly another minor GC).
 
 #### How Garbage Collection affects performance
 
