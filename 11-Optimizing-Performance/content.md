@@ -1373,10 +1373,10 @@ Of course the benchmark results aren't important here (they're skewed by profili
 
 This should generate a flamegraph that looks something like the figure below:
 
-![MongoDB server flamegraph](images/flamegraph4.png)
+![](images/flamegraph4.png)
 *Flamegraph of our server*
 
-Flamegraph shows some dark red areas related to two functions, `deserializeObject` and `slowToString`.
+The flamegraph shows some dark red areas related to two functions, `deserializeObject` and `slowToString`.
 
 These particular bottlenecks are typical to MongoDB applications, and are related to the amount of data being received from MongoDB. The only way to optimize this (other than somehow making MongoDB entity deserialization faster), is to change the data flow.
 
@@ -1659,7 +1659,7 @@ Avoiding computation in a live server is the first solution for any performance 
 For high-performance applications, we might want to leverage
 in-process caching to save time for repeated CPU-bound tasks.
 
-We will use two modules for this: [`lru-cache`][lrucache] and [`fastq`][fastq].
+We will use two modules for this: [`lru-cache`][lru-cache] and [`fastq`][fastq].
 
 ```sh
 npm install --save lru-cache fastq
@@ -2008,12 +2008,9 @@ This will cause climem to graph something similar to the following:
 
 The initial jump at the start of the graph is where climem connects to the process. The big climb in the middle is where we ran `autocannon` against the server. The drop in the middle of the climb appears to be a garbage collection. The steep climb in memory would have forced V8 to do a GC sweep and wipe anything laying around. The straight line followed by a drop off at the end is essentially V8 de-escalating defensive memory provisioning. That is, the process memory isn't under pressure any more, it's probably safe to deallocate additionally allocated memory. Notice that the severe declines apply to RSS and Heap Total, whereas Heap Used drops only very slightly (possibly another minor GC).
 
-#### How Garbage Collection affects performance
-
 ### See also
 
 TBD
-
 
 [autocannon]: https://github.com/mcollina/autocannon
 [wrk]: https://github.com/wg/wrk
