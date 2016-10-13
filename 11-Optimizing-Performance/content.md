@@ -1894,7 +1894,7 @@ The Comparison view calculates entity count and memory size deltas between the t
 
 If we drill down into the top constructor (by clicking the small right arrow next to the `(array)` constructor) we may have a clue to where the leak is happening, and why:
 
-![](images/heap-drilldown.png)
+![](images/heap-drilldown.png)<br>
 *Drilling down into the constructor with largest delta*
 
 Instead of *just* keeping a counter for the amount of times a name is used, we're accidentally storing each unique name. This means our `names` object is going to incrementally grow on each and every request.
@@ -1920,9 +1920,29 @@ Now, if we we're to follow the same exact process with the `non-leaky` server, g
 
 ### How it works
 
+The V8 JavaScript engine is used by both Chrome and Node.js, this allows for compatibility in tooling. The V8 engine retains a heap of all objects and primitives that have are referenced in some way in the JavaScript code. The JavaScript heap can be exposed via V8's internal `v8_inspector` API, which in turn has a remote interface that can queried and controlled over a WebSocket connection. 
 
+Chrome Devtools has the ability to connect to and interact with remote inspector connections. The `chrome-devtools://` URI supplied when we run `node` with the `--inspect` flag loads a instance of Devtools that is instructed via the URI to connect to exposed inspection WebSocket (notice the last part of the URI: `ws=localhost:9229/node`). 
 
-Now our second snapshot is still marginally larger - the `names` object will still be populated, but only with the total amount of possible Star Wars names, there is also likely
+Once connected, we can perform any action on our Node process that can be performed in the browser - including taking a snapshot of V8's heap.
+
+Once we had connected Devtools to the process, we take an initial heap snapshot, prior to interacting with the server.
+
+Then we generated load on the server with `autocannon` to simulate usage over time. In our case, we used the `autocannon` defaults (10 connections for 10 seconds). In another scenario we may have had to specify higher load for a longer period to expose a leak, it depends on the severity of the leak. 
+
+Now our next heap snapshot reveals the effect our load has had on memory usage. 
+
+If the size of the second snapshot is significantly higher than the first, it's a good indicator that there's a leak. 
+
+We find the area of our leak by using the Comparison view, this supplies deltas between the two snapshots and places the largest delta at the top. All that's left is inspecting these areas to see where all the extra memory usage is coming from. 
+
+In our case the clue is that there's Star Wars names everywhere and even in the first ten we can some are repeating (Darth Nihilus and Lando Calrissian) with different numbers suffixed.
+
+Items are grouped by "Constructor", in our case the constructor group with the highest delta is `(array)` followed by `(string)`. The `(string)` delta makes perfect sense, all of our Star Wars names are strings, so in both cases our deltas correspond to the same items. However the `(array)` constructor could be confusing at first. If we were dealing with a JavaScript array, the constructor would actually be `Array`, however `(array)` is an internal structure used by V8 to store an objects keys. This leads us to the conclusion that the leak is occurring because of many keys being added to an object.
+
+We rewrite our `createName` function to ensure that only the name (without a number) is stored as a key in the `names` object and then run through same heap snapshot workflow to validate our changes.
+
+The second snapshot on our non-leaky code is still marginally larger - the `names` object will still be populated, but only with the total amount of possible Star Wars names, there is also likely additional memory usage from lazy initialization at the core level which may take place after the first request (and/or at certain request count thresholds).
 
 ### There's more
 
