@@ -1,4 +1,4 @@
-# 4 Making Clients and Servers
+# 4 Implementing High-level Protocols
 
 This chapter covers the following topics
 
@@ -14,10 +14,15 @@ This chapter covers the following topics
 
 ## Introduction
 
-One of the great qualities of Node is its simplicity. Unlike PHP or ASP there is no separation the behavior we want. With Node we can create the server, customize it, and deliver content all at the code level. This chapter demonstrates how to create various clients and servers in the "Application Layer" of the TCP/IP stack.
+One of the great qualities of Node is its simplicity. Unlike PHP or ASP there is no separation the behavior we want. With Node we can create the server, customize it, and deliver content all at the code level. 
 
-### Processing POST Data
-If we want to be able to receive POST data we have to instruct our server on how to accept and handle a POST request. In PHP we could access our POST values seamlessly with $_POST['fieldname'], because it would block until an array value was filled. Contrariwise, Node provides low level interaction with the flow of HTTP data allowing us to interface with the incoming message body as a stream, leaving it entirely up to the developer to turn that stream into usable data.
+With a focus on core API's and low-level implementation, this chapter demonstrates how to create various clients and servers in the "Application Layer" of the TCP/IP stack.
+
+## Receiving POST Data
+
+If we want to be able to receive POST data we have to instruct our server on how to accept and handle a POST request. In PHP we could access our POST values seamlessly with $_POST['fieldname'], because it would block until an array value was filled. 
+
+Contrariwise, Node provides low level interaction with the flow of HTTP data allowing us to interface with the incoming message body as a stream, leaving it entirely up to the developer to turn that stream into usable data.
 
 ### Getting ready
 
@@ -50,7 +55,7 @@ http.createServer((req, res) => {
     get(res)
     return
   }
-  badRequest(res)
+  reject(405, 'Method Not Allowed', res)
 }).listen(8080)
 
 function get (res) {
@@ -58,9 +63,9 @@ function get (res) {
   res.end(form)  
 }
 
-function badRequest (res) {
-  res.statusCode = 400
-  res.end('Bad Request')
+function reject (code, msg, res) {
+  res.statusCode = code
+  res.end(msg)
 }
 ```
 
@@ -68,9 +73,9 @@ We are synchronously loading `form.html` at initialization time instead of acces
 
 If we navigate to `localhost:8080` we'll be presented with a form. 
 
-But if we fill out them form and submit we'll encounter a "Bad Request" response. If the method is anything other than `GET`, our request handler (the function passed to `http.createServer`) will fall through to calling the `badRequest` function.
+But if we fill out the form and submit we'll encounter a "Method Not Allowed" response. If the method is anything other than `GET`, our request handler (the function passed to `http.createServer`) will fall through to calling the `reject` function which sets the relevant status code and sends the supplied message via the `res` object.
 
-Out next step is to implement `POST` request handling.
+Our next step is to implement `POST` request handling.
 
 First we'll add the `querystring` module to our list of required dependencies at the top of the file. The top section our `server.js` file should become:
 
@@ -82,7 +87,13 @@ const form = fs.readFileSync(path.join(__dirname, 'public', 'form.html'))
 const qs = require('querystring')
 ```
 
-Now we'll add a check for POST methods in the request handler, so our `http.createServer` instantiation looks like the following:
+For safety we'll want to define a maximum request size, which we'll use to help guard against payload size based DoS attacks:
+
+```js
+const maxData = 2 * 1024 * 1024 // 2mb
+```
+
+Now we'll add a check for POST methods in the request handler, so our `http.createServer` calls looks like so:
 
 ```js
 http.createServer((req, res) => {
@@ -94,99 +105,193 @@ http.createServer((req, res) => {
     post(req, res)
     return
   }
-  badRequest(res)
+  reject(405, 'Method Not Allowed', res)
 }).listen(8080)
 ```
 
-Finally, we'll implement the `post` function that's called within the request handler: 
+Now, we'll implement the `post` function that's called within the request handler: 
 
 ```js
 function post (req, res) {
-  const size = parseInt(req.headers['content-length'], 10)    
-
-  const buffer = Buffer.allocUnsafe(size)
-  var pos = 0
-
-  req.on('data', (chunk) => {
-    chunk.copy(buffer, pos)
-    pos += chunk.length
-  }).on('end', () => {
-    const data = qs.parse(buffer.toString())
-    console.log('User Posted: ', data)
-    res.end('You Posted: ' + JSON.stringify(data))
-  })
-}
-```
-
-Once the form is completed and submitted, the browser and terminal will present the data provided via the form.
-
-> Securing the Server [](../../info.png)
-> In it's current state our server is vulnerable to DoS attacks, see the **Limiting POST request size** in the **There's More** section to find out how to secure the server.
-
-### How it works
-
-
-
-### There's More
-
-#### Limited POST Request Size
-
-Our server is vulnerable.
-
-If we don't validate the `content-size` header a malicious request could arbitrarily allocate memory. This means a single request can generate a `RangeError` (where the content size is greater than a maximum buffer size) causing the server to crash. 
-
-Even if we used a `try`/`catch` for the `RangeError` case, an attack could still be possible where many requests allocate large buffers and keep the connection open, causing the process to eventually crash from an out-of-memory error.
-
-To protect our server we can validate the `content-size` request header, and the total data from the client.
-
-We'll define a maximum allowed data per request value, just under our dependencies:
-
-```js
-const http = require('http')
-const fs = require('fs')
-const path = require('path')
-const form = fs.readFileSync(path.join(__dirname, 'public', 'form.html'))
-const qs = require('querystring')
-const maxData = 2 * 1024 * 1024 // 2mb
-```
-
-Then we'll make adjust our `post` function like so:
-
-```js
-function post (req, res) {
-  const size = parseInt(req.headers['content-length'], 10)    
-
+  if (req.headers['content-type'] !== 'application/x-www-form-urlencoded') {
+    reject(415, 'Unsupported Media Type', res)
+    return
+  }
+  const size = parseInt(req.headers['content-length'], 10)
+  if (isNaN(size)) {
+    reject(400, 'Bad Request', res)
+    return
+  }
   if (size > maxData) {
-    tooLarge(req, res)
+    reject(413, 'Too Large', res)
     return
   }
 
   const buffer = Buffer.allocUnsafe(size)
   var pos = 0
 
-  req.on('data', (chunk) => {
-    const offset = pos + chunk.length
-    if (offset > size) {
-      tooLarge(req, res)
-      return
-    }
-    chunk.copy(buffer, pos)
-    pos = offset
-  }).on('end', () => {
-    const data = qs.parse(buffer.toString()   )
-    console.log('User Posted: ', data)
-    res.end('You Posted: ' + JSON.stringify(data))
-  })
+  req
+    .on('data', (chunk) => {
+      const offset = pos + chunk.length
+      if (offset > size) {
+        reject(413, 'Too Large', res)
+        return
+      }
+      chunk.copy(buffer, pos)
+      pos = offset
+    })
+    .on('end', () => {
+      if (pos !== size) {
+        reject(400, 'Bad Request', res)
+        return
+      }
+      const data = qs.parse(buffer.toString())
+      console.log('User Posted: ', data)
+      res.end('You Posted: ' + JSON.stringify(data))
+    })
 }
 ```
 
-#### JSON Post Requests
+Notice how we check the `Content-Type` and `Content-Size` headers sent by the browser. In particular `Content-Size` is validated at several check-points, this is important for preventing various types of attack from DoS attacks to leaking deallocated memory.
 
-#### Handling File Uploads
+Once the form is completed and submitted, the browser and terminal should present the data provided via the form.
+
+### How it works
+
+The `http` module sits on top of the `net` module (Node's TCP library) which in turn interacts with an internal C library called libuv. The libuv C library handles network socket input/output, passing data between the C layer and the JavaScript layer. 
+
+When we call `http.createServer` an object is returned which represents the HTTP server. We immediately call the `listen` method on the server object which instructs the `http` module to listen for incoming data on the supplied port (`8080`).
+
+Every time data is received at the network socket layer, if the data is successfully translated into an HTTP request the `http` module creates an object representing the request (`req`) and response (`res`) then calls our supplied request handler passing it the request and response objects.
+
+Our request handler checks the `method` property of the request object to determine whether the request is `GET` or `POST`, and calls the corresponding function accordingly, falling back calling our `reject` helper function if the request is neither `GET` nor `POST`.
+
+The `get` function uses `writeHead` to indicate a success code (`200`) and set the `Content-Type` header to inform the browser of the mime-type of our form content (`text/html`). The `res` object is a `WriteStream`, which have `write` and `end` methods. Our `get` function finishes by calling `res.end` passing it the cached `form` content, this simultaneously writes to the response stream and ends the stream, thus closing the HTTP connection.
+
+The `reject` function sets the `statusCode` and similarly calls `res.end` with the supplied message.
+
+Our `post` function implements the core objective of our server. The `post` function checks the `Content-Type` and `Content-Size` HTTP headers to determine that we can support the supplied values (we'll talk more about size validation shortly) and uses it to preallocate a buffer. The HTTP request object (`req`) is a Node stream, which inherits from the `EventEmitter` object. Readable streams constantly emit `data` events until an `end` event is emitted. In the `data` event listener we use the `Buffer` `copy` method to duplicate the bytes in each incoming `chunk` into our preallocated `buffer` and update the `pos` to `chunk.length` so the next `data` event starts from where we left off in the previous event. 
+
+When all the data is received from the client the `end` event will be triggered. Our `end` event listener converts the buffer to a string, passing it into `qs.parse`. This converts the POST data (which is in the format `userinput1=firstVal&userinput2=secondVal`) into an object. This object is logged our to the console, and serialized with `JSON.stringify` as it's passed to `res.end` and thus mirrored back to the user.
+
+We cannot trust the client to reliably represent the size of the content, as this could be manipulated by an attacker so we take several measures to validate the `Content-Size` HTTP header. HTTP headers will always be in string format, so we use `parseInt` to convert from string to number. If the `Content-Size` header sent wasn't a number `size` would be `NaN` - in that case we send a `400 Bad Request` response. 
+
+> Web Frameworks ![](../../info.png)
+> Node's core API provides a powerful set of primitives to build functionality as we see fit. Of course, this also means there's a lot of angles to think about. In Chapter 6 we'll be talking about Web Frameworks where the low-level considerations have been taken care of, allowing us to focus primarily on business logic.
+
+If `size` is a number we pass it to `Buffer.allocUnsafe` which creates a buffer of the given size. The choice by Node core developers to put "unsafe" name is deliberately alarming. `Buffer.allocUnsafe` will create a buffer from deallocated (i.e. unlinked memory. That means any kind of data might appear in a buffer created with `allocUnsafe`, potentially including highly sensitive data like cryptographic private keys. This is fine as long as there isn't some way of leaking previously deallocated memory to the client. By using it we accept the burden of ensuring that a malicious request can't leak the data. This is why in the `end` event listener we check that `pos` is equal to `size`. If it isn't then the request is ending prematurely, and the old memory in our `buffer` hasn't been fully overwritten by the payload. Without the `size` check in the `end` event listener internal memory could leak to the client.
+
+We could use `Buffer.alloc` instead, which zero-fills the memory (overwrites the memory with `00` bytes) before handing the buffer back but `Buffer.allocUnsafe` is faster.
+
+The other check against `size` is in the `data` event listener, where we make sure the payload size doesn't exceed the provided `Content-Size`. This scenario could be a malicious attempt to overload the memory of our server, resulting in a Denial Of Service attack.
+
+### There's More
+
+#### Accepting JSON
+
+REST architectures (among others) typically handle the `application/json` content type in preference to the `application/x-www-form-urlencoded` type. Generally this is due to the versatility of the JSON format as a multi-language transport syntax. 
+
+Let's convert our form and server to working with JSON instead of URL-encoded data.
+
+We're going to use a third party module for safely and efficiently parsing the JSON. To do this we'll have to initialize our folder with a `package.json` file and then install the module. 
+
+Let's run the following on the command line
+
+```sh
+$ npm init -y
+$ npm install --save fast-json-parse
+```
+
+In the `server.js` file we need to add the following to our required dependencies at the top of the file:
+
+```js
+const parse = require('fast-json-parse')
+```
+
+The first line of our `post` function should be changed to checking `Content-Type` for `application/json`, like so:
+
+```js
+function post (req, res) {
+  if (req.headers['content-type'] !== 'application/json') {
+    reject(415, 'Unsupported Media Type', res)
+    return
+  }
+/* ... snip .. */
+```
+
+The final step in converting our `server.js` file is to adjust the `end` event listener like so:
+
+```js
+/* ... snip .. */
+    .on('end', () => {
+      if (pos !== size) {
+        reject(400, 'Bad Request', res)
+        return
+      }
+      const data = buffer.toString()
+      const parsed = parse(data)
+      if (parsed.err) {
+        reject(400, 'Bad Request', res)
+        return  
+      }
+      console.log('User Posted: ', parsed.value)
+      res.end('{"data": ' + data + "}")
+    })
+/* ... snip .. */
+```
+
+Unfortunately HTML forms do not natively support POSTing in the JSON format, so we'll need to add a touch of JavaScript to `public/form.html`.
+
+Let's add the following `script` tag to `form.html`, underneath the `<form>` element:
+
+```html
+<script>
+  document.forms[0].addEventListener('submit', function (evt) {
+    evt.preventDefault()
+    var form = this
+    var data = Object.keys(form).reduce(function (o, i) {
+      if (form[i].name) o[form[i].name] = form[i].value
+      return o
+    }, {})
+    form.innerHTML = ''
+    var xhr = new XMLHttpRequest()
+    xhr.open('POST', '/')
+    xhr.setRequestHeader('Content-Type', 'application/json')
+    xhr.send(JSON.stringify(data))
+    xhr.addEventListener('load', function () {
+      var res
+      try { res = JSON.parse(this.response) } catch (e) {
+        res = {error: 'Mangled Response'}
+      }
+      form.innerHTML = res.error 
+        ? res.error 
+        : 'You Posted: ' + JSON.stringify(res.data)
+    })
+  })
+</script>
+```
+
+Our form and server should now largely behave in the same as the main recipe.Except our frontend is now a tiny Single Page App and JSON (the backbone of modern web architecture) is being used for communication between server and client.
 
 ### See Also
 
 * TBD
+
+
+## Handling File Uploads
+
+### Getting Ready
+
+### How to do it
+
+### How it works
+
+### There's more
+
+### See Also
+
+* TBD
+
 
 
 ## Making an HTTP POST request

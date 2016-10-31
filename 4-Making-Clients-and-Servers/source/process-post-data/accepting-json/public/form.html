@@ -1,0 +1,29 @@
+<form method="post">
+  <input type="text" name="userinput1"><br>
+  <input type="text" name="userinput2"><br>
+  <input type="submit">
+</form>
+<script>
+  document.forms[0].addEventListener('submit', function (evt) {
+    evt.preventDefault()
+    var form = this
+    var data = Object.keys(form).reduce(function (o, i) {
+      if (form[i].name) o[form[i].name] = form[i].value
+      return o
+    }, {})
+    form.innerHTML = ''
+    var xhr = new XMLHttpRequest()
+    xhr.open('POST', '/')
+    xhr.setRequestHeader('Content-Type', 'application/json')
+    xhr.send(JSON.stringify(data))
+    xhr.addEventListener('load', function () {
+      var res
+      try { res = JSON.parse(this.response) } catch (e) {
+        res = {error: 'Mangled Response'}
+      }
+      form.innerHTML = res.error 
+        ? res.error 
+        : 'You Posted: ' + JSON.stringify(res.data)
+    })
+  })
+</script>

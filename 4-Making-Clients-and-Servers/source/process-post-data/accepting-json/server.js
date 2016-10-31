@@ -1,8 +1,8 @@
 const http = require('http')
 const fs = require('fs')
 const path = require('path')
+const parse = require('fast-json-parse')
 const form = fs.readFileSync(path.join(__dirname, 'public', 'form.html'))
-const qs = require('querystring')
 const maxData = 2 * 1024 * 1024 // 2mb
 
 http.createServer((req, res) => {
@@ -23,7 +23,7 @@ function get (res) {
 }
 
 function post (req, res) {
-  if (req.headers['content-type'] !== 'application/x-www-form-urlencoded') {
+  if (req.headers['content-type'] !== 'application/json') {
     reject(415, 'Unsupported Media Type', res)
     return
   }
@@ -54,9 +54,14 @@ function post (req, res) {
         reject(400, 'Bad Request', res)
         return
       }
-      const data = qs.parse(buffer.toString())
-      console.log('User Posted: ', data)
-      res.end('You Posted: ' + JSON.stringify(data))
+      const data = buffer.toString()
+      const parsed = parse(data)
+      if (parsed.err) {
+        reject(400, 'Bad Request', res)
+        return  
+      }
+      console.log('User Posted: ', parsed.value)
+      res.end('{"data": ' + data + "}")
     })
 }
 
