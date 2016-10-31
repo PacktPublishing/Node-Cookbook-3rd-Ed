@@ -1,0 +1,19 @@
+{
+  "name": "uploading-a-file",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "David Mark Clements",
+  "license": "MIT",
+  "dependencies": {
+    "busboy": "^0.2.13",
+    "end-of-stream": "^1.1.0",
+    "multipart-read-stream": "^1.0.1",
+    "pump": "^1.0.1"
+  }
+}

@@ -1,4 +1,4 @@
-# 4 Implementing High-level Protocols
+# 4 Connecting with Web Protocols
 
 This chapter covers the following topics
 
@@ -8,7 +8,6 @@ This chapter covers the following topics
 * Processing GET request
 * Processing POST request
 * Handling a file upload over HTTP
-* Creating a RESTful API server
 * Creating an SMTP server
 * Creating a WebSocket server-client application
 
@@ -16,7 +15,10 @@ This chapter covers the following topics
 
 One of the great qualities of Node is its simplicity. Unlike PHP or ASP there is no separation the behavior we want. With Node we can create the server, customize it, and deliver content all at the code level. 
 
-With a focus on core API's and low-level implementation, this chapter demonstrates how to create various clients and servers in the "Application Layer" of the TCP/IP stack.
+Starting with a focus on core API's and low-level implementation then working our way up to more complex protocols with third party libraries, this chapter demonstrates how to create various clients and servers in the "Application Layer" of the TCP/IP stack.
+
+> From Protocols to Frameworks ![](../tip.png)
+> This chapter focuses on Node's direct relationship with Network protocols. It's intended to develop understanding of fundamental concepts. For creating more extensive and enterprise focused HTTP infrastructure check out **Chapter 6. Weilding Web Frameworks**. 
 
 ## Receiving POST Data
 
@@ -277,12 +279,82 @@ Our form and server should now largely behave in the same as the main recipe.Exc
 
 * TBD
 
-
 ## Handling File Uploads
+
+We cannot process an uploaded file in the same way we process other POST data. When a file input is submitted in a form, the browser embeds the file(s) into a multipart message. 
+
+Multipart was originally developed as an email format allowing multiple pieces of mixed content to be combined into one payload. If we attempted to receive the upload as a stream and write it to a file, we would have a file filled with multipart data instead of the file or files themselves. 
+
+We need a multipart parser, the writing of which is more than a recipe can cover. So we'll be `multipart-read-stream` module which sits on top of the well-established `busboy` module to convert each piece of the multipart data into an independent stream, which we'll then pipe to disk.
+
 
 ### Getting Ready
 
+Let's create a new folder called `uploading-a-file` and create an `uploads` directory inside that:
+
+```sh
+$ mkdir uploading-a-file
+$ cd uploading-a-file
+$ mkdir uploads
+```
+
+We'll also want to initialize a `package.json` file and install `multipart-read-stream` and `pump`.
+
+On the command line, inside the `uploading-a-file` directory we run the following commands:
+
+```sh
+$ npm init -y
+$ npm install --save multipart-read-stream pump
+```
+
+> Streams ![](../tip.png)
+> For more about streams (and why `pump` is essential) see the previous chapter, **Chapter 3. Using Streams**
+
+Finally we'll make some changes to our form.html from the last recipe:
+
+```js
+<form method=POST enctype="multipart/form-data">
+  <input type="file" name="userfile1"><br>
+  <input type="file" name="userfile2"><br>
+  <input type="submit">
+</form>
+```
+
+We've included an enctype attribute of multipart/form-data to signify to the browser that the form will contain upload data and we've replaced the text inputs with file inputs.
+
+
 ### How to do it
+
+Let's see what happens when we use our modified form to upload a file to the server from the last recipe. 
+
+Let's upload form.html itself as our file:
+
+![](images/upload.png)
+
+Our POST server simply logs the raw HTTP message body to the console, which in this case is multipart data. We had two file inputs on the form. Though we only uploaded one file, the second input is still included in the multipart request. Each file is separated by a predefined boundary that is set in a secondary attribute of the Content-Type HTTP headers. We'll need to use formidable to parse this data, extracting each file contained therein.
+var http = require('http');
+var formidable = require('formidable');
+var form = require('fs').readFileSync('form.html');
+
+http.createServer(function (request, response) {
+  if (request.method === "POST") {
+    var incoming = new formidable.IncomingForm();
+    incoming.uploadDir = 'uploads';
+    incoming.on('file', function (field, file) {
+      if (!file.size) { return; }
+      response.write(file.name + ' received\n');
+    }).on('end', function () {
+      response.end('All files received');
+    });
+    incoming.parse(request);
+  }
+  if (request.method === "GET") {
+    response.writeHead(200, {'Content-Type': 'text/html'});
+    response.end(form);
+  }
+}).listen(8080);
+Our POST server has now become an upload server.
+
 
 ### How it works
 
@@ -347,28 +419,6 @@ req.write(payload)
 
 ### There's more
 
-#### Buffering a request
-
-```
-const http = require('http')
-const assert = require('assert')
-const url = 'http://www.davidmarkclements.com/ncb3/some.json'
-
-http.get(url, (res) => {
-  const size =parseInt(res.headers['content-length'], 10)
-  const buffer = Buffer.allocUnsafe(size)
-  var index = 0
-  res.on('data', (chunk) => {
-    chunk.copy(buffer, index)
-    index += chunk.length
-  })
-  res.on('end', () => {
-    const data = buffer.toString()
-    assert.equal(size, Buffer.byteLength(data))
-    console.log('GUID:', JSON.parse(data).guid)
-  })
-})
-```
 
 #### Multipart POST uploads
 
@@ -416,35 +466,11 @@ function about (res) {
 
 #### In-Process Caching
 
-
-
 ### See also
 
 TBD
 
-## Creating a RESTful API server
-
-restify? raw but restify in there's more?
-
-also - get put post delete - all the thigns
-
-### Getting Ready
-
-### How to do it
-
-### How it works
-
-### There's more
-
-#### Securing the REST Server
-
-#### Using Fastify
-
-### See also
-
-TBD
-
-## Creating a WebSocket server-client application
+## Communicating with WebSockets
 
 ### Getting Ready
 
