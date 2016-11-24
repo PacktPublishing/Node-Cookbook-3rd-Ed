@@ -4,9 +4,10 @@ This chapter covers the following topics
 
 * Building a simple restful micro service
 * Creating the context
-* Setting up a development environment for microservices
-* Using pattern matching and the mu module
+* Setting up a development environment
+* Using pattern matching with Mu
 * Using containers with microservices
+* Adding a second service
 * Building queue based microservice
 * TODO: MORE HERE
 * When to use 
@@ -142,7 +143,67 @@ In the following recipes we will look at how microservices operate in the contex
 
 
 ## Creating the context
-create a front end to consume our services
+
+### Getting Ready
+In this recipe we are going to create a web application that will consume our microservice. This is the API and client tier in our reference architecture depicted in figure 3.1. We will be using the express web framework to do this. We will be using the express generators to create an application skeleton for us so we first need to install the generators. To do this run.
+
+```
+npm install -g express-generator
+```
+
+Lets build our web app.
+
+
+### How to do it
+First let's open a command prompt and cd into the directory we created in the first recipie.
+
+```
+$cd micro
+```
+
+Next generate the application skeleton using the express command line tool
+
+```
+$express --view=ejs ./webapp
+```
+
+This will create a skeletal web application using ejs templates in a new directory called webapp.
+
+> #### ejs.. ![](../info.png)
+>
+> Express supports multiple template engines including Jade, Ejs and Handlebars. If you would prefer to use a different engine simply supply a different option to the --view switch. More information is available by running ```express --help```
+
+Next we need to install the dependencies for our application:
+
+```
+$cd webapp
+$npm install
+```
+
+Once this has completed we can run the application:
+
+```
+$npm start
+```
+
+If we now point a browser to http://localhost:3000 we should see a page renderd by our application as in figure 8.2 below:
+
+![image](./images/fig3.2.png)
+**Figure 8.1 Microservice refernce architecture**
+
+Now that we have our web application skeleton its time to wire it up to our microservice.
+
+
+### How it works
+why express - template engine, restify for services
+
+### There's more
+
+### See also
+
+
+## Setting up a development environment
+Fuge
 
 ### Getting Ready
 
@@ -153,3 +214,60 @@ create a front end to consume our services
 ### There's more
 
 ### See also
+
+
+## Using pattern matching with Mu
+Convert the add service to mu - refactor so that we have a wiring and a service keeping the conerenes separate. update the application to consume mu service over tcp
+
+### Getting Ready
+
+### How to do it
+
+### How it works
+
+### There's more
+
+### See also
+
+## Using Containers
+Service will store some data in mongo we will introduce using docker. introduce docker and import and use a mongo container
+
+### Getting Ready
+
+### How to do it
+
+### How it works
+
+### There's more
+
+### See also
+
+
+## Adding a second service
+Service will read and write data to the mongo container
+
+### Getting Ready
+
+### How to do it
+
+### How it works
+
+### There's more
+
+### See also
+
+## Building queue based microservice
+Introduce a redis container and a redis mu service. The service should do some computation and store a result. Then run all 3 services and the front end with fuge
+
+### Getting Ready
+
+### How to do it
+
+### How it works
+
+### There's more
+
+### See also
+
+
+
