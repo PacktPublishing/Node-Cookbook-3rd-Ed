@@ -3,7 +3,7 @@
 This chapter covers the following topics
 
 * Building a simple restful micro service
-* Consuming the service
+* Creating the context
 * Setting up a development environment for microservices
 * Using pattern matching and the mu module
 * Using containers with microservices
@@ -40,28 +40,109 @@ From this we will use the following definition for a microservice:
 TODO: Confirm and refine this
 
 
-# 1 Writing Modules
 
-This chapter covers the following topics
+npm install restify --no-optional
 
-* Node's module system
-* Initializing a module
-* Writing a modules
-* Tooling around modules
-* Publishing modules
-* Setting up a private module repository 
-* Best practices
+## Creating a simple restful microservice
 
-## Introduction
+### Getting Ready
+In this recipie we will build a simple microservice using the restify module. Restify is an easy to use web framework that helps us to rapidly build services that can be consumed over http. We will test our service using the curl command. To get started open a command prompt and create a fresh empty directory, lets call it micro and also a subdirectory called adder-service
 
-In idiomatic Node, the module is the fundamental unit of logic. Applications or systems should consist of many generic modules composed together while domain specific logic ties modules together at the application level. In this chapter we'll learn how Node's module system works, how to create modules for various scenarios and how we can reuse and share our code.
+```
+$mkdir micro
+$cd micro
+$mkdir adder-service
+$cd adder-service
+```
+
+### How to do it
+Our micro service will add two numbers together. The service is simply a node module, so lets go ahead and create a fresh module in the adder-service directory, run:
+
+```
+$npm init
+```
+
+and accept all of the default answers. This will create a fresh package.json for us. Next lets add in the restify module for our service run:
+
+```
+npm install restify --save --no-optional
+```
+
+This will install the restify module and also add the dependency to package.json
+
+> #### --no-optional.. ![](../info.png)
+>
+> By default restify installs DTrace probes, this can be disabled during install with the --no-optional flag. Whilst DTrace is great not all systems support it which is why we have chosen to disable it in this example. You can find out more about dtrace here: http://dtrace.org/blogs/about/
+
+Now it's time to actually write our service. Using your favorite editor create a file 'service.js' in the adder-service folder. Add the following code:
+
+```
+var restify = require('restify')
+
+function respond (req, res, next) {
+  var result = parseInt(req.params.first, 10) + parseInt(req.params.second, 10)
+  res.send('' + result)
+  next()
+}
+
+var server = restify.createServer()
+server.get('/add/:first/:second', respond)
+
+server.listen(8080, function () {
+  console.log('%s listening at %s', server.name, server.url)
+})
+```
+
+Once you have added the code and saved the file we can run and test our service. In the command prompt cd to the service folder and run the service as follows:
+
+```
+$cd micro/adder-service
+$node service.js
+```
+
+The service gives the folloing output:
+
+```
+restify listening at http://[::]:8080
+```
+
+Lets test our service using curl. Open a fresh command window and type the following:
+
+```
+curl http://localhost:8080/add/1/2
+```
+
+The service should responsd with the answer 3. We have just built our first restful micro-service.
+
+> #### curl ![](../tip.png)
+> curl is a command line http client program that works much like a web browser. If you don't have curl available on your system you can test the service by putting the url into your web browser.
+
+### How it works
+When we executed the microservice restify opened up tcp port 8080 and began listening for requests. The curl command opend a socket on local host and connected to port 8080. Curl then sent a http GET request for the url /add/1/2. In the code we had told restify to service GET requests matching a specific url pattern:
+
+```
+server.get('/add/:first/:second', respond)
+```
+
+The :first, :second parts of this tell restify to match path elements in these positions to parameters. You can see this working in the respond function where we were able to access the parameters using the form:
+
+```
+req.params.first
+```
+
+Finally our service sent a response using the ```res.send``` function.
+
+### There's more
+Whilst this is a trivial service it should serve to implement the principal that a microservice is really nothing more than a node module that runs as an independent process. A micro-service system is a collection of these co-operating processes. Of course it gets more complicated in a real system where you have lots of services and have to manage problems such as service discovery and deployment, however keep in mind that the core concept is really very simple.
+
+In the following recipes we will look at how microservices operate in the context of an example system, how to setup an effective development environment for this style of coding and also introduce other messaging and communication protocols
+
+### See also
+* TODO
 
 
-
-
-
-
-## Recipe title
+## Creating the context
+create a front end to consume our services
 
 ### Getting Ready
 
@@ -72,6 +153,3 @@ In idiomatic Node, the module is the fundamental unit of logic. Applications or 
 ### There's more
 
 ### See also
-
-
-
