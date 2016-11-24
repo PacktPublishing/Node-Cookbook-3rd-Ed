@@ -2,7 +2,7 @@
 
 This chapter covers the following topics
 
-* Building a simple restful micro service
+* Building a simple RESTful microservice
 * Creating the context
 * Setting up a development environment
 * Using pattern matching with Mu
@@ -19,11 +19,11 @@ This chapter covers the following topics
 
 ## Introduction
 
-Micro-services are very much in vouge at the moment and for good reason. There are many benefits to adopting a micro-services architecture such as:
+Microservices are very much in vogue at the moment and for good reason. There are many benefits to adopting a microservices architecture such as:
 
 * LIST HERE
 
-Of course it is not always appropritae to use microservices, certainly the 'golden hammer' anti-pattern should be avoided at all costs, however in our experience it is a powerful approach when applied correctly. In this chapter we will learn how to construct a simple restful micro-service and also how this might be consumed. We will also look at a powerful approach to microservice construction, that of pattern matching. We will use the Mu library to do this. We will also look at how to set up a clean local development environment using the fuge toolkit and then look at how to build services that communicate over protocols other than simple http. Finally we will discuss when and when not to adopt the microservices architecture.
+Of course it is not always appropritae to use microservices, certainly the 'golden hammer' anti-pattern should be avoided at all costs, however in our experience it is a powerful approach when applied correctly. In this chapter we will learn how to construct a simple RESTful microservice and also how this might be consumed. We will also look at a powerful approach to microservice construction, that of pattern matching. We will use the Mu library to do this. We will also look at how to set up a clean local development environment using the fuge toolkit and then look at how to build services that communicate over protocols other than simple http. Finally we will discuss when and when not to adopt the microservices architecture.
 
 However before diving into code we should take a moment to review what we mean by a microservice and how this concept plays into a reference architecural frame.
 
@@ -44,36 +44,36 @@ TODO: Confirm and refine this
 
 npm install restify --no-optional
 
-## Creating a simple restful microservice
+## Creating a simple RESTful microservice
 
 ### Getting Ready
-In this recipie we will build a simple microservice using the restify module. Restify is an easy to use web framework that helps us to rapidly build services that can be consumed over http. We will test our service using the curl command. To get started open a command prompt and create a fresh empty directory, lets call it micro and also a subdirectory called adder-service
+In this recipie we will build a simple microservice using the `restify` module. Restify is an easy to use web framework that helps us to rapidly build services that can be consumed over http. We will test our service using the curl command. To get started open a command prompt and create a fresh empty directory, lets call it micro and also a subdirectory called adder-service
 
 ```
-$mkdir micro
-$cd micro
-$mkdir adder-service
-$cd adder-service
+$ mkdir micro
+$ cd micro
+$ mkdir adder-service
+$ cd adder-service
 ```
 
 ### How to do it
-Our micro service will add two numbers together. The service is simply a node module, so lets go ahead and create a fresh module in the adder-service directory, run:
+Our microservice will add two numbers together. The service is simply a Node module, so let's go ahead and create a fresh module in the adder-service directory, run:
 
 ```
-$npm init
+$ npm init
 ```
 
-and accept all of the default answers. This will create a fresh package.json for us. Next lets add in the restify module for our service run:
+and accept all of the default answers. This will create a fresh `package.json` for us. Next let's add in the `restify` module for our service run:
 
 ```
 npm install restify --save --no-optional
 ```
 
-This will install the restify module and also add the dependency to package.json
+This will install the `restify` module and also add the dependency to `package.json`
 
 > #### --no-optional.. ![](../info.png)
 >
-> By default restify installs DTrace probes, this can be disabled during install with the --no-optional flag. Whilst DTrace is great not all systems support it which is why we have chosen to disable it in this example. You can find out more about dtrace here: http://dtrace.org/blogs/about/
+> By default `restify` installs DTrace probes, this can be disabled during install with the --no-optional flag. Whilst DTrace is great not all systems support it which is why we have chosen to disable it in this example. You can find out more about dtrace here: http://dtrace.org/blogs/about/
 
 Now it's time to actually write our service. Using your favorite editor create a file 'service.js' in the adder-service folder. Add the following code:
 
@@ -97,8 +97,8 @@ server.listen(8080, function () {
 Once you have added the code and saved the file we can run and test our service. In the command prompt cd to the service folder and run the service as follows:
 
 ```
-$cd micro/adder-service
-$node service.js
+$ cd micro/adder-service
+$ node service.js
 ```
 
 The service gives the folloing output:
@@ -107,36 +107,32 @@ The service gives the folloing output:
 restify listening at http://[::]:8080
 ```
 
-Lets test our service using curl. Open a fresh command window and type the following:
+Let's test our service using curl. Open a fresh command window and type the following:
 
 ```
 curl http://localhost:8080/add/1/2
 ```
 
-The service should responsd with the answer 3. We have just built our first restful micro-service.
+The service should responsd with the answer 3. We have just built our first RESTful microservice.
 
 > #### curl ![](../tip.png)
 > curl is a command line http client program that works much like a web browser. If you don't have curl available on your system you can test the service by putting the url into your web browser.
 
 ### How it works
-When we executed the microservice restify opened up tcp port 8080 and began listening for requests. The curl command opend a socket on local host and connected to port 8080. Curl then sent a http GET request for the url /add/1/2. In the code we had told restify to service GET requests matching a specific url pattern:
+When we executed the microservice `restify` opened up tcp port 8080 and began listening for requests. The curl command opend a socket on local host and connected to port 8080. Curl then sent a http GET request for the url /add/1/2. In the code we had told `restify` to service GET requests matching a specific url pattern:
 
 ```
 server.get('/add/:first/:second', respond)
 ```
 
-The :first, :second parts of this tell restify to match path elements in these positions to parameters. You can see this working in the respond function where we were able to access the parameters using the form:
+The :first, :second parts of this tell `restify` to match path elements in these positions to parameters. You can see this working in the respond function where we were able to access the parameters using the form `req.params.first`
 
-```
-req.params.first
-```
-
-Finally our service sent a response using the ```res.send``` function.
+Finally our service sent a response using the `res.send` function.
 
 ### There's more
-Whilst this is a trivial service it should serve to implement the principal that a microservice is really nothing more than a node module that runs as an independent process. A micro-service system is a collection of these co-operating processes. Of course it gets more complicated in a real system where you have lots of services and have to manage problems such as service discovery and deployment, however keep in mind that the core concept is really very simple.
+Whilst this is a trivial service it should serve to implement the principal that a microservice is really nothing more than a Node module that runs as an independent process. A microservice system is a collection of these co-operating processes. Of course it gets more complicated in a real system where you have lots of services and have to manage problems such as service discovery and deployment, however keep in mind that the core concept is really very simple.
 
-In the following recipes we will look at how microservices operate in the context of an example system, how to setup an effective development environment for this style of coding and also introduce other messaging and communication protocols
+In the following recipes we will look at how microservices operate in the context of an example system, how to set up an effective development environment for this style of coding and also introduce other messaging and communication protocols
 
 ### See also
 * TODO
@@ -164,7 +160,7 @@ $cd micro
 Next generate the application skeleton using the express command line tool
 
 ```
-$express --view=ejs ./webapp
+$ express --view=ejs ./webapp
 ```
 
 This will create a skeletal web application using ejs templates in a new directory called webapp.
@@ -176,14 +172,14 @@ This will create a skeletal web application using ejs templates in a new directo
 Next we need to install the dependencies for our application:
 
 ```
-$cd webapp
-$npm install
+$ cd webapp
+$ npm install
 ```
 
 Once this has completed we can run the application:
 
 ```
-$npm start
+$ npm start
 ```
 
 If we now point a browser to http://localhost:3000 we should see a page renderd by our application as in figure 8.2 below:
