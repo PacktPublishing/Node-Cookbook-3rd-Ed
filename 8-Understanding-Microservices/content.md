@@ -292,17 +292,142 @@ The following recipes will go on to build on more elements of our system however
 **TODO**
 
 ## Setting up a development environment
-Fuge
 
 ### Getting Ready
+Microservice systems have many advantages to traditional monolithic development, however this type of development does present it's own challenges. One of these has been termed Shell Hell. This occurrs when we have many microservices to spin up and down on a local development machine in order to run integration and regression testing against the system.
+
+**TODO**
+![image](shellhell.png)
+
+As depicted in figure 8.6 above, things can get out of control quite quickly. In order to avoid the problems of shell hell we are going to install and configure `fuge` in this recipie. Fuge is a node module designed specifically to help with local microservice development, to install it run the following command:
+
+```
+npm install -g fuge
+```
 
 ### How to do it
+Fuge needs a simple configuration file in order to take control of our development system, lets write it now. Firstly we need to create a directory called `fuge` at the same level as our webapp and service directories.
+
+```
+$ cd micro
+$ mkdir fuge
+```
+
+Next we need to create a file `fuge.yml` in this directory and add the following code:
+
+```
+fuge_global:
+  tail: true
+  monitor: true
+  monitor_excludes:
+    - /node_modules|\.git|\.log/mgi
+  auto_generate_environment: true
+webapp:
+  type: process
+  path: ../webapp
+  run: 'npm start'
+  ports:
+    - http=3000
+adder_service:
+  type: process
+  path: ../adder-service
+  run: 'node service.js'
+  ports:
+    - http=8080
+```
+
+Fuge will provide us with an execution shell for our apps and services. To start this up run the following command:
+
+```
+$ fuge shell fuge.yml
+```
+
+Fuge will read this configuration file and provide us with a command prompt:
+
+```
+fuge >
+```
+
+Type help to see the list of available commands:
+
+![image](./images/fuge-help.png)
+
+If we now give fuge the ps command it will show us the list of managed processes:
+
+![image](./images/fuge-ps.png)
+
+We can see from this that fuge understands that it is managing our webapp and our adder-service. Lets start these up using the fuge shell by issuing the `start all` command:
+
+![image](./images/fuge-run1.png)
+
+Once we issue the start all command fuge will spin up an instance of all managed processes. Fuge will trace output from these process to the console and color the output on a per process basis. We can now point our browser to `http://localhost:3000/add` and the system should work as before. Let's now make a change to our service code, say by adding some additional logging. Let's add a `console.log` statement to our respond function, so that our service code looks as follows:
+
+```
+var restify = require('restify')
+
+function respond (req, res, next) {
+  var result = parseInt(req.params.first, 10) + parseInt(req.params.second, 10)
+  
+  // add some logging...
+  console.log('adding numbers!')
+  res.send('' + result)
+  next()
+}
+
+var server = restify.createServer()
+server.get('/add/:first/:second', respond)
+
+server.listen(8080, function () {
+  console.log('%s listening at %s', server.name, server.url)
+})
+```
+
+If we now go back to the fuge shell we can see that fuge detected this change and has restarted our service for us automatically. If we add some numbers through the `webapp` interface we can also see that our new `console.log` statement is displayed in the fuge shell.
+
+![image](./images/fuge-restart.png)
+
+Finally lets shutdown our system by issuing the `stop all` command in the fuge shell. Fuge will stop all managed processes. We can check that this has completed successfully by issuing a ps command.
+
+![image](./images/fuge-stopall.png)
+
+We can now exit the fuge shell by typing `exit`.
 
 ### How it works
+Building a microservice system of any significant size comes with challenges, one of the key challenges is managing a number of descerete processes in development. Tools like Fuge can help us to manage this complexity and accelerate our development experience.
+
+Under the hood Fuge reads its configuration file to determine what processes it needs to manage it then provides an execution environment for those processes. Fuge also watches our code for changes and will automatically restart a service as changes are made. This is very useful when developing systems with a significant number of microservices as Fuge takes care of a lot of the grunt process management work for us.
+
+Fuge can also manage docker containers locally for us and that will be a subject for our next recipie. 
 
 ### There's more
+As we saw by running the `help` command fuge has a number of other useful commands for example:
+
+* pull - to pull fresh code for each managed project
+* grep - to search logs of all running processes
+* build - to run a nominated build script for each managed project
+* stop/start - to stop/start processes individually
+* watch/unwatch - to toggle process restart watching individually
+* tail/untail - to toggle log tailing for all processes
+* info - to display process environment information
+
+Fuge is under active development, so the folliwng commands are still experimental:
+
+* debug - attach a debugger to a specific process
+* profile - gather profile information for a specific process
+
+We should note that Fuge is a development tool, something that we use during development. Fuge should not be used for running microservices in a production environment.
 
 ### See also
+Fuge is just one tool for manageing microservices in development. There are of course other approaches. For example:
+
+* Docker Compose - provides a container based approach to configuring and running a mciroservice system. Compose is limited because a fresh container needs to be constructed for each code change which limits development speed
+
+* Otto - from Hasicorp provides a similar abstration to Fuge, however we feel that Otto tries to cover too much in that it also targets production deployment.
+
+The other advantage of Fuge is of course that it is fully open sourced and implemented entirely in node.js.
+
+> #### ejs.. ![](../info.png)
+> In the interests of full disclosure it should be noted that Fuge is implemented by the authors of this book!
 
 
 ## Using pattern matching with Mu
@@ -360,3 +485,17 @@ Introduce a redis container and a redis mu service. The service should do some c
 
 
 
+## Service Discovery
+Introduce the self registryuation adn 3rd party registration patterns. implement one with consul??
+
+dns based using fuge to emulate kube
+
+### Getting Ready
+
+### How to do it
+
+### How it works
+
+### There's more
+
+### See also
