@@ -426,22 +426,133 @@ Fuge is just one tool for manageing microservices in development. There are of c
 
 The other advantage of Fuge is of course that it is fully open sourced and implemented entirely in node.js.
 
-> #### ejs.. ![](../info.png)
+> #### Full Discolsure.. ![](../info.png)
 > In the interests of full disclosure it should be noted that Fuge is implemented by the authors of this book!
 
 
 ## Using pattern matching with Mu
-Convert the add service to mu - refactor so that we have a wiring and a service keeping the concerns separate. update the application to consume mu service over tcp
 
 ### Getting Ready
+So far we have implemented a front end web application that consumes a restify based microservice and setup our local development environment. In this recipie we are going to convert our microservice to use the Mu library, clean up the service code a little and send messages over a raw TCP socket as opposed to HTTP. Mu provides a way to build microservice systems using two key concepts:
+
+* Pattern routing
+* Transport independence
+
+We will explore these concepts later in this recipie, however for now let's dive right in.
 
 ### How to do it
+Firstly lets install mu as a dependency of our service, to do this `cd` into the the service folder and install Mu using `npm`:
+
+```
+$ cd micro/adder-service
+$ npm install --save mu
+```
+
+Now that we have Mu installed let's convert the service and at the same time improve the code a little. To do this open the file service.js in an editor and change the code to the following:
+
+```
+module.exports = function () {
+
+  function add (args, cb) {
+    var result = parseInt(args.first, 10) + parseInt(args.second, 10)
+    cb(null, result)
+  }
+  
+  return {
+    add: add
+  }
+}
+```
+
+Having cleaned the service code up we need to add some wiring to connect it to the outside world, firstly lets add a file called `wiring-mu.js` in the same directory and add the following code:
+
+```
+var mu = require('mu')()
+var tcp = require('mu-tcp')
+
+module.exports = function (service) {
+  mu.define({role: 'basic', cmd: 'add'}, service.add)
+}
+
+mu.inbound({role: 'basic', cmd: '*'}, tcp.server({port: process.env.SERVICE_PORT,
+                                                  host: process.env.SERVICE_HOST}))
+```
+
+Finally we need to add something to connect the service to the wiring. Let's add a file `index.js` again in the same directory, which should have the following code:
+
+```
+var wiring = require('./wiring-mu')
+var service = require('./service')()
+wiring(service)
+```
+
+That takes care of the service. We now have a Mu based service that is listening on a raw tcp socket for messages. However our `webapp` code is expecting to consume a restful based API so we need to convert the consuming code also. Let's edit the file `micro/webapp/routes/add.js` so that it now contains the following code:
+
+```
+var express = require('express')
+var router = express.Router()
+var mu = require('mu')()
+var tcp = require('mu-tcp')
+
+router.get('/', function (req, res, next) {
+  res.render('add', { first: 0, second: 0, result: 0 })
+})
+
+mu.outbound({role: 'basic', cmd: 'add'}, 
+             tcp.client({port: process.env.adder_service_SERVICE_PORT,
+                         host: process.env.adder_service_SERVICE_HOST}))
+
+router.post('/calculate', function (req, res, next) {
+  mu.dispatch({role: 'basic', cmd: 'add', first: req.body.first, second: req.body.second},
+               function (err, result) { 
+    console.log(err)
+    console.log(result)
+    res.render('add', {first: req.body.first, second: req.body.second, result: result})
+  })
+})
+
+module.exports = router
+```
+
+If you left `fuge` running in the background the service and webapp will have been automatically restarted for you if not let's run the system with `fuge`.
+
+```
+$ cd micro
+$ fuge shell fuge/fuge.yml
+fuge> start all
+```
+
+The system should start up as before. If we open up a browser and point it to `http://localhost:3000` we should be able to add numbers in exactly the same way as with the restify based service. We have just implemented our first pattern based, transport independent microservice.
 
 ### How it works
+The changes that we have just made to the system do not affect how it works functionally, we have, however, re-strcutred the code. Let's review some of the important points. Firstly we have replaced restify with Mu, in doing this we also refectored the service code a little. The important point about this refactoring is that the code that implements the service logic no longer needs to understand the context in which it is called.
+
+This is an important principle in developing a microservice system. If we look again at the updated service code we can see that `service.js` just provides the business logic for our service. Whilst this could be achieved using restify or some other HTTP based mechanism, we have chosen to wire the service up using Mu. In this case we have used the TCP transport, however, Mu provides a number of different transport mechanisms and we could just have easily wired the service up using Mu HTTP transport, a local function call transport or some form of message bus for example RabbitMQ or Kafka with no change to the service business logic.
+
+> #### Transport Independent ![](../tip.png)
+> Microservice business logic should execute independent of the transport context.
+
+Secondly we are not using an explict url to reach our service. Under the hood Mu uses a pattern based routing algorithm to dispatch messages to services. We can think of this operating in much the same way that an IP network functions except that in place of IP addresses Mu uses patterns to route messages to services. In a Mu based microservice system every particpating entity has a pattern routing table at its core.
+
+> #### Pattern Routing ![](../tip.png)
+> Mu uses pattern routing to build an overlay network for message passing that is independent of the underlying transport mechanisms.
+
+(image here - illustrate pattern routing)
+
+Finally node the rundimentaly service discovery we are using here through environment injection
 
 ### There's more
+**TODO**
+Explain and list the existing Mu transports
+Explain adapter mechanism and internal architecture - image on how adapters are just transports and adapter chaining 
 
 ### See also
+The principals that Mu uses evolved from an earlier microservice framework - seneca.js see 
+Note on message passing patterns.
+List other microservice frameworks in node.js
+Note 12 factor app principals and how they apply to microservices e.g. environment vars etc...
+no explicit configuration
+
 
 ## Using Containers
 Service will store some data in mongo we will introduce using docker. introduce docker and import and use a mongo container
@@ -465,6 +576,7 @@ Service will read and write data to the mongo container
 ### How to do it
 
 ### How it works
+Graphic for pattern based routing - now that we have 2 services show how this works
 
 ### There's more
 
