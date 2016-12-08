@@ -537,25 +537,68 @@ Secondly we are not using an explict url to reach our service. Under the hood Mu
 > #### Pattern Routing ![](../tip.png)
 > Mu uses pattern routing to build an overlay network for message passing that is independent of the underlying transport mechanisms.
 
-(image here - illustrate pattern routing)
+Consider an example system with a consumer process and two services, a user service and a basket service which could occur as part of some larger e-commerce system. As illustrated in Figure 8.6 below the consumer simple dispatches a message asking for a user or basket operation, in this case to create a user or to add something to the basket. The pattern router figures out how to route these messages to the appropriate service based on matching the request - in this case `{role: "user", cmd: "create"` to the appropriate service. 
 
-Finally node the rundimentaly service discovery we are using here through environment injection
+![image](./images/overlay.png)
+
+**Figure 8.6 Pattern Routing**
+
+The recieving router within the user service then figures out the appropriate handler to call based again on the message pattern. Once the handler has executed a response message is passed through both routers to end up at the initiating call site within the consumer process. This  approach is sometimes known as an overlay network, because it creates a logical network strucutre over the lower level network fabric.
+
+Mu has a small API surface area to allow us to setup and use pattern routing in our microservice systems as follows:
+
+* `define` - define a handler method and associate it with a pattern. Handler methods are where the business logic of a service resides
+
+* `inbound` - define an inbound routing rule. Inbound rules associate patterns with server transports.
+
+* `outbound` - define an outbound routing rule. Outbound rules associate patterns with client transports.
+
+* `dispatch` - dispatch a message consisting of a pattern and assoicated data to the router.
+
+* `tearDown` - gracefully close all transport connections in this mu instance and shutdown.
+
+Finally you may have noticed that in the code for this recepie we did not use the localhost ip address or a specific port number. Instead our service code used environment variables for example in the `adder-service` wiring file used the following:
+
+```
+mu.inbound({role: 'basic', cmd: '*'}, tcp.server({port: process.env.SERVICE_PORT, 
+                                                  host: process.env.SERVICE_HOST}))
+```
+
+These were generated for us by Fuge in order to provide our early development system with a rudimentary form of service discovery. In a later recipie we will update our system with a more complete service discovery mechanism, in order to make our code ready for production deployment.
 
 ### There's more
-**TODO**
-Explain and list the existing Mu transports
-Explain adapter mechanism and internal architecture - image on how adapters are just transports and adapter chaining 
+Mu supports a number of transport mechanism for both point to point and buss based message interactions. Whilst this list is growing it currently supports:
+
+* local function transports for in process message routing
+* raw TCP 
+* HTTP
+* Redis queues
+* RabbitMQ
+* Kafkia
+
+If you would like to add an additional transport the maintainers are always happy to review pull requests or issues over at the projects `github` page: `https://github.com/apparatus/mu`.
+
+> #### Full Discolsure.. ![](../info.png)
+> In the interests of full disclosure it should be noted that Mu is also implemented by the authors of this book!
+
+Mu also supports the notion of transport adapters. These are mechanisms to extend the transport topolgy within a microservice system through a simple node modules. Transport adapters allow us to chain functionality into a service call thereby introducing additional functionaliyt into the message protocol. For example `circuit breakers` or `load shedding` can be implemented using this mechainsm. As an example the following code:
+
+```
+mu.outbound({...}, balance([breaker(tcp.client({port: 3001, host: '127.0.0.1'})),
+                            breaker(tcp.client({port: 3002, host: '127.0.0.1'})]))
+```
+
+Uses a `circuit breaker` adapter and `tcp transport` to create a two end points. A `balance adaper` is then used to round robin traffic to these endpoints. Of course in a high load environment it is unlikely that we would use such a simplistic apporach to load balancing however this should illustrate the concept. Adapters are also used to help with service discovery and we will see more of this in a later receipe.
+
 
 ### See also
-The principals that Mu uses evolved from an earlier microservice framework - seneca.js see 
-Note on message passing patterns.
-List other microservice frameworks in node.js
-Note 12 factor app principals and how they apply to microservices e.g. environment vars etc...
-no explicit configuration
+The principles that Mu uses evolved from an earlier node.js microservice framework called `seneca.js`. Seneca provdies a full execution framework for microservices and you may find that it better suits your needs depending upon your particular project. Find out more about seneca at http://senecajs.org.
+
+Tools such as Mu and Fuge aim to help us build applications that follow the 12 factor app principles. If you are not familiar with these you can read about them in more detail here here: `https://12factor.net/`
 
 
 ## Using Containers
-Service will store some data in mongo we will introduce using docker. introduce docker and import and use a mongo container
+Add a second service Service will read and write data to the mongo container
 
 ### Getting Ready
 
@@ -564,23 +607,27 @@ Service will store some data in mongo we will introduce using docker. introduce 
 ### How it works
 
 ### There's more
-
-### See also
-
-
-## Adding a second service
-Service will read and write data to the mongo container
-
-### Getting Ready
-
-### How to do it
-
-### How it works
 Graphic for pattern based routing - now that we have 2 services show how this works
 
+### See also
+
+
+## Service Discovery
+dns based using fuge to emulate kube and compose
+Mention consul also
+Introduce the self registryuation adn 3rd party registration patterns. implement one with consul??
+
+
+### Getting Ready
+
+### How to do it
+
+### How it works
+
 ### There's more
 
 ### See also
+
 
 ## Building queue based microservice
 Introduce a redis container and a redis mu service. The service should do some computation and store a result. Then run all 3 services and the front end with fuge
@@ -597,10 +644,8 @@ Introduce a redis container and a redis mu service. The service should do some c
 
 
 
-## Service Discovery
-Introduce the self registryuation adn 3rd party registration patterns. implement one with consul??
-
-dns based using fuge to emulate kube
+## Generate a full system 
+Generate a full microservice system from scratch using fuge
 
 ### Getting Ready
 
@@ -611,3 +656,4 @@ dns based using fuge to emulate kube
 ### There's more
 
 ### See also
+
