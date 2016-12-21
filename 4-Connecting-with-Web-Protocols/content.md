@@ -2,38 +2,110 @@
 
 This chapter covers the following topics
 
-* Making HTTP GET requests
-* Making HTTP POST requests
-* Creating HTTP servers
-* Processing GET request
-* Processing POST request
+* Creating an HTTP server
+* Processing GET requests
+* Processing POST requests
 * Handling a file upload over HTTP
+* Making HTTP requests
 * Creating an SMTP server
 * Creating a WebSocket server-client application
 
 ## Introduction
 
-One of the great qualities of Node is its simplicity. Unlike PHP or ASP there is no separation the behavior we want. With Node we can create the server, customize it, and deliver content all at the code level. 
+One of the great qualities of Node is the simplicity it provides around 
+low-level system operations. 
 
-Starting with a focus on core API's and low-level implementation then working our way up to more complex protocols with third party libraries, this chapter demonstrates how to create various clients and servers in the "Application Layer" of the TCP/IP stack.
+Unlike template-centric languages such as PHP or ASP 
+we have fine grain controlled over the behavior we want without 
+sacrificing easy content control.  
 
-> From Protocols to Frameworks ![](../tip.png)
-> This chapter focuses on Node's direct relationship with Network protocols. It's intended to develop understanding of fundamental concepts. For creating more extensive and enterprise focused HTTP infrastructure check out **Chapter 6. Weilding Web Frameworks**. 
+With Node we can create the server, customize it, 
+and deliver content all at the code level. 
+
+Starting with a focus on core API's and low-level implementation 
+then working our way up to more complex protocols with third party 
+libraries, this chapter demonstrates how to create various clients 
+and servers in the "Application Layer" of the TCP/IP stack.
+
+> ### From Protocols to Frameworks ![](../tip.png)
+> This chapter focuses on Node's direct relationship with Network protocols.
+> It's intended to develop understanding of fundamental concepts. 
+> For creating more extensive and enterprise focused HTTP infrastructure
+> check out **Chapter 6. Weilding Web Frameworks**. 
+
+## Creating an HTTP server
+
+### Getting Ready
+
+### How to do it
+
+```js
+const http = require('http')
+const host = '0.0.0.0'
+const port = 8080
+
+http.createServer((req, res) => {
+  if (req.method !== 'GET') {
+    res.statusCode = 400
+    res.end('Bad Request')
+    return
+  }
+  switch (req.url) {
+    case '/about': return about(res)
+    case '/contact': return contact(res)
+    default: return index(res)
+  }
+}).listen(port, host)
+
+function index (res) {
+  res.write('<a href="/about">about</a>')
+}
+
+function about (res) {
+  res.end('all about this thing')
+}
+```
+
+### How it works
+
+### There's more
+
+#### Handling Multipart POST Requests
+
+#### In-Process Caching
+
+### See also
+
+TBD
+
 
 ## Receiving POST Data
 
-If we want to be able to receive POST data we have to instruct our server on how to accept and handle a POST request. In PHP we could access our POST values seamlessly with $_POST['fieldname'], because it would block until an array value was filled. 
+If we want to be able to receive POST data we have to instruct our
+server on how to accept and handle a POST request. 
 
-Contrariwise, Node provides low level interaction with the flow of HTTP data allowing us to interface with the incoming message body as a stream, leaving it entirely up to the developer to turn that stream into usable data.
+In a language where I/O blocking is the primary runtime behavior,
+accessing POST body data would be as straight forward as accessing a property.
+
+For instance in PHP we could access our POST values with `$_POST['fieldname']`,
+the execution thread would block until an array value was filled. 
+
+Contrariwise, Node provides low level interaction with the asynchronous flow of HTTP data 
+allowing us to interface with the incoming message body as a stream, 
+leaving it entirely up to the developer to turn that stream into usable data.
+
+> ### Streams ![../info.png]
+> For more information on streams see **Chapter 3. Using Streams**
 
 ### Getting ready
 
-Let's create a `server.js` file ready for our code, a folder called `public` with an HTML file inside called `form.html`. 
+Let's create a `server.js` file ready for our code, 
+plus a folder called `public` with an HTML file inside called `form.html`. 
 
 The `form.html` file should contain the following:
 
 ```html
-<form method="post">
+<form method="POST">
   <input type="text" name="userinput1"><br>
   <input type="text" name="userinput2"><br>
   <input type="submit">
@@ -44,7 +116,8 @@ The `form.html` file should contain the following:
 
 We'll provision our server for both `GET` and `POST` requests. 
 
-Let's start with `GET` by requiring the http module and loading `form.html` for serving through `http.createServer`:
+Let's start with `GET` by requiring the core `http` module and loading `form.html` 
+into memory, which we'll then serve via `http.createServer`:
 
 ```js
 const http = require('http')
@@ -71,15 +144,22 @@ function reject (code, msg, res) {
 }
 ```
 
-We are synchronously loading `form.html` at initialization time instead of accessing the disk on each request.
+We are synchronously loading `form.html` at initialization time instead of accessing 
+the disk on each request. When building servers, initialization is the only time it's
+a good idea to perform synchronous I/O.  
 
-If we navigate to `localhost:8080` we'll be presented with a form. 
+If we navigate to `http://localhost:8080` we'll be presented with a form. 
 
-But if we fill out the form and submit we'll encounter a "Method Not Allowed" response. If the method is anything other than `GET`, our request handler (the function passed to `http.createServer`) will fall through to calling the `reject` function which sets the relevant status code and sends the supplied message via the `res` object.
+But if we fill out the form and submit we'll encounter a "Method Not Allowed" response.
+This is because the `method` attribute on our HTML form is set to `POST`. 
+If the method is anything other than `GET`, our request handler 
+(the function passed to `http.createServer`) will fall through to calling the `reject` 
+function which sets the relevant status code and sends the supplied message via the `res` object.
 
 Our next step is to implement `POST` request handling.
 
-First we'll add the `querystring` module to our list of required dependencies at the top of the file. The top section our `server.js` file should become:
+First we'll add the `querystring` module to our list of required dependencies at 
+the top of the file. The top section of our `server.js` file should become:
 
 ```js
 const http = require('http')
@@ -89,13 +169,15 @@ const form = fs.readFileSync(path.join(__dirname, 'public', 'form.html'))
 const qs = require('querystring')
 ```
 
-For safety we'll want to define a maximum request size, which we'll use to help guard against payload size based DoS attacks:
+For safety we'll want to define a maximum request size, which we'll use to 
+guard against payload size based DoS attacks:
 
 ```js
 const maxData = 2 * 1024 * 1024 // 2mb
 ```
 
-Now we'll add a check for POST methods in the request handler, so our `http.createServer` calls looks like so:
+Now we'll add a check for POST methods in the request handler, 
+so our `http.createServer` calls looks like so:
 
 ```js
 http.createServer((req, res) => {
@@ -111,7 +193,7 @@ http.createServer((req, res) => {
 }).listen(8080)
 ```
 
-Now, we'll implement the `post` function that's called within the request handler: 
+Next, let's implement the `post` function that's called within the request handler: 
 
 ```js
 function post (req, res) {
@@ -154,48 +236,100 @@ function post (req, res) {
 }
 ```
 
-Notice how we check the `Content-Type` and `Content-Size` headers sent by the browser. In particular `Content-Size` is validated at several check-points, this is important for preventing various types of attack from DoS attacks to leaking deallocated memory.
+Notice how we check the `Content-Type` and `Content-Size` headers sent by the browser. 
+In particular `Content-Size` is validated at several check-points, this is important 
+for preventing various types of attack from DoS attacks to leaking deallocated memory.
 
-Once the form is completed and submitted, the browser and terminal should present the data provided via the form.
+Once the form is completed and submitted, the browser and terminal should present 
+the data provided via the form.
 
 ### How it works
 
-The `http` module sits on top of the `net` module (Node's TCP library) which in turn interacts with an internal C library called libuv. The libuv C library handles network socket input/output, passing data between the C layer and the JavaScript layer. 
+The `http` module sits on top of the `net` module (Node's TCP library) which in 
+turn interacts with an internal C library called libuv. 
+The libuv C library handles network socket input/output, passing data between 
+the C layer and the JavaScript layer. 
 
-When we call `http.createServer` an object is returned which represents the HTTP server. We immediately call the `listen` method on the server object which instructs the `http` module to listen for incoming data on the supplied port (`8080`).
+When we call `http.createServer` an object is returned which represents the HTTP server.
+We immediately call the `listen` method on the server object which instructs the `http` 
+module to listen for incoming data on the supplied port (`8080`).
 
-Every time data is received at the network socket layer, if the data is successfully translated into an HTTP request the `http` module creates an object representing the request (`req`) and response (`res`) then calls our supplied request handler passing it the request and response objects.
+Every time data is received at the network socket layer, if the data is successfully 
+translated into an HTTP request the `http` module creates an object representing the 
+request (`req`) and response (`res`) then calls our supplied request handler passing 
+it the request and response objects.
 
-Our request handler checks the `method` property of the request object to determine whether the request is `GET` or `POST`, and calls the corresponding function accordingly, falling back calling our `reject` helper function if the request is neither `GET` nor `POST`.
+Our request handler checks the `method` property of the request object to determine 
+whether the request is `GET` or `POST`, and calls the corresponding function accordingly,
+falling back to calling our `reject` helper function if the request is neither `GET` nor `POST`.
 
-The `get` function uses `writeHead` to indicate a success code (`200`) and set the `Content-Type` header to inform the browser of the mime-type of our form content (`text/html`). The `res` object is a `WriteStream`, which have `write` and `end` methods. Our `get` function finishes by calling `res.end` passing it the cached `form` content, this simultaneously writes to the response stream and ends the stream, thus closing the HTTP connection.
+The `get` function uses `writeHead` to indicate a success code (`200`) and set the `Content-Type` 
+header to inform the browser of the mime-type of our form content (`text/html`).
+The `res` object is a `WriteStream`, which have `write` and `end` methods.
+Our `get` function finishes by calling `res.end` passing it the cached `form` content,
+this simultaneously writes to the response stream and ends the stream, thus closing the HTTP connection.
 
 The `reject` function sets the `statusCode` and similarly calls `res.end` with the supplied message.
 
-Our `post` function implements the core objective of our server. The `post` function checks the `Content-Type` and `Content-Size` HTTP headers to determine that we can support the supplied values (we'll talk more about size validation shortly) and uses it to preallocate a buffer. The HTTP request object (`req`) is a Node stream, which inherits from the `EventEmitter` object. Readable streams constantly emit `data` events until an `end` event is emitted. In the `data` event listener we use the `Buffer` `copy` method to duplicate the bytes in each incoming `chunk` into our preallocated `buffer` and update the `pos` to `chunk.length` so the next `data` event starts from where we left off in the previous event. 
+Our `post` function implements the core objective of our server. The `post` function checks 
+the `Content-Type` and `Content-Size` HTTP headers to determine that we can support the
+supplied values (we'll talk more about size validation shortly) and uses it to preallocate a buffer.
+The HTTP request object (`req`) is a Node stream, which inherits from the `EventEmitter` object.
+Readable streams constantly emit `data` events until an `end` event is emitted. In the `data` event
+listener we use the `Buffer` `copy` method to duplicate the bytes in each incoming `chunk` into our
+preallocated `buffer` and update the `pos` to `chunk.length` so the next `data` event starts from
+where we left off in the previous event. 
 
-When all the data is received from the client the `end` event will be triggered. Our `end` event listener converts the buffer to a string, passing it into `qs.parse`. This converts the POST data (which is in the format `userinput1=firstVal&userinput2=secondVal`) into an object. This object is logged our to the console, and serialized with `JSON.stringify` as it's passed to `res.end` and thus mirrored back to the user.
+When all the data is received from the client the `end` event will be triggered. Our `end` event
+listener converts the buffer to a string, passing it into `qs.parse`. This converts the POST data
+(which is in the format `userinput1=firstVal&userinput2=secondVal`) into an object. This object
+is logged our to the console, and serialized with `JSON.stringify` as it's passed to `res.end`
+and thus mirrored back to the user.
 
-We cannot trust the client to reliably represent the size of the content, as this could be manipulated by an attacker so we take several measures to validate the `Content-Size` HTTP header. HTTP headers will always be in string format, so we use `parseInt` to convert from string to number. If the `Content-Size` header sent wasn't a number `size` would be `NaN` - in that case we send a `400 Bad Request` response. 
+We cannot trust the client to reliably represent the size of the content, as this could be manipulated
+by an attacker so we take several measures to validate the `Content-Size` HTTP header. HTTP headers will
+always be in string format, so we use `parseInt` to convert from string to number. If the `Content-Size`
+header sent wasn't a number `size` would be `NaN` - in that case we send a `400 Bad Request` response. 
 
-> Web Frameworks ![](../../info.png)
-> Node's core API provides a powerful set of primitives to build functionality as we see fit. Of course, this also means there's a lot of angles to think about. In Chapter 6 we'll be talking about Web Frameworks where the low-level considerations have been taken care of, allowing us to focus primarily on business logic.
+> #### Web Frameworks ![](../info.png)
+> Node's core API provides a powerful set of primitives to build functionality as we see fit.
+> Of course, this also means there's a lot of angles to think about. In Chapter 6 we'll be talking
+> about Web Frameworks where the low-level considerations have been taken care of, allowing us to focus
+> primarily on business logic.
 
-If `size` is a number we pass it to `Buffer.allocUnsafe` which creates a buffer of the given size. The choice by Node core developers to put "unsafe" name is deliberately alarming. `Buffer.allocUnsafe` will create a buffer from deallocated (i.e. unlinked memory. That means any kind of data might appear in a buffer created with `allocUnsafe`, potentially including highly sensitive data like cryptographic private keys. This is fine as long as there isn't some way of leaking previously deallocated memory to the client. By using it we accept the burden of ensuring that a malicious request can't leak the data. This is why in the `end` event listener we check that `pos` is equal to `size`. If it isn't then the request is ending prematurely, and the old memory in our `buffer` hasn't been fully overwritten by the payload. Without the `size` check in the `end` event listener internal memory could leak to the client.
+If `size` is a number we pass it to `Buffer.allocUnsafe` which creates a buffer of the given size.
+The choice by Node core developers to put "unsafe" in name is deliberately alarming. 
 
-We could use `Buffer.alloc` instead, which zero-fills the memory (overwrites the memory with `00` bytes) before handing the buffer back but `Buffer.allocUnsafe` is faster.
+`Buffer.allocUnsafe` will create a buffer from deallocated (i.e. unlinked) memory.
+That means any kind of data might appear in a buffer created with `allocUnsafe`,
+potentially including highly sensitive data like cryptographic private keys.
+This is fine as long as there isn't some way of leaking previously deallocated memory to the client.
+By using it we accept the burden of ensuring that a malicious request can't leak the data.
+This is why in the `end` event listener we check that `pos` is equal to `size`.
+If it isn't then the request is ending prematurely, and the old memory in our `buffer` hasn't
+been fully overwritten by the payload. Without the `size` check in the `end` event listener
+internal memory could leak to the client.
 
-The other check against `size` is in the `data` event listener, where we make sure the payload size doesn't exceed the provided `Content-Size`. This scenario could be a malicious attempt to overload the memory of our server, resulting in a Denial Of Service attack.
+We could use `Buffer.alloc` instead, which zero-fills the memory (overwrites the memory with `00` bytes)
+before handing the buffer back but `Buffer.allocUnsafe` is faster.
+
+The other check against `size` is in the `data` event listener, where we make sure the payload
+size doesn't exceed the provided `Content-Size`. This scenario could be a malicious attempt to
+overload the memory of our server, resulting in a Denial Of Service attack.
 
 ### There's More
 
 #### Accepting JSON
 
-REST architectures (among others) typically handle the `application/json` content type in preference to the `application/x-www-form-urlencoded` type. Generally this is due to the versatility of the JSON format as a multi-language transport syntax. 
+REST architectures (among others) typically handle the `application/json` content type in preference
+to the `application/x-www-form-urlencoded` type. Generally this is due to the versatility
+of JSON as a multi-language interchange data format. 
 
 Let's convert our form and server to working with JSON instead of URL-encoded data.
 
-We're going to use a third party module for safely and efficiently parsing the JSON. To do this we'll have to initialize our folder with a `package.json` file and then install the module. 
+We're going to use a third party module called `fast-json-parse` for safely and efficiently parsing the JSON.
+
+To do this we'll have to initialize our folder with a `package.json` file and then install `fast-json-parse`. 
 
 Let's run the following on the command line
 
@@ -218,7 +352,8 @@ function post (req, res) {
     reject(415, 'Unsupported Media Type', res)
     return
   }
-/* ... snip .. */
+  /* ... snip .. */
+}
 ```
 
 The final step in converting our `server.js` file is to adjust the `end` event listener like so:
@@ -242,7 +377,8 @@ The final step in converting our `server.js` file is to adjust the `end` event l
 /* ... snip .. */
 ```
 
-Unfortunately HTML forms do not natively support POSTing in the JSON format, so we'll need to add a touch of JavaScript to `public/form.html`.
+Unfortunately HTML forms do not natively support POSTing in the JSON format,
+so we'll need to add a touch of JavaScript to `public/form.html`.
 
 Let's add the following `script` tag to `form.html`, underneath the `<form>` element:
 
@@ -273,7 +409,10 @@ Let's add the following `script` tag to `form.html`, underneath the `<form>` ele
 </script>
 ```
 
-Our form and server should now largely behave in the same as the main recipe.Except our frontend is now a tiny Single Page App and JSON (the backbone of modern web architecture) is being used for communication between server and client.
+Our form and server should now largely behave in the same manner as the main recipe.
+
+Except our frontend is a tiny Single Page App and JSON (the backbone of modern web architecture)
+is being used for communication between server and client.
 
 ### See Also
 
@@ -281,11 +420,17 @@ Our form and server should now largely behave in the same as the main recipe.Exc
 
 ## Handling File Uploads
 
-We cannot process an uploaded file in the same way we process other POST data. When a file input is submitted in a form, the browser embeds the file(s) into a multipart message. 
+We cannot process an uploaded file in the same way we process other POST data.
+When a file input is submitted in a form, the browser embeds the file(s) into a multipart message. 
 
-Multipart was originally developed as an email format allowing multiple pieces of mixed content to be combined into one payload. If we attempted to receive the upload as a stream and write it to a file, we would have a file filled with multipart data instead of the file or files themselves. 
+Multipart was originally developed as an email format allowing multiple pieces of mixed content
+to be combined into one payload. If we attempted to receive the upload as a stream and write it to a
+file, we would have a file filled with multipart data instead of the file or files themselves. 
 
-We need a multipart parser, the writing of which is more than a recipe can cover. So we'll be `multipart-read-stream` module which sits on top of the well-established `busboy` module to convert each piece of the multipart data into an independent stream, which we'll then pipe to disk.
+We need a multipart parser, the writing of which is more than a recipe can cover.
+So we'll be `multipart-read-stream` module which sits on top of the well-established `busboy`
+module to convert each piece of the multipart data into an independent stream, which we'll
+then pipe to disk.
 
 
 ### Getting Ready
@@ -307,73 +452,447 @@ $ npm init -y
 $ npm install --save multipart-read-stream pump
 ```
 
-> Streams ![](../tip.png)
+> #### Streams ![](../tip.png)
 > For more about streams (and why `pump` is essential) see the previous chapter, **Chapter 3. Using Streams**
 
-Finally we'll make some changes to our form.html from the last recipe:
+Finally we'll make some changes to our `form.html` file from the last recipe:
 
-```js
-<form method=POST enctype="multipart/form-data">
+```html
+<form method="POST" enctype="multipart/form-data">
   <input type="file" name="userfile1"><br>
   <input type="file" name="userfile2"><br>
   <input type="submit">
 </form>
 ```
 
-We've included an enctype attribute of multipart/form-data to signify to the browser that the form will contain upload data and we've replaced the text inputs with file inputs.
+We've included an `enctype` attribute of `multipart/form-data` to signify to the browser
+that the form will contain upload data and we've replaced the text inputs with file inputs.
+
+To gain some understanding of how multipart requests differ from normal `POST` requests, 
+let's use our newly modified `form.html` file with the server from the previous recipe to see how a
+server without multipart capabilities handles a multipart upload. 
+
+If we upload the `form.html` file itself we should see something like the following:   
+
+![](images/upload.png)
+
+*Result of uploading multipart form data server from previous recipe*
+
+Our original POST server simply logs the raw HTTP message body to the console, which in this case is multipart data.
+
+
+We had two file inputs on the form. Though we only uploaded one file,
+the second input is still included in the multipart request. Each file is separated by a
+predefined boundary that is set in a secondary attribute of the `Content-Type` HTTP headers.
 
 
 ### How to do it
 
-Let's see what happens when we use our modified form to upload a file to the server from the last recipe. 
+Let's set up our initial modules and load the form HTML as in our former recipe:
 
-Let's upload form.html itself as our file:
+```js
+const http = require('http')
+const fs = require('fs')
+const path = require('path')
+const mrs = require('multipart-read-stream')
+const pump = require('pump')
+const form = fs.readFileSync(path.join(__dirname, 'public', 'form.html'))
+```
 
-![](images/upload.png)
+Next we'll set up the HTTP server, along with a `GET` handler function 
+and a `reject` function for dealing with unsupported methods.   
 
-Our POST server simply logs the raw HTTP message body to the console, which in this case is multipart data. We had two file inputs on the form. Though we only uploaded one file, the second input is still included in the multipart request. Each file is separated by a predefined boundary that is set in a secondary attribute of the Content-Type HTTP headers. We'll need to use formidable to parse this data, extracting each file contained therein.
-var http = require('http');
-var formidable = require('formidable');
-var form = require('fs').readFileSync('form.html');
-
-http.createServer(function (request, response) {
-  if (request.method === "POST") {
-    var incoming = new formidable.IncomingForm();
-    incoming.uploadDir = 'uploads';
-    incoming.on('file', function (field, file) {
-      if (!file.size) { return; }
-      response.write(file.name + ' received\n');
-    }).on('end', function () {
-      response.end('All files received');
-    });
-    incoming.parse(request);
+```js
+http.createServer((req, res) => {
+  if (req.method === 'GET') {
+    get(res)
+    return
   }
-  if (request.method === "GET") {
-    response.writeHead(200, {'Content-Type': 'text/html'});
-    response.end(form);
+  if (req.method === 'POST') {
+    post(req, res)
+    return
   }
-}).listen(8080);
-Our POST server has now become an upload server.
+  reject(405, 'Method Not Allowed', res)
+}).listen(8080)
 
+function get (res) {
+  res.writeHead(200, {'Content-Type': 'text/html'})
+  res.end(form)  
+}
+
+function reject (code, msg, res) {
+  res.statusCode = code
+  res.end(msg)
+}
+```
+
+Finally we'll write the `post` function:
+
+```js
+function post (req, res) {
+  if (!/multipart\/form-data/.test(req.headers['content-type'])) {
+    reject(415, 'Unsupported Media Type', res)
+    return
+  }
+  console.log('parsing multipart data')
+  const parser = mrs(req, res, part, () => {
+    console.log('finished parsing')
+  })
+  var total = 0
+  pump(req, parser)
+
+  function part (field, file, name) {
+    if (!name) {
+      file.resume()
+      return
+    }
+    total += 1
+    const filename = `${field}-${Date.now()}-${name}`
+    const dest = fs.createWriteStream(path.join(__dirname, 'uploads', filename))
+    pump(file, dest, (err) => {
+      total -= 1
+      res.write(err 
+        ? `Error saving ${name}!\n`
+        : `${name} successfully saved!\n`
+      )
+      if (total === 0) res.end('All files processed!')
+    })
+  }
+}
+```
+
+Now we have an upload server.
+
+If we run 
+
+```sh
+$ node server.js
+```
+
+Then open a browser at http://localhost:8080 we can upload some files, and check 
+if our `upload` folder to see if they were added.
 
 ### How it works
 
+Setting the `enctype` attribute of the HTML `<form>` element to
+`multipart/form-data` causes the browser to set the `Content-Type`
+in the request header to `multipart/form-data` and to embed data
+in any files supplied via the `<input type="file">` elements into
+a multipart wrapper. 
+
+Our `post` function checks for the appropriate `multipart/form-data` 
+content type in the `req.headers` object, rejecting the request with
+a 415 HTTP code (Unsupported Media Type) if the content type isn't
+`multipart/form-data`.
+
+We create our `parser` by instantiating the `multipart-request-stream`
+module (`mrs`), passing it `req`, `res` and `part` (a function we declare shortly after), 
+and finally an inline fat-arrow function that will be called when all multipart data has been parsed.
+
+We set up a `total` variable, which we use to track files from 
+their point of discovery to when they've been completely written
+to disk. 
+
+The `pump` module is used to pipe data from the `req` object
+to the `parser`, this will cause our `part` function to be called
+each time the `parser` stream encounters a multipart boundary that
+contains file data. 
+
+In the `part` function we check to see that the `name` has a non-falsey
+value. This is because the browser will include all file fields even if their
+not populated, in the multipart data. If the a file section has no name, then
+we can simply skip it. The `file` argument passed to `part` is a stream,
+in the event of an empty file section, we call the  `resume` method (a stream method) 
+to make the stream run to completion, allowing us to process the next file section 
+in the multipart data.
+
+Once we've verified the section has file data, we add one to `total`.
+
+Then we create a filename based on the HTML elements field name, the current
+epoch time stamp and the original file name. 
+
+We create a write stream that writes to the `uploads` folder (`dest`) 
+and again use `pump` to pipe data from the `file` stream
+provided by `multipart-read-stream` to the `part` function to the `dest` stream.
+
+This effectively writes a particular section of the multipart data to the 
+`uploads` folder with the appropriate file. Using streams to do this is means
+no matter how big the file is, memory and CPU usage will remain flat.   
+
+In the final parameter to the second call to `pump`, we provide a fat arrow
+callback. This will be called either in the event of an error or once all data
+has been written from the `file` stream into the `dest` stream. When the callback
+supplied to `pump` is called, we minus one from the `total` and write a message based 
+on error state to the response stream. 
+
+When the `total` reaches 0 we know we've processed
+all the files in the multipart data and can end the response with a completion message.
+
 ### There's more
+
+Multipart data doesn't just contain files, and file uploading from the browser
+isn't limited to multipart POST requests. Let's explore. 
+
+#### Processing all field types in multipart data
+
+Multipart data can contain both files and field values. 
+
+Let's copy the `uploading-a-file` folder to a folder called
+`processing-all-types`.
+
+Let's modify our `public/form.html` file by changing one of the 
+file inputs to a text input:
+
+```html
+<form method="POST" enctype="multipart/form-data">
+  <input type="text" name="userinput1"><br>
+  <input type="file" name="userfile2"><br>
+  <input type="submit">
+</form>
+```
+
+The `multipart-read-stream` module is a thin wrapper around the 
+[`busboy`](http://npm.im/busboy) module, it listens to `busboy`
+for a `file` event and calls the user supplied function (which
+we called `part` in the main recipe). 
+
+Fortunately, `multipart-read-stream` returns the `busboy` instance,
+which also emits a `field` event. We can listen to this to process
+any non-file elements contained in the multipart data. 
+
+In `server.js`, let's add a `field` event listener directly under 
+the assignment our `parser` variable, making the top of our `post` function
+look like the following:
+
+```js
+function post (req, res) {
+  if (!/multipart\/form-data/.test(req.headers['content-type'])) {
+    reject(415, 'Unsupported Media Type', res)
+    return
+  }
+  console.log('parsing multipart data')
+  const parser = mrs(req, res, part, () => {
+    console.log('finished parsing')
+  })
+  parser.on('field', (field, value) => {
+    console.log(`${field}: ${value}`)
+    res.write(`processed "${field}" input.\n`)
+  })
+  var total = 0
+  pump(req, parser)
+  /* ... snip ... */
+}
+```
+
+#### Uploading files via PUT
+
+Browsers are also capable of uploading files via an HTTP PUT request.
+
+While we can only send one file per request, we don't need to do any parsing
+on the server side since we can simply stream the request contents directly
+to a file. This means less server-side processing overhead. 
+
+It would be magnificent if we could achieve this by changing our form's method
+attribute from POST to PUT, but alas, no, there is no specification for this.
+
+However thanks to XMLHttpRequest Level 2 (xhr2), we can now transfer binary data
+via JavaScript in modern browsers (see http://caniuse.com/xhr2 (IE9 and Operara mini are lacking support)).
+
+We can grab a file pointer using a `change` event listener on the input file element, 
+and then we open a PUT request and send the file upon form submission. 
+
+Let's copy the `uploading-a-file` folder to a folder called
+`uploading-a-file-with-put`.
+
+We won't be needing `multipart-read-stream`, but we will need the `through2` 
+module, so let's alter our dependencies accordingly:
+
+```sh
+$ npm i --save through2
+$ npm uninst --save multipart-read-stream
+```
+
+Next we'll modify our `public/form.html` file like so:
+
+```html
+<form id="upload">
+  <input type="file" name="userfile1"><br>
+  <input type="submit">
+</form>
+<pre id="status"></pre>
+```
+
+We've added an `id` attribute to the form and the
+`method` and `enctype` attributes have been removed.
+We're also using just one file element because we can only send one file per request.
+
+We've also added a `<pre>` tag which we'll be using to display status updates 
+from the server.
+
+In the same `public/form.html` file let's add an inline script
+at the end of the file:
+
+```html
+<script>
+(function () {
+  var fieldName = 'userfile1'
+  var field = document.querySelector('[name=' + fieldName + ']')
+  var uploadForm = document.getElementById('upload')
+  var status = document.getElementById('status')
+  var file
+  field.addEventListener('change', function () {
+    file = this.files[0]
+  })
+  uploadForm.addEventListener('submit', function (e) {
+    e.preventDefault()
+    if (!file) return
+    var xhr = new XMLHttpRequest()
+    xhr.file = file
+    xhr.open('put', window.location, true)
+    xhr.setRequestHeader("x-field", fieldName)
+    xhr.setRequestHeader("x-filename", file.fileName || file.name)
+    xhr.onload = updateStatus
+    xhr.send(file)
+    file = ''
+    uploadForm.reset()
+  })
+  function updateStatus() {
+    status.innerHTML += this.status === 200 
+      ? this.response
+      : this.status + ': ' + this.response
+  }
+}())
+</script>
+```
+
+Our script attaches a `change` listener to the file input element. 
+
+When the user selects a file, we grab a handle for the file from a `files`
+array that exists on the `change` listner functions context (`this`). 
+
+Once a user submits the form our `submit` listeners, prevents default behavior
+(stops the browser from automatically submitting), checks whether a file
+is selected (doing nothing if no file has been selected),
+initializes an xhr object and opens a PUT request to our server.
+Then we set two custom headers, `x-field` and `x-filename`, we'll use these 
+in our `server.js` file to determine the name of the input field and the
+original file name on the clients file system.
+
+We set the `onload` method to our `updateStatus` function which will 
+append responses from the server to our `<pre>` tag.  
+
+Finally we use the `send` method to initiate the PUT request and clean up
+by clearing the `file` variable and resetting our form.
+
+Let's modify the top of our `server.js` file as follows:
+
+```js
+const http = require('http')
+const fs = require('fs')
+const path = require('path')
+const pump = require('pump')
+const through = require('through2')
+const form = fs.readFileSync('public/form.html')
+const maxFileSize = 51200
+```
+
+We've removed the `multipart-read-stream` dependency, added `through2`
+and created a `maxFileSize` constant. 
+
+Let's modify `http.createServer` response handler like so:
+
+```js
+http.createServer((req, res) => {
+  if (req.method === 'GET') {
+    get(res)
+    return
+  }
+  if (req.method === 'PUT') {
+    put(req, res)
+    return
+  }
+  reject(405, 'Method Not Allowed', res)
+}).listen(8080)
+```
+
+We've simply changed the check for the `POST` method to a check for `PUT` 
+method and call a `put` function instead of a `post` function.
+
+Finally we need to remove the old `post` function, and replace it with
+the following `put` function:
+
+```js
+function put (req, res) {
+  const size = parseInt(req.headers['content-length'], 10)
+  if (isNaN(size)) {
+    reject(400, 'Bad Request', res)
+    return
+  }
+  if (size > maxFileSize) {
+    reject(413, 'Too Large', res)
+    return
+  }
+
+  const name = req.headers['x-filename']
+  const field = req.headers['x-field']
+  const filename = `${field}-${Date.now()}-${name}`
+  const dest = fs.createWriteStream(path.join(__dirname, 'uploads', filename))
+  const counter = through(function (chunk, enc, cb) {
+    this.bytes += chunk.length
+    if (this.bytes > maxFileSize) {
+      cb(Error('size'))
+      return
+    }
+    cb(null, chunk)
+  })
+  counter.bytes = 0
+  counter.on('error', (err) => {
+    if (err.message === 'size') reject(413, 'Too Large', res)
+  })
+  pump(req, counter, dest, (err) => {
+    if (err) return reject(500, `Error saving ${name}!\n`, res)
+    res.end(`${name} successfully saved!\n`)
+  })
+}
+```
+
+After some `Content-Length` checks we grab the originl filename and field 
+as supplied through the HTTP headers and construct a filename in
+similar fashion to our output filenames in the main recipe. Also similar
+to the main recipe, we create a `dest` stream.
+
+For safety we also use the `through2` module to create a byte counting stream.
+This could be important, since a malicious client could lie about `Content-Length`
+and send a much larger payload. We keep a running total of bytes passing through
+our stream, if they exceed the maximum we send an error down the stream.
+
+As outlined in *Chapter 3 Using Streams* the `pump` module will propagate errors
+to all streams in the pipeline. We need to catch an error on the `counter` stream
+before `pump` does that, since it will close the `req` stream which will implicitly
+end the response. So we listen directly for an `error` event on the `counter` stream
+and send a 413: Too Large response within the error event handler.
+
+Then we set up a pipeline from `req` to `counter` to our output `dest`, 
+when the pipeline ends we send a success message, or failure if some other 
+error has occurred.
 
 ### See Also
 
 * TBD
 
 
-
 ## Making an HTTP POST request
 
-Making a GET request with Node is trivial, in fact HTTP GET requests have been covered in **Chapter 3 - Using Streams** in the context of stream processing. 
+Making a GET request with Node is trivial, in fact HTTP GET 
+requests have been covered in **Chapter 3 - Using Streams** in the context 
+of stream processing. 
 
-HTTP GET requests are so simple we can fit a request that prints to stdout into a single shell command (the `-e` flag passed to the `node` binary instructs node to evaluate the string that follows):
+HTTP GET requests are so simple we can fit a request that prints to 
+stdout into a single shell command (the `-e` flag passed to the `node` 
+binary instructs node to evaluate the string that follows):
 
 ```sh
-node -e "require('http').get('http://localhost:8080', (res) => res.pipe(process.stdout))"
+$ node -e "require('http').get('http://example.com', (res) => res.pipe(process.stdout))"
 ```
 
 In this recipe we'll look into constructing POST requests.
@@ -381,18 +900,30 @@ In this recipe we'll look into constructing POST requests.
 
 ### Getting Ready
 
-Let's create a file called `post-request.js` and open it in our favourite text editor.
+Let's create a folder called `post-request`, create an `index.js` inside 
+the folder and open it in our favorite text editor.
 
 ### How to do it
 
-```
+We only need one dependency, the core `http` module. Let's require it:
+
+```js
 const http = require('http')
+```
+
+Now let's define a payload we wish to POST to an endpoint:
+
+```js
 const payload = `{
   "name": "Cian Ó Maidín",
   "company": "nearForm"
 }`
+```
 
-const req = http.request({
+Now we'll define the configuration object for the request we're about to make:
+
+```js
+const opts = {
   method: 'POST',
   hostname: 'reqres.in',
   port: 80,
@@ -401,74 +932,151 @@ const req = http.request({
     'Content-Type': 'application/json',
     'Content-Length': Buffer.byteLength(payload)
   }
-}, (res) => {
+}
+```
+
+Notice how we use `Buffer.byteLength` to determine the `Content-Length` header.
+
+> #### [reqres.in](http://reqres.in) ![](../info.png)
+> We're using [reqres.in](http://reqres.in), a dummy REST API
+> provided as a public service. The endpoint we're posting to 
+> simply mirrors the payload back in the response. 
+
+Next we'll make the request, supplying a callback handler which will
+be called once the request has completed:
+
+```js
+const req = http.request(opts, (res) => {
   console.log('\n  Status: ' + res.statusCode)
   process.stdout.write('  Body: ')
   res.pipe(process.stdout)
   res.on('end', () => console.log('\n'))
 })
-
-req.on('error', (err) => console.error('Error: ', err))
-
-req.write(payload)
 ```
 
+Let's not forget to handle errors: 
 
+```js
+req.on('error', (err) => console.error('Error: ', err))
+```
+
+Finally the most important part, sending the payload.
+
+```js
+req.end(payload)
+```
+
+Now if we execute our script:
+
+```sh
+$ node index.js
+```
+
+Providing the website [reqres.in](http://reqres.in) is functioning correctly,
+we should see something like the following:
+
+![](images/post-request.png)
+**[reqres.in](http://reqres.in) will simply mirror the posted payload**
 
 ### How it works
 
+The `http` module provides both server and client capabilities. 
+
+We use the `http.request` method to create a request stream, which
+takes an options object (`opts`) describing the request and a callback.
+
+> #### HTTPS Requests ![](../info.png)
+> If the endpoint is encrypted (e.g. a standard HTTPS endpoint)
+> We simply swap out the `http` module for the `https` module, 
+> the rest of the code remains the same. 
+
+In the `headers` of the `opts` object we set `Content-Type` and
+`Content-Length` headers. Whilst the request will still be successful
+without providing `Content-Length` it is good practice and allows the
+make informed assumptions about the payload. However, setting `Content-Length`
+to a number lower than the payload size will result in an error. This is
+why it's important to use `Buffer.byteLength` because this gives the exact
+size of the string in bytes, which can differ from the string length when
+unicode beyond the ascii range are in the string (since unicode characters
+can be from 1 to 4 bytes, but are treated as a single character where
+`String.prototype.length` is concerned).  
+
+The `http.request` method opens a socket that's connected to the endpoint
+described in opts and returns a stream (which we assign to `req`).
+
+When we write to this stream (using `req.end`) data is posted to the
+endpoint and the underlying socket is closed (because we ended the stream), 
+
+Since `req` is a stream it also has an `error` event, which we listen to. 
+This would be fired in the event of network or socket errors, whereas a
+server error response would be reflected in the response status code.
+
+The fat arrow callback passed to the `http.request` method is passed
+a response object, which we call `res`. We output the status using
+`res.statusCode`. Then we write the "Body:" label to the `process.stdout`
+stream (`console.log` would add a newline, we don't want that in this case),
+followed by piping the `res` object to `process.stdout`. Finally we listen
+to the `end` event on the `res` object to add two final newlines to the output
+(`console.log` adds an additional newline).
+
+
 ### There's more
+
+#### Buffering a GET Request
+
+#### Streaming Payloads
+
+Since the instance returned from `http.request` is a writable stream,
+we can take an input stream and pipe it to to the POST request as data. 
+
+In this case we want to notify the server that we'll be incrementally
+writing the request body to the server in chunks. 
+
+Let's copy the main recipe folder to a new folder, call it `streaming-payloads`. 
+
+Now we'll tweak the `index.js` file slightly.
+
+Let's make the top of the file look accordingly:
+
+```js
+const http = require('http')
+const opts = {
+  method: 'POST',
+  hostname: 'reqres.in',
+  port: 80,
+  path: '/api/users',
+  headers: {
+    'Content-Type': 'application/json',
+    'Transfer-Encoding': 'chunked'
+  }
+}
+
+```
+The `payload` assignment has been completely removed and we've replaced
+the `Content-Length` header with a `Transfer-Encoding` headed, set to `chunked`. 
+
+At the bottom of the file, we can replace the line `req.end(payload)` with:
+
+```js
+http.get('http://reqres.in/api/users', (res) => {
+  res.pipe(req)
+})
+```
+
+We've initialized a stream of JSON from [reqres.in](http://reqres.in) (`res`) and piped 
+it directly to request object (`req`).
+
+When we run our script, we should see something like the following.
+
+![](images/streaming-payloads.png)
 
 
 #### Multipart POST uploads
 
+### See Also
 
 TBD
 
-## Creating an HTTP server
-
-### Getting Ready
-
-### How to do it
-
-```js
-const http = require('http')
-const host = '0.0.0.0'
-const port = 8080
-
-http.createServer((req, res) => {
-  if (req.method !== 'GET') {
-    res.statusCode = 400
-    res.end('Bad Request')
-    return
-  }
-  switch (req.url) {
-    case '/about': return about(res)
-    case '/contact': return contact(res)
-    default: return index(res)
-  }
-}).listen(port, host)
-
-function index (res) {
-  res.write('<a href="/about">about</a>')>')
-}
-
-function about (res) {
-  res.end('all about this thing')
-}
-```
-
-### How it works
-
-### There's more
-
-#### Handling Multipart POST Requests
-
-#### In-Process Caching
-
-### See also
-
-TBD
 
 ## Communicating with WebSockets
 

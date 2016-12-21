@@ -3,8 +3,7 @@ const payload = `{
   "name": "Cian Ó Maidín",
   "company": "nearForm"
 }`
-
-const req = http.request({
+const opts = {
   method: 'POST',
   hostname: 'reqres.in',
   port: 80,
@@ -13,7 +12,9 @@ const req = http.request({
     'Content-Type': 'application/json',
     'Content-Length': Buffer.byteLength(payload)
   }
-}, (res) => {
+}
+
+const req = http.request(opts, (res) => {
   console.log('\n  Status: ' + res.statusCode)
   process.stdout.write('  Body: ')
   res.pipe(process.stdout)
@@ -22,4 +23,4 @@ const req = http.request({
 
 req.on('error', (err) => console.error('Error: ', err))
 
-req.write(payload)
+req.end(payload)
