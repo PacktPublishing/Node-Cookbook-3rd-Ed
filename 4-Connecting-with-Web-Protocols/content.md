@@ -1022,7 +1022,73 @@ to the `end` event on the `res` object to add two final newlines to the output
 
 ### There's more
 
+How would we parse an entire data set at once? Can stream a payload to 
+a POST endpoint? How would we go about making a multipart POST upload in Node? 
+
 #### Buffering a GET Request
+
+Sometimes it may be necessary to receive response data in it's entirety 
+before it can parsed. 
+
+Let's create a folder called `buffering-a-request` with a fresh `index.js`
+file. 
+
+In the `index.js` file we write the following code:
+
+```js
+const http = require('http')
+const assert = require('assert')
+const url = 'http://www.davidmarkclements.com/ncb3/some.json'
+
+http.get(url, (res) => {
+  const size = parseInt(res.headers['content-length'], 10)
+  const buffer = Buffer.allocUnsafe(size)
+  var index = 0
+  res.on('data', (chunk) => {
+    chunk.copy(buffer, index)
+    index += chunk.length
+  })
+  res.on('end', () => {
+    assert.equal(size, buffer.length)
+    console.log('GUID:', JSON.parse(buffer).guid)
+  })
+})
+```
+
+When we run our script:
+
+```sh
+$ node index.js
+```
+
+We should see a log message containing the `guid` property found in the JSON 
+data set. 
+
+We use `Buffer.allocUnsafe` to preallocate a buffer, "unsafe" is in the name
+because it uses garbage memory instead of zero-filling it - this is more 
+performant but the risk of leaking internal data should be understood (for instance
+if the content length was greater than the actual amount of data received). 
+In our case everything happens locally, so it's not a problem.
+
+Then we listen to the `data` event of the response object (`res`),
+each `chunk` that comes through the `data` event is a `Buffer` instance, 
+we use the `copy` method to copy the contents of the buffer into
+our pre-allocated `buffer`, keeping a running total of bytes copied
+in the `index` variable, which is passed to the `copy` method as the
+offset argument.
+
+When the response ends, (in the `end` event handler), we check that 
+the servers provided `Content-Length` header matches the amount of
+data received by checking `size` with `buffer.length`. Finally
+we parse the whole payload with `JSON.parse` and grab the `guid` property
+from the subsequent object returned from `JSON.parse`. 
+
+> #### Parsing remote data ![](../images/tip.png)
+> In a production setting, we should never call `JSON.parse` without
+> wrapping a `try/catch` block around it. This is because any invalid
+> JSON will cause `JSON.parse` to throw, which will cause the process
+> to crash. The [`fast-json-parse`](http://npm.im/fast-json-parse) 
+> supplies, safe, high performance and clean JSON parsing.    
 
 #### Streaming Payloads
 
@@ -1072,6 +1138,140 @@ When we run our script, we should see something like the following.
 
 
 #### Multipart POST uploads
+
+For fun and profit, let's build our own multipart request which we can
+post to the multipart upload server we created in the 
+[Receiving Post Data](#receiving-post-data) recipe (if we haven't completed that
+recipe now might be a good time to read up). 
+
+Let's create a new folder called `multipart-post-uploads`, 
+with an `index.js`. We'll also initialize a `package.json` file and install `steed` 
+(a low-overhead asynchronous control flow library).
+
+```sh
+$ mkdir multipart-post-uploads
+$ touch index.js
+$ npm init -y
+$ npm install --save steed
+```
+
+Now in the `index.js` file let's begin by setting up our dependencies:
+
+```js
+const http = require('http')
+const fs = require('fs')
+const path = require('path')
+const steed = require('steed')()
+```
+
+Now for some configuration:
+
+```js
+const files = process.argv.slice(2)
+const boundary = Date.now()
+const opts = {
+  method: 'POST',
+  hostname: 'localhost',
+  port: 8080,
+  path: '/',
+  headers: {
+    'Content-Type': 'multipart/form-data; boundary="' + boundary + '"',
+    'Transfer-Encoding': 'chunked'
+  }
+}
+```
+
+We're using `process.argv` (command line arguments), to 
+determine which files to send in the multipart data. Our `Content-Type` header
+tells the server the multipart boundary that will designate each section 
+in the data, and signify the end of the multipart data.
+
+Next we'll set up the request:
+
+```js
+const req = http.request(opts, (res) => {
+  console.log('\n  Status: ' + res.statusCode)
+  process.stdout.write('  Body: ')
+  res.pipe(process.stdout)
+  res.on('end', () => console.log('\n'))
+})
+
+req.on('error', (err) => console.error('Error: ', err))
+```
+
+Finally we'll write the multipart data to the `req` stream,
+based on the files provided via the command line:
+
+```js
+const parts = files.map((file, i) => (cb) => {
+  const stream = fs.createReadStream(file)
+  stream.once('open', () => {
+    req.write(
+      `\r\n--${boundary}\r\n` +
+      'Content-Disposition: ' +
+      `form-data; name="userfile${i}";` +
+      `filename="${path.basename(file)}"\r\n` +
+      'Content-Type: application/octet-stream\r\n' +
+      'Content-Transfer-Encoding: binary\r\n' +
+      '\r\n'
+    )
+  })
+  stream.on('data', (chunk) => req.write(chunk))
+  stream.on('end', cb)
+})
+
+steed.series(parts, () => req.end(`\r\n--${boundary}--\r\n`))
+
+```
+
+The `parts` assignment is essentially a list of operations which 
+we subsequently run in series using `steed.series`. To create this
+we map over each of the file paths, and return a function that takes
+a callback (`cb`). 
+
+Within that function, we create a read stream from
+the supplied file path. Read streams have an `open` event, which is triggered
+the moment the file is opened. We listen for this event and write the multipart
+header for the file. The header contains the field name (just called name in the
+header) - we set this simply to `userfile` plus the index of the file as it
+appeared in the command line arguments. A more sophisticated approach would
+involce mime-type detection and we'd be setting `Content-Type` in the multipart
+header appropriately. Since all data can be binary, we simplify by sending 
+everything with the `Content-Type` of `application/octet-stream` and
+`Content-Transfer-Type` of binary. 
+
+Then we listen to the `data` event and write each `chunk`
+from the read stream to the `req` object. We cannot use `pipe` (or `pump`) in
+this case because when the read stream ends it would call end on the `req`
+stream - we don't want that since we may have additional read streams to 
+read data from and pass into the `req` stream. When the read stream (`stream`)
+ends we call `cb`. At this point, our flow control library `steed`, will
+process the next operation. When every function in the `parts` array has been
+processed by `steed.series` we end the request stream (`req`) with the
+end-of-multipart boundary.
+
+We can test this out by sending the source `index.js` twice to 
+our multipart server from the [Receiving Post Data](#receiving-post-data) recipe.
+
+First we can run the upload server from, in the `uploading-a-file` folder
+from that recipe we run: 
+
+```sh
+$ node server.js
+```
+
+Then in a new terminal, in our `multipart-post-uploads` folder we run
+
+```sh
+$ node index.js package.json index.js
+```
+
+This will send the `package.json` file and the source `index.js`
+file to our server.
+
+We can check the `uploads` folder in the `uploading-a-file` directory,
+to determine whether the `index.js` and `package.json` file we're correclty
+uploaded.
 
 ### See Also
 
