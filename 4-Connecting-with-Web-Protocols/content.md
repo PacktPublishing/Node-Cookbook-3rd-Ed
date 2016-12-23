@@ -1216,7 +1216,7 @@ const parts = files.map((file, i) => (cb) => {
       '\r\n'
     )
   })
-  stream.on('data', (chunk) => req.write(chunk))
+  stream.pipe(req, {end: false})
   stream.on('end', cb)
 })
 
@@ -1240,15 +1240,15 @@ header appropriately. Since all data can be binary, we simplify by sending
 everything with the `Content-Type` of `application/octet-stream` and
 `Content-Transfer-Type` of binary. 
 
-Then we listen to the `data` event and write each `chunk`
-from the read stream to the `req` object. We cannot use `pipe` (or `pump`) in
-this case because when the read stream ends it would call end on the `req`
-stream - we don't want that since we may have additional read streams to 
-read data from and pass into the `req` stream. When the read stream (`stream`)
-ends we call `cb`. At this point, our flow control library `steed`, will
-process the next operation. When every function in the `parts` array has been
-processed by `steed.series` we end the request stream (`req`) with the
-end-of-multipart boundary.
+Then we pipe from `stream` to `req`, passing an additional options
+argument to `pipe`, with an `end` property set to `false`. This will prevents
+`req` being closed when `stream` finishes. Since we may have additional files, 
+the `req` stream needs to stay open. 
+
+When `stream` ends we call `cb`. At this point, our flow control library `steed`,
+will process the next operation. When every function in the `parts` array
+has been processed by `steed.series` we end the request stream (`req`) with the
+multipart end boundary.
 
 We can test this out by sending the source `index.js` twice to 
 our multipart server from the [Receiving Post Data](#receiving-post-data) recipe.
@@ -1280,19 +1280,336 @@ TBD
 
 ## Communicating with WebSockets
 
+HTTP was not made for the kind of real-time web applications that many
+developers are creating today. As a result, all sorts of workarounds have
+been discovered to mimic the idea of bidirectional, uninterrupted communication 
+between servers and clients. 
+
+WebSockets don't mimic this behavior; they provide it.
+
+In this recipe we will use the third-party `ws` module to create a pure WebSocket 
+server that will receive and respond to WebSocket requests from the browser.
+
 ### Getting Ready
+
+Let's new folder called `websocket-app` with a `server.js` file, 
+plus a folder called `public` containing a `index.html` file.
+
+```sh
+$ mkdir websocket-app
+$ cd websocket-app
+$ touch server.js
+$ mkdir public
+$ touch public/index.html
+```
+ 
+We also need to initialize our app as a Node package, and install the `ws` module.
+
+```sh
+$ npm init -y 
+$ npm install --save ws
+``` 
 
 ### How to do it
 
+In `server.js` let's begin by requiring our dependencies:
+
+```js
+const http = require('http')
+const fs = require('fs')
+const ws = require('ws')
+```
+
+Next we want to load `public/index.html` into memory (we'll write `index.html` 
+shortly), create an HTTP server, and then enhance it with a WebSocket server:
+
+```js
+const app = fs.readFileSync('public/index.html')
+const server = http.createServer((req, res) => {
+  res.setHeader('Content-Type', 'text/html')
+  res.end(app)
+})
+const wss = new ws.Server({server})
+```
+
+Now that we have our WebSocket server instance (`wss`),
+we can listen to its `connection` event:
+
+```js
+wss.on('connection', (socket) => {
+  socket.on('message', (msg) => {
+    console.log(`Received: ${msg}`)
+    console.log(`From IP: ${socket.upgradeReq.connection.remoteAddress}`)
+    if (msg === 'Hello') socket.send('Websockets!')
+  })
+})
+```
+
+Finally let's tell our HTTP server to listen on port 8080:
+
+```js
+server.listen(8080)
+```
+
+Now for our frontend code.
+
+Let's place the following in `public/index.html` 
+
+```html
+<input id="msg"><button id="send">Send</button>
+<div id="output"></div>
+```
+
+Now in the same `public/index.html`, we'll place our 
+client side JavaScript.
+
+At the bottom of `public/index.html` let's add the following:
+
+```html
+<script>
+(function () {
+  var ws = new WebSocket('ws://localhost:8080')
+  var output = document.getElementById('output')
+  var send = document.getElementById('send')
+
+  function log (event, msg) {
+    return '<div>' + event + ': ' + msg + '</div>';
+  }
+
+  send.addEventListener('click', function () {
+    var msg = document.getElementById('msg').value
+    ws.send(msg)
+    output.innerHTML += log('Sent', msg)
+  })
+
+  ws.onmessage = function (e) {
+    output.innerHTML += log('Recieved', e.data)
+  }
+
+  ws.onclose = function (e) {
+    output.innerHTML += log('Disconnected', e.code + '-' + e.type)
+  }
+
+  ws.onerror = function (e) {
+    output.innerHTML += log('Error', e.data);
+  }
+}())
+</script>
+```
+
+Let's try it out buy starting our server:
+
+```sh
+$ node server.js
+``` 
+
+Then going to http://localhost:8080 in our browser, 
+typing "Hello" in the textbox and clicking on the "Send" button. 
+
+The terminal should then output something like:
+
+```sh
+Received: Hello
+From IP: ::1
+``` 
+
+On other systems (where IPv4 is the default) the IP might be 127.0.0.1
+instead.
+
+Our browser should display something like the following:
+
+![](images/websocket-app.png)
+
 ### How it works
+
+WebSocket servers start out as HTTP servers, 
+then the browser connects to the HTTP server and asks to upgrade; 
+at this point, the WebSocket logic takes over.
+
+We supply an HTTP server instance to the WebSocket server 
+at initialization time by passing it in the options object
+(we use ES6 shorthand to set a property of `server` with the value
+being the `server` instance).
+
+When we navigate the browser to http://localhost:8080, an HTTP request is 
+made and we send our in-memory `public/index.html` file as the response. 
+
+As soon as the HTML is loaded in the browser,
+the inline script is executed and the WebSocket upgrade request is 
+made to our server.
+
+When the server receives this WebSocket upgrade request,
+our WebSocket server instance (`wss`) emits a `connection` event 
+that supplies `socket` as the first parameter of the connection 
+event handler function.
+
+The `socket` parameter is an instance of `EventEmitter`; 
+we use its `message` event to respond to incoming messages
+on the established WebSocket connection.
+
+In the `message` event handler function we log the received 
+data and the client IP address to the terminal and check whether
+the incoming message is "Hello". If it is, we use the `socket.send`
+method to respond to the client with "WebSockets!".
 
 ### There's more
 
-#### WebSocket Node client
+WebSockets have so much potential for efficient low latency 
+real-time web apps. Let's take a look at a WebSocket client 
+outside of the browser and then further see how browser APIs
+can be wrapped in one of Node's fundamental paradigms: streams.
 
-#### Web P2P ?
+#### Creating a Node.js WebSocket client
 
-#### WebSocket Pull stream ?
+The `ws` module also allows us to create a WebSocket 
+client outside of the browser environment.
+
+Let's see if we recreate equivalent (and enhanced) functionality 
+to our browser app in the terminal. Essentially we're going to create
+a generic interactive WebSocket testing command-line tool!
+
+We'll start by creating a new folder called `websocket-client` with an `index.js`
+file. We'll also need to create a `package.json` and install the `ws` module
+
+```sh
+$ mkdir websocket-client
+$ cd websocket-client
+$ npm init -y
+$ npm install --save ws
+```
+
+Now let's open `index.js` in our favorite editor, and begin
+by requiring and initializing the `ws` module and the core `readline` module:
+
+```js
+const WebSocket = require('ws')
+const readline = require('readline')
+const ws = new WebSocket(process.argv[2] || 'ws://localhost:8080')
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+  prompt: '-> '
+})
+```
+
+Notice that we allow a command line argument to determine the 
+WebSocket address, although we default to the address of the
+server in the main recipe. 
+
+Next let's set up some convenience references to ANSI terminal 
+escape codes (we'll be using these to set colors in the terminal):
+
+```js
+const gray = '\u001b[90m'
+const red = '\u001b[31m'
+const reset = '\u001b[39m'
+```
+
+Next we'll listen for an `open` event on our WebSocket client instance (`ws`),
+and output an appropriate status message when it fires:
+
+```js
+ws.on('open', () => {
+  rl.output.write(`${gray}-- Connected --${reset}\n\n`)
+  rl.prompt()
+})
+```
+
+Notably, we use `rl.output` instead of `process.stdout`, this makes our
+implementation agnostic to the I/O streams, which theoretically allows for
+extensible and plug-able code.
+
+The readline module allows us to take line by line input, so let's 
+listen for the `line` event and send user input as a WebSocket message:
+
+```js
+rl.on('line', (msg) => {
+  ws.send(msg, () => {
+    rl.output.write(`${gray}<= ${msg}${reset}\n\n`)
+    rl.prompt()
+  })
+})
+```
+If the message is successfully sent (using `ws.send`), the supplied 
+callback (second argument passed to `ws.send`) is called. Here 
+we output a status message confirming the user input was sent, and
+set up the prompt for further input.
+
+WebSocket communication is of course bidirectional, so let's listen
+for any messages coming from the server:
+
+```js
+ws.on('message', function (msg) {
+  readline.clearLine(rl.output)
+  readline.moveCursor(rl.output, -3 - rl.line.length, -1)
+  rl.output.write(`${gray}=> ${msg}${reset}\n\n`)
+  rl.prompt(true)
+})
+```
+
+Finally we'll finish by listening the `close` and `error` events,
+and outputting relevant status' to the terminal:
+
+```js
+ws.on('close', () => {
+  readline.cursorTo(rl.output, 0)
+  rl.output.write(`${gray}-- Disconnected --${reset}\n\n`)
+  process.exit()
+})
+ws.on('error', (err) => {
+  readline.cursorTo(rl.output, 0)
+  rl.output.write(`${red}-- Error --${reset}\n`)
+  rl.output.write(`${red}${err.stack}${reset}\n`)
+})
+```
+
+Lets start out server from the main recipe by 
+running (from the `websocket-app` folder):
+
+```sh
+$ node server.js
+```
+
+Then in a separate terminal, from the `websocket-client` folder, we can execute
+
+```sh
+$ node index.js
+```
+
+We should see an interaction illustrated in the following figure:
+
+![](images/websocket-client.png)
+
+If we try to run our Node.js websocket client without the server started
+we'll see the error handler in effect:
+
+![](images/websocket-client-error.png)
+
+Since we also allow command line input, we can easily connect 
+to other WebSocket servers. For instance we could connect to 
+ws://echo.websocket.org like so:
+
+```sh
+$ node index.js ws://echo.websocket.org
+```
+
+We can see the results of doing so, and typing "Echo :)" in the following figure:
+
+![](images/websocket-client-echo.png)
+
+The WebSocket protocol is not purely request-response oriented,
+so a message may come from the server without direct client 
+interaction. We cater to this possibility in several ways.
+
+Every non-terminal status (everything other than close or 
+error status') is followed by two newlines. This gives us
+space to seamlessly inject a received message.   
+When a message comes from the server we use `readLine.clearline`
+to wipe the current user prompt. Then we use `readline.moveCursor`
+to jump to the above line, and set the X position to the first column. 
+We write the message out to `rl.output` (the terminal), and then 
+call `rl.prompt` with `true` (this preserves current prompt 
+content and cursor position). 
 
 ### See also
 
@@ -1301,7 +1618,6 @@ TBD
 
 ## Creating an SMTP server
 
-use substacks smtp-protocol module, create simple server 
 
 ### Getting Ready
 
@@ -1311,13 +1627,9 @@ use substacks smtp-protocol module, create simple server
 
 ### There's more
 
+Let's make an SMPT client to go with our SMTP server!
+
 #### SMTP client (with substacks thing)
-
-#### SMTP REST Server
-
-#### Haraka
-
-
 
 ### See also
 

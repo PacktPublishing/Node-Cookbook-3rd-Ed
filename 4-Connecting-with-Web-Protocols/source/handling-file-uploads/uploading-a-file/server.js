@@ -37,7 +37,6 @@ function post (req, res) {
     console.log('finished parsing')
   })
   var total = 0
-  req.pipe(process.stdout)
   pump(req, parser)
 
   function part (field, file, name) {
