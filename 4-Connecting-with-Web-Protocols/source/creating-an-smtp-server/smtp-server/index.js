@@ -1,38 +1,45 @@
 const fs = require('fs')
 const path = require('path')
 const smtp = require('smtp-protocol')
+const hosts = new Set(['localhost', 'example.com'])
+const users = new Set(['you', 'another'])
+const mailDir = path.join(__dirname, 'mail')
 
-const hosts = ['localhost', 'example.com']
-
-tryMkdirSync('mail')
-
-smtp.createServer((req) => {
-  req.on('to', (to, {accept, reject}) => {
-    const domain = to.split('@')[1] || hosts[0]
-    if (hosts.indexOf(domain) > -1) accept()
-    else reject()
-  })
-  
-  req.on('message', (stream, {accept}) => {
-    const {from, to} = req
-    to.forEach((rcpt) => {
-      tryMkdirSync('mail', rcpt)
-      const mail = createMailStream(rcpt, from)
-      mail.write(`From: ${from} \n`)
-      mail.write(`To: ${rcpt} \n\n`)
-      stream.pipe(mail, {end: false})
-    })
-    accept()
-  })
-
-  req.on('error', (err) => console.error(err))
-}).listen(2525)
-
-
-function tryMkdirSync (...args) {
-  try { fs.mkdirSync(path.join(__dirname, ...args)) } catch (e) {}
+function ensureDir (dir, cb) {
+  try { fs.mkdirSync(dir) } catch (e) {
+    if (e.code !== 'EEXIST') throw e
+  }
 }
-function createMailStream (rcpt, from) {
-  const dest = path.join(__dirname, 'mail', rcpt, `${from}-${Date.now()}`)
-  return fs.createWriteStream(dest)
+
+ensureDir(mailDir)
+for (let user of users) ensureDir(path.join(mailDir, user))
+
+const server = smtp.createServer((req) => {
+  req.on('to', filter)
+  req.on('message', (stream, ack) => save(req, stream, ack))
+  req.on('error', (err) => console.error(err))
+})
+
+server.listen(2525)
+
+function filter (to, {accept, reject}) {
+  const [user, host] = to.split('@')
+  if (hosts.has(host) && users.has(user)) {
+    accept()
+    return
+  }
+  reject(550, 'mailbox not available')
+}
+
+function save (req, stream, {accept}) {
+  const {from, to} = req
+  accept()
+  to.forEach((rcpt) => {
+    const [user] = rcpt.split('@')
+    const dest = path.join(mailDir, user, `${from}-${Date.now()}`)
+    const mail = fs.createWriteStream(dest)
+    mail.write(`From: ${from} \n`)
+    mail.write(`To: ${rcpt} \n\n`)
+    stream.pipe(mail, {end: false})
+  })
 }

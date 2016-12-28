@@ -1618,18 +1618,389 @@ TBD
 
 ## Creating an SMTP server
 
+In this recipe, we'll create our own internal SMTP server 
+(just like the first SMTP servers)
+using the  `smtp-protocol` module, 
+
+For information on converting an internal SMTP server to an 
+externally exposed MX record server, see the *There's more...* section 
+at the end of this recipe.
 
 ### Getting Ready
 
+Let's create a folder called `smtp-server`, with an `index.js` 
+file.
+
+Then on the command-line from within the `smtp-server` directory, 
+we can initialize our folder and install the `smtp-protocol` module:
+
+```sh
+$ npm init -y 
+$ npm install --save smtp-protocol
+```
+
 ### How to do it
+
+Let's start by requiring relevant dependencies:
+
+```js
+const fs = require('fs')
+const path = require('path')
+const smtp = require('smtp-protocol')
+```
+
+We're only going to accept emails to certain host domains,
+and only for certain users. We also need somewhere to store
+emails we have accepted. 
+
+So let's create two whitelist sets, one for hosts and the other
+users, along with a target path for mail boxes:
+
+```js
+const hosts = new Set(['localhost', 'example.com'])
+const users = new Set(['you', 'another'])
+const mailDir = path.join(__dirname, 'mail')
+```
+
+Before we create the server, we have some set up to perform.
+We need to make sure that the mail directory and user mail boxes
+exist on the file system, if they don't we need to create them.
+ 
+Let's write the following code to do that:
+
+```js
+function ensureDir (dir, cb) {
+  try { fs.mkdirSync(dir) } catch (e) {
+    if (e.code !== 'EEXIST') throw e
+  }
+}
+
+ensureDir(mailDir)
+for (let user of users) ensureDir(path.join(mailDir, user))
+```
+
+Next we'll create out SMTP server: 
+
+```js
+const server = smtp.createServer((req) => {
+  req.on('to', filter)
+  req.on('message', (stream, ack) => save(req, stream, ack))
+  req.on('error', (err) => console.error(err))
+})
+
+server.listen(2525)
+```
+
+This gives us an outline of what we'll do for each incoming
+SMTP request. 
+
+We still need to implement the `filter` and `save`
+functions shortly.
+
+Our `filter` function will deconstruct the intended recipient
+email address and checks the `hosts` and `users` whitelist, calling
+`accept` or `reject` accordingly:
+
+```js
+function filter (to, {accept, reject}) {
+  const [user, host] = to.split('@')
+  if (hosts.has(host) && users.has(user)) {
+    accept()
+    return
+  }
+  reject(550, 'mailbox not available')
+}
+```  
+
+Finally our `save` function will take the incoming message and 
+save it to any relevant mailboxes:
+
+```js
+function save (req, stream, {accept}) {
+  const {from, to} = req
+  accept()
+  to.forEach((rcpt) => {
+    const [user] = rcpt.split('@')
+    const dest = path.join(mailDir, user, `${from}-${Date.now()}`)
+    const mail = fs.createWriteStream(dest)
+    mail.write(`From: ${from} \n`)
+    mail.write(`To: ${rcpt} \n\n`)
+    stream.pipe(mail, {end: false})
+  })
+}
+```
+
+Now if we run our `index.js` file our server should start (and create
+the relevant directory structures):
+
+```sh
+$ node index.js
+```
+
+We can manually test our mail server by opening a new terminal and running:
+
+```sh
+$ node -e "process.stdin.pipe(require('net').connect(2525)).pipe(process.stdout)"
+```
+
+This will allow us to interact with our SMTP server in real time, which 
+means we can manually create an email message at the protocol level. 
+
+If we follow the below script we should be able to construct a message
+to our SMTP server:
+
+```sh
+helo
+mail from: me@me.com
+rcpt to: you@example.com
+data
+hello there!
+.
+quit
+```
+
+After each line we should receive a response from our server, the 
+whole interaction should look similar to the following figure.
+
+![](images/smtp-check.png)
 
 ### How it works
 
+SMTP is based upon a series of plain text communications between an
+SMTP client and server over a TCP connection. The `smtp-protocol` module
+carries out these communications for us.
+
+When we call the `createServer` method we pass an event handler 
+that is passed a request object (`req`). This object is an event 
+emitter (inherits from the core `events` module `EventEmitter` 
+constructor). We listen for `to`, `message`, and `error` events. 
+
+The `to` event supplies two arguments to the handler callback 
+(our `filter` function). The first argument is the full recipient
+address, the second (named `ack`) allows us to accept or reject the incoming
+message. 
+
+Our `filter` function uses parameter object deconstruction to 
+pull out the `accept` and `reject` functions from the `ack` object and
+then uses assignment array deconstruction to define the `user` and `host`
+references. When we call `split` on the `to` string, splitting by the "at" (`@`)
+sign, we should have an array with two elements, using deconstruction, `user`
+points to index 0 of the resulting array while `host` points at index 1.
+
+Our `hosts` and `users` whitelist are native `Set` objects, we use the 
+`has` method to determine whether each side of the email address matches
+our criteria. If it does we call `accept`, if it doesn't we `reject`
+the recipient. At a protocol level a message prefixed with
+a `250` code (successful action) will be sent when we call `accept`.
+By default `reject` will respond with a code of `500` (command unrecognized),
+but we specify `550` (mailbox unavailable) which is more appropriate to 
+the case.  
+
+The SMTP protocol allow for multiple recipients, until a message "data"
+message is sent. Each accepted recipient is added to an array 
+stored on `req.to` (`smtp-protocol` builds this array internally). When 
+a client sends a "data" message, the `message` event handler is fired.
+
+The `message` event handler is passed two arguments, `stream` and `ack`. 
+As with the `to` event handler, `ack` allows us to `accept` or `reject`.
+The `stream` object is a stream of the message body. 
+
+We call our `save` function in the `message` event handler, with the 
+`req`, `stream` and `ack` objects.
+
+The `save` function (like the `filter` function) deconstructs the `ack`
+object at the parameter level (we only need the `accept` function in
+this case). The `to` and `from` properties are pulled from the `req` object, 
+also via deconstruction. Since we aren't performing any validating steps 
+here, we can just immediately call the `accept` function. 
+
+The `to` reference is always an array (since there may be multiple recipients),
+we look through it with `forEach` and create a write stream (`mail`) pointing to the
+users mailbox, to a file name constructed from the `from` email address and
+a timestamp (`dest`). We write a simple header to the file, with 
+"From" and "To" fields, and then pipe from our incoming message body stream
+(`stream`) to our file write stream (`mail`). When we call the `pipe` method
+we supply a second options argument, with `end` set to `false`. This is 
+important when piping from a source stream to multiple destinations. Without
+passing this option, the first destination stream to finish would call `end`
+on the message body stream. Any other reading from the stream 
+to other destination streams would cease, so data would be lost. 
+
 ### There's more
 
-Let's make an SMPT client to go with our SMTP server!
+Let's make an SMTP client to go with our SMTP server!
 
-#### SMTP client (with substacks thing)
+#### Making an SMTP client
+
+The `smtp-protocol` module can be used for creating clients too,
+so let's make a client and use it alongside our SMTP server from the 
+main recipe.
+
+Let's copy the `smtp-server` folder, naming the duplicate `smtp-client`. 
+
+We don't need to install any new dependencies, so let's simply clear 
+the contents of `index.js` and open it in our favorite editor. 
+
+Let's start with by requiring dependencies:
+
+```js
+const os = require('os')
+const readline = require('readline')
+const smtp = require('smtp-protocol')
+``` 
+
+We're going to use the core `readline` module as a user interface, 
+creating an interactive shell for sending mail. Let's create a `readline`
+interface instance:
+
+```js
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+  prompt: ''
+})
+```
+
+Now a config object to hold mail settings: 
+
+```js
+const cfg = {
+  host: 'localhost',
+  port: 2525,
+  email: 'me@me.com',
+  hostname: os.hostname()
+}
+```
+
+One more piece of housekeeping before we move on to the main 
+task of connecting to our SMTP server. We're going to listen
+for the Ctrl + C key combination to cancel a writing an email,
+and quit the shell, and Ctrl + D to tell the interface we're done
+writing and ready to send.
+
+The way to do this with the `readline` module is somewhat 
+unintuitive. We listen for a `close` event to capture Ctrl + D
+and listen for `SIGINT` event to Ctrl + C (if we don't listen for
+`SIGINT` Ctrl + C would also trigger the `close` event).
+
+So let's listen for `SIGINT` and respond accordingly:
+
+```js
+rl.on('SIGINT', () => {
+  console.log('... cancelled ...')
+  process.exit()
+})
+```
+
+Now let's write the SMTP connection section:
+
+```js
+smtp.connect(cfg.host, cfg.port, (mail) => {  
+  mail.helo(cfg.hostname)
+  mail.from(cfg.email)
+  rl.question('To: ', (to) => {
+    to.split(/;|,/gm).forEach((rcpt) => mail.to(rcpt))
+    rl.write('===== Message (^D to send) =====\n')
+    mail.data(exitOnFail)
+    const body = []
+    rl.on('line', (line) => body.push(`${line}\r\n`))
+    rl.on('close', () => send(mail, body))
+  })
+})
+```
+
+We have yet to write the `exitOnFail` and `send` functions.
+
+Let's start with `send`:
+
+```js
+function send (mail, body) {
+  console.log('... sending ...')
+  const message = mail.message()
+  body.forEach(message.write, message)
+  message.end()
+  mail.quit()
+}
+```
+
+And finally `exitOnFail`:
+
+```js
+function exitOnFail (err, code, lines, info) {
+  if (code === 550) {
+    err = Error(`No Mailbox for Recipient "${info.rcpt}"`)
+  }
+  if (!err && code !== 354 && code !== 250 && code !== 220 && code !== 200) {
+    err = Error(`Protocol Error: ${code} ${lines.join('')}`)
+  }
+  if (!err) return
+  console.error(err.message)
+  process.exit(1)
+}
+```
+
+Now if we have two terminals open, both with the current working directory
+set as the parent folder of both the `smtp-server` and `smtp-client`
+folders we can start our SMTP server like so
+
+```sh
+$ node smtp-server
+```
+
+Then in the other terminal window, we can start our client thusly:
+
+```sh
+$ node smtp-client
+```
+
+If we supply a supported recipient address (such as "you@example.com")
+we should be able to successfully send mail to our SMTP server. We can 
+also send to multiple addresses, delimiting either by comma (`,`) or
+semicolon (`;`).  
+
+If we try an unsupported address, we should see a message telling us
+that the server does not have an associated mailbox for the address 
+specified. 
+
+The following figure shows interactions with the SMTP client:
+
+![](images/smtp-client.png) 
+*Interacting with the SMTP client*
+
+The `smtp.connect` method is analogous to the `net` `connect` method,
+it creates a client connection to our server. 
+
+Instead of supplying a `socket` instance (an object representing a TCP connection),
+it gives us a `mail` instance (an object representing an SMTP connection).
+
+We interact with the protocol in a fairly direct way, 
+calling the respective `mail.helo` and `mail.from` methods to 
+send relevant protocol data across the wire. 
+
+Then we use our `readline` interface instance (`rl`) to prompt
+the user for recipients (reading a line of user input). 
+
+We split the result using a regular expression, allowing for both
+comma (`,`) and semicolon (`;`) delimited recipient lists. 
+
+We call `mail.to` for every recipient which will again send 
+addresses to the SMTP server. The callback passed to `mail.to`
+in turn calls `exitOnFail` with an object containing the 
+recipient (for detailed errors later on). 
+
+Then we instruct the user to write a message, and press Ctrl + D
+when finished. We use the `line` event on the `rl` instance to
+compose an array of lines (the `body`), then the `close` event
+(triggered on Ctrl + D) to pass the `mail` and `body` object 
+to our `send` function.
+
+The `mail.message` method returns a writable message stream for
+the body of the email (much like
+the `message` event on our server supplies a readable message stream).
+
+We loop through the lines of our `body`, calling `message.write`
+for each line, then end the `message` stream and call `mail.quit`
+to end our SMTP session.
 
 ### See also
 

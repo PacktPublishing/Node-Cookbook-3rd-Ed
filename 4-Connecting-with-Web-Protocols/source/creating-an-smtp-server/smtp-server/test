@@ -1,7 +1,0 @@
-helo
-mail from: me@me.com
-rcpt to: you@superawesome.com
-data
-hi there :)
-.
-quit
