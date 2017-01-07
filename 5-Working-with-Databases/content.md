@@ -5,10 +5,9 @@ This chapter covers the following topics
 * Connecting and sending SQL to a MySQL server
 * Populating and querying a Postgres database
 * Storing and retrieving data with MongoDB
-* Storing data and retrieving data with CouchDB
 * Storing and retrieving data with Redis
-* Implementing PubSub with Redis
 * Persisting with LevelDB
+* GRAPH DATABASE ?
 * Recording to the InfluxDB time series database
 
 ## Introduction
@@ -706,12 +705,286 @@ instructs MongoDB to increase the `votes` key by one.
 The `$inc` modifier will create the `votes` field if it doesn't exist and increment
 it by one (we can also decrement using minus figures).  
 
-Our `opts` object has a `safe` property set to true, this ensures that
+Our `opts` object has a `safe` property set to `true`, this ensures that
 the callback isn't fired until MongoDB has absolutely confirmed the 
 update was written (although it will make operations slower).
+
+Inside the `update` callback, we execute a chain of methods (`find`, `sort`, `limit`, `each`).
+A call to `find`, without any parameters, returns every document in a collection. 
+The `sort` method requires an object whose properties match the keys in our 
+collection. The value of each property can either be `-1` or `+1`, which specifies
+ascending and descending order respectively. 
+
+The `limit` method takes accepts a number representing the maximum amount of records
+to return and the `each` method loops through all our records. 
+Inside the `each` callback, we output vote counts alongside each author and quote.
+When there are no documents remaining, the `each` method will call the callback
+on final time, setting `doc` to `null` - in this case we fall through both 
+`if` statements to the final `db.close` call.
 
 ### See also 
 
 * TBD
 
+## Storing and Retrieving Data with Redis
 
+Redis is a key value store which functions in operational 
+memory with blazingly fast performance. 
+
+Redis is excellent for certain tasks, as long as the data model is fairly
+simple. 
+
+Good examples of where Redis shines are in site analytics, 
+server-side session cookies, and providing a list of logged-in users 
+in real time. 
+
+In the spirit of this chapters theme, let's reimplement our quotes database 
+with Redis.
+
+### Getting Ready
+
+Let's create a new folder called `redis-app`, with an `index.js` file, 
+initialize it and install `redis`, `steed` and `uuid`.
+
+```sh
+$ mkdir redis-app
+$ cd redis-app
+$ touch index.js
+$ npm init -y
+$ npm install --save redis steed uuid
+```
+
+We also need to install the Redis server, which can be downloaded 
+from http://www.redis.io/download along with the installation instructions.
+
+### How to do it
+
+Let's load supporting dependencies along with the `redis` module,
+establish a connection, and listen for the ready event emitted by the client. 
+
+We'll also load the command-line arguments into the `params` object.
+
+Let's kick off `index.js` with the following code:
+
+```js
+const uuid = require('uuid')
+const steed = reqire('steed')()
+const redis = require('redis')
+const client = redis.createClient() 
+const params = {
+  author: process.argv[2],
+  quote: process.argv[3]
+}
+```
+
+Now we'll lay down some structure. We're going to check whether an author and/or
+quote has been provided via the command line. 
+If only author was specified we'll list out all quotes for that author.  
+If both have been supplied, we'll add the quote to our Redis store,  
+and then list out the quotes as well. If no arguments were given, we'll just
+close the connection to Redis, allowing the Node process to exit.
+
+Let's add the following to `index.js`:  
+
+```js
+if (params.author && params.quote) {
+  add(params)
+  list((err) => {
+    if (err) console.error(err)
+    client.quit()
+  })
+  return
+}
+
+if (params.author) { 
+  list((err) => {
+    if (err) console.error(err)
+    client.quit()
+  })
+  return
+}
+
+client.quit()
+```
+
+Now we'll write the `add` function:
+
+```js
+function add ({author, quote}) {
+  const key = `Quotes: ${Math.random().toString(32).replace('.', '')}`
+  client.hmset(key, {author, quote})
+  client.sadd(`Author: ${params.author}`, key)
+}
+```
+
+Finally, we'll write the `list` function:
+
+```js
+function list (cb) {
+  client.smembers(`Author: ${params.author}`, (err, keys) => {
+    if (err) return cb(err)
+    steed.each(keys, (next) => (key) => {
+      client.hgetall(key, (err, {author, quote}) => {
+        if (err) return next(err)
+        console.log(`${author} ${quote} \n`)
+        next()
+      })
+    }, cb)
+  })
+}
+
+```
+
+We should now be able to add a quote (and see the resulting stored quotes):
+
+```sh
+$ node index.js "Steve Jobs" "Stay hungry, stay foolish."
+```
+
+### How it works
+
+If both author and quote are specified via the command line, we go ahead and 
+generate a random key prefixed with `Quote:`. So, each key will look something 
+like `Quote:0e3h6euk01vo`. It's a common convention to prefix the Redis keys
+with names delimited by a colon, as this helps us to identify keys when debugging.
+
+We pass our key into `client.hmset`, a wrapper for the Redis `HMSET` command, 
+which allows us to create multiple hashes.
+
+Essentially when called with `params.author` set to "Steve Jobs" and 
+`params.quote` set to "Stay hungry, stay foolish." the following command 
+is being sent to Redis and executed:
+
+```
+HMSET author "Steve Jobs" quote "Stay hungry, stay foolish." 
+```
+
+Every time we store a new quote with `client.hmset`, we add the `key` for that quote 
+to the relevant author set via the second parameter of `client.sadd`. 
+
+The `client.sadd` method allows us to add a member to a Redis set
+(a set is like an array of strings). The key for our `SADD` command is based
+on the intended author. So, in the preceding Steve Jobs 
+quote, the key to pass into `client.sadd` would be `Author:Steve Jobs`.
+
+In our `list` function we execute the `SMEMBERS` command using `client.smembers`. 
+This returns all the values we stored to a specific author's set. Each value in 
+an author's set is a key for a quote related to that author. 
+
+We use `steed.each` to loop through the keys, executing `client.hgetall` in 
+parallel. Redis `HGETALL` returns a hash (which the `redis` module converts
+to a JavaScript object). This hash matches the object we passed into 
+`client.hmset` in the `add` function. 
+
+Each author and quote is then logged to the console, and the final `cb`
+argument passed to `steed.each` is called. This in calls the callback function
+passed to `list` in both `if` statements. Here we check for any errors and
+call `client.quit` to gracefully close the connection. 
+
+
+### There's more
+Redis is a speed freak's dream, but we can still be faster. Let's
+also take a brief look at authenticating with a Redis server.
+
+#### Command Batching
+Redis can receive multiple commands at once. The `redis` module has 
+a `multi` method, which sends commands in batch.
+
+Let's copy the `redis-app` folder to `redis-batch-app`.
+
+Now we'll modify `add` function as follows:
+
+```js
+function add ({author, quote}, cb) {
+  const key = `Quotes: ${uuid()}`
+  client
+    .multi()
+    .hmset(key, {author, quote})
+    .sadd(`Author: ${params.author}`, key)
+    .exec((err, replies) => {
+      if (err) return cb(err)
+      if (replies[0] === "OK") console.log('Added...\n')
+      cb()
+    })   
+}
+```
+
+We also need to alter the first `if` statement to account for the 
+now asynchronous nature of the `add` function:
+
+```js
+if (params.author && params.quote) {
+  add(params, (err) => {
+    if (err) throw err
+    list((err) => {
+      if (err) console.error(err)
+      client.quit()
+    })
+  })
+  return
+}
+```
+
+The call to `client.multi` essentially puts the `redis` client into
+batch mode, queueing each subsequent command. When `exec` is called
+the list of commands is to sent to Redis and executed all in one go.
+
+#### Using `hiredis`
+
+By default, the redis module uses a pure JavaScript parser. 
+However, the Redis project provides `hiredis` a module with Native C 
+bindings to the official Redis client, Hiredis.
+
+We may find performance gains (althogh mileage may vary), 
+by using a parser written in C. 
+
+The `redis` module will avail of `hiredis` if it's installed, so
+to enable a potentially faster Redis client we can simply install
+the `hiredis` Node module:
+
+```sh
+$ npm install --save hiredis
+```
+
+#### Authenticating
+
+We can set the authentication for Redis with the `redis.conf` file, 
+found in the directory we installed Redis to. 
+
+To set a password in `redis.conf`, we simply uncomment 
+the `require pass` section, supplying the desired password (for the sake of 
+a concrete example let's choose the password "ourpassword").
+
+Then, we make sure that our Redis server points to the configuration file. 
+
+If we are running it from the `src` directory, we would then start our
+redis server with the following command:
+
+```sh
+$ ./redis-server ../redis.conf
+```
+
+As an alternative if we want quickly set a temporary password, we can use the following:
+
+```sh
+$ echo "requirepass ourpassword" | ./redis-server -
+```
+
+We can also set a password from within Node with the `CONFIG SET` Redis command: 
+
+```
+client.config('SET', 'requirepass', 'ourpassword')
+```
+
+To authenticate a Redis server within Node, we use the `redis` module's 
+`client.auth` method before any other calls:
+
+```js
+   client.auth('ourpassword')
+```
+
+The password has to be sent before any other commands.
+
+The `redis` module seamlessly handles re-authentication, 
+we don't need to call client.auth again at failure points, 
+this is taken care of internally. 
