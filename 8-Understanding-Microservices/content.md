@@ -6,15 +6,10 @@ This chapter covers the following topics
 * Creating the context
 * Setting up a development environment
 * Using pattern matching with Mu
-* Using containers with microservices
-* Adding a second service
-* Building queue based microservice
-* TODO: MORE HERE
-* When to use 
-* when not to use
+* Using Containers
+* Service discovery with dns
+* Adding a queue based service
 * Preparing for production
-* Build pipeline??
-* Full stack microsesrvices -> discuss this here or is it too new ??
 
 
 ## Introduction
@@ -612,7 +607,7 @@ Graphic for pattern based routing - now that we have 2 services show how this wo
 ### See also
 
 
-## Service Discovery
+## Service Discovery with DNS
 dns based using fuge to emulate kube and compose
 Mention consul also
 Introduce the self registryuation adn 3rd party registration patterns. implement one with consul??
@@ -629,7 +624,7 @@ Introduce the self registryuation adn 3rd party registration patterns. implement
 ### See also
 
 
-## Building queue based microservice
+## Adding a Queue Based Service
 Introduce a redis container and a redis mu service. The service should do some computation and store a result. Then run all 3 services and the front end with fuge
 
 ### Getting Ready
@@ -644,8 +639,8 @@ Introduce a redis container and a redis mu service. The service should do some c
 
 
 
-## Generate a full system 
-Generate a full microservice system from scratch using fuge
+## Preparing for production
+Ensure that the system will work locally with kubernetes
 
 ### Getting Ready
 
