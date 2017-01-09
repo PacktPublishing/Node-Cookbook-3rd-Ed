@@ -593,11 +593,41 @@ Tools such as Mu and Fuge aim to help us build applications that follow the 12 f
 
 
 ## Using Containers
-Add a second service Service will read and write data to the mongo container
+Container technology has recently gained rapid adoption within the industry and for good reason. Containers provide a powerful abstraction and isolation mechnanism to that can lead to robust and repeatable production deployments. 
+
+Then container model for software deployment has become synonomous with microservice based systems largely because the architectural model is a natural fit with the underlying container model. Whilst a full discussion of the merits of containers is outside the scope of this book some of the key benefits to bear in mind are:
+
+* Isolation - containers provide a clean isolated environment for our services to run in. The container 'brings' the correct environment with it so we can be sure that if it runs on my machine it will run on yours!
+
+* Immutability - Once a container is built it can be treated as an immutable unit of functionality and promoted through test and staging environments to production
+
+* Homogenity - By applying the same abstration to all deployable elements of a system, depoyment and operations changes significantly. 
+
+* Scale - Given that we contstruct our services correctly, containers can be rapidly scaled up or down for a single or multiple service elements
+
+By following this recepie and some of the subsequent ones in this capter we should begin to gain a practical understanding of the benefits or containerization, particuarly when applied to a microservice system.
+
 
 ### Getting Ready
+For this recipe we will be using the Docker container engine. Firstly we will need to install this and validate that it is operating correctly. To do this head over to `www.docker.com` and install the appropriate binary for your system. Docker supports Linux, Windows and Mac natively.
+
+We can check that Docker was installed successfully by opening a shell and running the following:
+
+```
+$ docker run hello-world
+```
+
+This command should output `hello from docker` along with some help text. This command has actually done quite a lot. Specifically it has pulled the `hello-world` image from the Docker Hub - a central repository of public docker images, created a new container from that image and run the executable.
+
+> #### Container Terminology.. ![](../info.png)
+> It is important to clearly diferentiate between a container and an image. An image is the 
+> serialized 'on disk' artefact that is stored on our disks locally and in Docker 
+> repositories. A container is the running instantiation of an image. We will be applying
+> this terminology consistently.
+
 
 ### How to do it
+Now that we have Docker installed we can press ahead with the recipes.
 
 ### How it works
 
