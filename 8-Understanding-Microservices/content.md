@@ -625,9 +625,75 @@ This command should output `hello from docker` along with some help text. This c
 > repositories. A container is the running instantiation of an image. We will be applying
 > this terminology consistently.
 
+Now that we have Docker installed we can press ahead. In this recepie we will be adding a new microservice that stores data into a mongodb container.
 
 ### How to do it
-Now that we have Docker installed we can press ahead with the recipes.
+
+#### Mongo
+Firstly lets get mongodb setup. We can do this using docker to pull the official docker mongo container, to do this run:
+
+```
+$ docker pull mongo
+```
+
+This will pull the official mongodb image from the central Docker Hub repository. Once the download has completed we can verify that the image is available by running:
+
+```
+$ docker images
+```
+
+This command will list all of the images that are available on the local machine. We should see the just pulled mongo image in this list.
+
+Now that we have mongo available we can update our fuge configuration file for the system. Edit the file `fuge.yml` and add the following section:
+
+```
+mongo:
+  image: mongo
+  type: container
+  ports:
+    - main=27017:27017
+```
+
+If we now run start up a fuge shell and run a ps command we can see that fuge is aware of the mongo container:
+
+```
+$ cd micro
+$ fuge shell fuge/fuge.yml
+fuge> ps
+```
+
+![image](./images/addmongo.png)
+
+The above listing shows mongo as type container, fuge will treat this as a container and run it accordingly as distinct to a process.
+
+Now that we have our mongo container ready to go it's time to add a service to use it. We are going to write a simple auditing service that records all of the calculations submitted to our adder service for later inspection. Firstly lets create a folder for our service:
+
+```
+$ cd micro
+$ mkdir audit-service
+```
+
+Next `cd` into the `audit-service` directory and create a package.json for the service:
+
+```
+$ npm init -y
+```
+
+This will create a fresh `package.json` for us. Next let's add in the `mu` module for our service, run:
+
+```
+npm install mu --save
+```
+
+This will install the `mu` module and also add the dependency to `package.json`.
+
+
+
+
+
+
+
+
 
 ### How it works
 
