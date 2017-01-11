@@ -868,12 +868,47 @@ If we now point a browser to `http://localhost:3000/audit` a blank audit history
 
 
 ### How it works
+In this recepie we introduced Docker containers and worked with the official Mondodb container. We could just as easily have used a MySql container or some other database. It should be clear that using the mongo container was very simple, there was no need for a compilation or installtaion of binaries on our local machine. The Mongodb container came preconfigured with everything it needed to run already encapsulated.
+
+Whilst this approach to using infrastructure is convienient in development, containers are a game changer when it comes to production deployment. We will investigate this topic in more deatil in the Deployment Chapter, for now just keep in mind that containers are a neat way of encapsulating a service and its environment solving the 'it runs on my machine' problem!
+
+Our audit service was able to connect to the Mongodb container in just the same way as if there were a local installtion of Mongodb so no changes to the code were required in order to use the docker container.
+
+We used fuge to run both our container and also our system as processes. Whilst containers are incredibly useful for deployment during development of a microservice system it is much faster to work with processes which is the reason why fuge was developed to support execution of both containers and processes.
+
+We connected to the Mongo container using this url:
+
+```
+'mongodb://' + process.env.MONGO_SERVICE_HOST + ':' + process.env.MONGO_SERVICE_PORT + '/audit'
+```
+
+Fuge has generated these environment variables from the service definition for us which means that we do not have to have a separate configuration file for our service. We will see in the next recepie on service discovery and in the following chapter on deployment how this is important to ensure a smooth transition for our service from development to a production environment.
 
 ### There's more
-Graphic for pattern based routing - now that we have 2 services show how this works
+We are using Fuge to run our microservices in development as it's very convienient, however there are other approaches. For example we could remove the Mongodb definition from our fuge config file and leave the container running in the background. To try this execute the following command:
+
+```
+docker run -p 127.0.0.1:27017:27017 -d mongo
+```
+
+This will start the mongo container in the background and expose port 27017 from the container to the `localhost` interface. We can now connect to this using the audit service or through the standard Mongodb client. Fuge supplies all of this configuration for us by interpreting the configuration file but it is good to understand the underlying command structure.
+
+In this recepie we modified the front end to record data to the `audit-service`, the add route contained the following code:
+
+```
+mu.outbound({role: 'basic'}, tcp.client({port: process.env.ADDER_SERVICE_SERVICE_PORT,
+                                         host: process.env.ADDER_SERVICE_SERVICE_HOST}))
+
+mu.outbound({role: 'audit'}, tcp.client({port: process.env.AUDIT_SERVICE_SERVICE_PORT,
+                                         host: process.env.AUDIT_SERVICE_SERVICE_HOST}))
+```
+
+Here we are configuring the pattern routing engine in `mu` to send all message containing `role: basic` to the `adder-service` and all messages containing `role: audit` to the audit service. Whist this is simple example, the pattern routing approach proivdes a clean and simple mechanism to arbitarily extend a system as more more capability is added.
 
 ### See also
+In this chapter we have been using Fuge as our development system runner, another approach is to use Docker Compose. Compose allows us to use a configuration file similar to the Fuge configuration to specify how our services should be run. However Compose only works with containers this means that for every code change a fresh container must be built and executed or we must use Container Volumes which allow us to mount a portion our local storage inside the container. 
 
+This is certainly a valid approach to developing a microservice system, however it does involve more overhead and setup than using a tool like Fuge.
 
 ## Service Discovery with DNS
 dns based using fuge to emulate kube and compose
