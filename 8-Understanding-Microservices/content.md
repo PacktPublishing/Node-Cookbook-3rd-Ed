@@ -911,21 +911,40 @@ In this chapter we have been using Fuge as our development system runner, anothe
 This is certainly a valid approach to developing a microservice system, however it does involve more overhead and setup than using a tool like Fuge.
 
 ## Service Discovery with DNS
-dns based using fuge to emulate kube and compose
-Mention consul also
-Introduce the self registryuation adn 3rd party registration patterns. implement one with consul??
+Once a microservice system begins to grow past a few services the problem of service discovery inevetably becomes an issue:
 
+* When a service starts up how do we tell the rest of the system it is available
+
+* When multiple instances of a service start up how do we know to balance requests between them
+* How do We discover services in development and in production without having to rund produciton infrastructure locally
+
+So far in this chapter we have been using environment variables to connect our services together, these variables have been generated for us by the Fuge tool. The astute reader may have wondered as to the format of the variables for instance in the last recepie we used:
+
+```
+```
+
+There is a reason for this format and that is that it is the same format that is used by Kubernetes. Kubernetes is a container deployment and orchestration system that was developed at Google. Whilst there are alternative container deployment technologies Kubernetes is becoming the de-facto standard for container deployment.
+
+Kubernetes supports two methods for service discovery firstly the use of environment variables and secondly the use of dns records. Kubernetes is way too heavyweight to use during development, thankfully the Fuge tool also supports dns using the same format as Kubernetes. This means that we can use a lightweight tool like fuge to run our microservice system in development and be confident that we can run the same code in production with no change.
+
+In this recepie we are going to convert our system to use dns for service discovery as opposed to environment variables.
 
 ### Getting Ready
+As we already have everything required for this recepie lets dive right in and covert our code
 
 ### How to do it
+Firstly lets modify our fuge configuration file to enable dns. 
 
 ### How it works
+mu dns uses speicific in dev switches to standard system dns in production dependingon environment
 
 ### There's more
 
 ### See also
-
+Mention consul also etcd SWIM
+also docker swarm
+mesos
+and so on
 
 ## Adding a Queue Based Service
 Introduce a redis container and a redis mu service. The service should do some computation and store a result. Then run all 3 services and the front end with fuge
