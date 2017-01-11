@@ -679,20 +679,192 @@ Next `cd` into the `audit-service` directory and create a package.json for the s
 $ npm init -y
 ```
 
-This will create a fresh `package.json` for us. Next let's add in the `mu` module for our service, run:
+This will create a fresh `package.json` for us. Next let's add in the `mu` and `mongodb` modules for our service, run:
 
 ```
 npm install mu --save
+npm install mongodb --save
 ```
 
-This will install the `mu` module and also add the dependency to `package.json`.
+Next let's add in our wiring file and and service entry point. Firstly create a file index.js and add the following code:
+
+```
+var wiring = require('./wiring')
+var service = require('./service')()
+wiring(service)
+```
+
+Secondly create a file wiring.js and add the code to it:
+
+```
+var mu = require('mu')()
+var tcp = require('mu-tcp')
+
+module.exports = function (service) {
+  mu.define({role: 'audit', cmd: 'append'}, service.append)
+  mu.define({role: 'audit', cmd: 'list'}, service.append)
+}
+
+mu.inbound({role: 'audit', cmd: '*'}, tcp.server({port: process.env.SERVICE_PORT, host: process.env.SERVICE_HOST}))
+```
+
+As we can see the audit service will support two operations, one to append to our audit log and a second to list entries from the log. Now we have the boilerplate out of the way, it's time to actually write our service logic! Create a file service.js and add the following code to it:
+
+```
+var MongoClient = require('mongodb').MongoClient
+var url = 'mongodb://' + process.env.MONGO_HOST + ':' + process.env.MONGO_PORT + '/audit'
+
+module.exports = function () {
+
+  function append (args, cb) {
+    MongoClient.connect(url, function (err, db) {
+      if (err) return cb(err)
+
+      var audit = db.collection('audit')
+      var data = { ts: Date.now(),
+                   calc: args.calc,
+                   result: args.calcResult }
+
+      audit.insert(data, function (err, result) {
+        if (err) return cb(err)
+        cb(null, result)
+        db.close()
+      })
+    })
+  }
 
 
 
+  function list (args, cb) {
+    MongoClient.connect(url, function (err, db) {
+      if (err) return cb(err)
+
+      var audit = db.collection('audit')
+      audit.find({}, {limit: 10}).toArray(function (err, docs) {
+        if (err) return cb(err)
+        cb(null, {list: docs})
+        db.close()
+      })
+    })
+  }
 
 
+  return {
+    append: append,
+    list: list
+  }
+}
+```
 
+Now that we have our service, the final thing that we need to do is to add a front end to display the content of our audit log. Firstly `cd` into the `webapp` directory and create two files: `views/audit.ejs` and `routes/audit.js`. Open audit.ejs in an editor and add the following code:
 
+```
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Audit</title>
+    <link rel='stylesheet' href='/stylesheets/style.css' />
+  </head>
+  <body>
+    <h1>Calculation History</h1>
+    <ul>
+      <% list.forEach(function (el) { %>
+      <li>at: <%= new Date(el.ts).toLocaleString() %>, calculated: <%= el.calc %>, result: <%= el.result %></li>
+      <% }) %>
+    </ul>
+  </body>
+</html>
+```
+
+Next add the following code to routes/audit.js:
+
+```
+var express = require('express')
+var router = express.Router()
+var mu = require('mu')()
+var tcp = require('mu-tcp')
+
+mu.outbound({role: 'audit'}, tcp.client({port: process.env.AUDIT_SERVICE_SERVICE_PORT, 
+                                         host: process.env.AUDIT_SERVICE_SERVICE_HOST}))
+
+router.get('/', function (req, res, next) {
+  mu.dispatch({role: 'audit', cmd: 'list'}, function (err, result) {
+    res.render('audit', result)
+  })
+})
+
+module.exports = router
+```
+
+Now that we have our view and a route to exercise it we need to add the route into the webapp. To do this open the file `app.js` and hook the audit route in a similar manner to the add route by adding the following two lines at the appropriate point:
+
+```
+.
+.
+var audit = require('./routes/audit');
+.
+.
+app.use('/audit', audit);
+.
+.
+```
+
+So we now have an audit route that will display our audit log, the last thing we need to do is to call the audit service to log entries each time a calculation occurs, to do this open the file routes/add.js and modify it by adding a call to the audit service as shown below:
+
+```
+var express = require('express')
+var router = express.Router()
+var mu = require('mu')()
+var tcp = require('mu-tcp')
+
+mu.outbound({role: 'basic'}, tcp.client({port: process.env.ADDER_SERVICE_SERVICE_PORT,
+                                         host: process.env.ADDER_SERVICE_SERVICE_HOST}))
+
+mu.outbound({role: 'audit'}, tcp.client({port: process.env.AUDIT_SERVICE_SERVICE_PORT,
+                                         host: process.env.AUDIT_SERVICE_SERVICE_HOST}))
+
+router.get('/', function (req, res, next) {
+  res.render('add', { first: 0, second: 0, result: 0 })
+})
+
+router.post('/calculate', function (req, res, next) {
+  mu.dispatch({role: 'basic', cmd: 'add', first: req.body.first, second: req.body.second},
+               function (err, result) {
+    var calcString = '' + req.body.first + ' + ' + req.body.second
+    mu.dispatch({role: 'audit', cmd: 'append', calc: calcString, calcResult: result},
+                 function () {})
+    res.render('add', {first: req.body.first, second: req.body.second, result: result})
+  })
+})
+
+module.exports = router
+```
+
+Excellent! thats all of our code changes, the final thing we need to do is to tell fuge about our new service. To do this open the fuge config file `fuge/fuge.yml` and add the following section:
+
+```
+audit_service:
+  type: process
+  path: ../audit-service
+  run: 'node index.js'
+  ports:
+    - main=8081
+```
+
+We should be good to go! Let's fire up the fuge shell and run a ps to confirm:
+
+```
+$ fuge shell fuge/fuge.yml
+$ ps
+```
+
+You should now see `audit_service` listed as type process along with `adder_service`, `webapp` and `mongo`. Issue the `start all` command to fuge to spin the system up. As before we can now see that fuge has started our mongo container, both services and our front end:
+
+![image](TODO)
+
+If we now point a browser to `http://localhost:3000/audit` a blank audit history is displayed. We can add some history by opening `http://localhost:3000/add` and submitting some calculations. Once this is done open `http://localhost:3000/audit` again and a list of the calculations will be displayed as shown below:
+
+![image](./images/auditlog.png)
 
 
 ### How it works
