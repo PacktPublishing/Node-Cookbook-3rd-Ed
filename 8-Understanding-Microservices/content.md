@@ -176,7 +176,7 @@ If we now point a browser to `http://localhost:3000` we should see a page render
 
 Now that we have our web application skeleton its time to wire it up to our microservice. Let's begin by creating a route and a front end to interact with our service. Firstly the route, using your favourite editor create a file `add.js` in the directory `webapp/routes` and add the following code:
 
-```
+```javascript
 var express = require('express')
 var router = express.Router()
 var restify = require('restify')
@@ -211,7 +211,7 @@ router.post('/calculate', function (req, res, next) {
 
 Next we need to create a template to provide users of the app with access to the service, so we need to create a file `add.ejs` in the directory `webapp/views` with the following code:
 
-```
+```html
 <!DOCTYPE html>
 <html>
   <head>
@@ -237,14 +237,14 @@ We then need to update the file `webapp/app.js` to wire in the template and rout
 
 Finally we need to install the `restify` module into our webapp project. To do this run:
 
-```
+```sh
 $ cd webapp
 $ npm install --save restify --no-opional
 ```
 
 Now that we have the code changes done, it's time to test our application and service together. to do this open a command prompt and start up the service:
 
-```
+```sh
 $ cd micro/adder-service
 $ node service.js
 ```
@@ -277,7 +277,7 @@ As can been seen we have implemented a front end and a single back end service. 
 We implemented a route in our API tier that uses `restify` to make a connection to our microservice. This route marshals parameters from the original form `POST` request and sends them onto our microservice via a HTTP `GET` request. Once the service has returned a result, our Express application renders it using our Ejs template.
 
 ### There's more
-Of course, for a small system like this it is hardly worth going to the trouble of building a microservice, however this is just for illustrative purposes. As a system grows in functionality the benefits of this type of architectural approach become apparent. 
+Of course, for a small system like this it is hardly worth going to the trouble of building a microservice, however this is just for illustrative purposes. As a system grows in functionality the benefits of this type of architectural approach become apparent.
 
 It is also important to note the reason for the API tier (the Express application). Microservice systems tend to be architected in this manner in order to minimise the public API surface area. It is highly recommended that you never expose microservices directly to the client tier, even on protected networks, preferring instead to use this type of API gateway pattern to minimise the attack surface area.
 
@@ -362,7 +362,7 @@ var restify = require('restify')
 
 function respond (req, res, next) {
   var result = parseInt(req.params.first, 10) + parseInt(req.params.second, 10)
-  
+
   // add some logging...
   console.log('adding numbers!')
   res.send('' + result)
@@ -392,7 +392,7 @@ Building a microservice system of any significant size comes with challenges, on
 
 Under the hood Fuge reads its configuration file to determine what processes it needs to manage it then provides an execution environment for those processes. Fuge also watches our code for changes and will automatically restart a service as changes are made. This is very useful when developing systems with a significant number of microservices as Fuge takes care of a lot of the grunt process management work for us.
 
-Fuge can also manage docker containers locally for us and that will be a subject for our next recipie. 
+Fuge can also manage docker containers locally for us and that will be a subject for our next recipie.
 
 ### There's more
 As we saw by running the `help` command fuge has a number of other useful commands for example:
@@ -452,7 +452,7 @@ module.exports = function () {
     var result = parseInt(args.first, 10) + parseInt(args.second, 10)
     cb(null, result)
   }
-  
+
   return {
     add: add
   }
@@ -493,13 +493,13 @@ router.get('/', function (req, res, next) {
   res.render('add', { first: 0, second: 0, result: 0 })
 })
 
-mu.outbound({role: 'basic', cmd: 'add'}, 
+mu.outbound({role: 'basic', cmd: 'add'},
              tcp.client({port: process.env.adder_service_SERVICE_PORT,
                          host: process.env.adder_service_SERVICE_HOST}))
 
 router.post('/calculate', function (req, res, next) {
   mu.dispatch({role: 'basic', cmd: 'add', first: req.body.first, second: req.body.second},
-               function (err, result) { 
+               function (err, result) {
     console.log(err)
     console.log(result)
     res.render('add', {first: req.body.first, second: req.body.second, result: result})
@@ -532,7 +532,7 @@ Secondly we are not using an explict url to reach our service. Under the hood Mu
 > #### Pattern Routing ![](../tip.png)
 > Mu uses pattern routing to build an overlay network for message passing that is independent of the underlying transport mechanisms.
 
-Consider an example system with a consumer process and two services, a user service and a basket service which could occur as part of some larger e-commerce system. As illustrated in Figure 8.6 below the consumer simple dispatches a message asking for a user or basket operation, in this case to create a user or to add something to the basket. The pattern router figures out how to route these messages to the appropriate service based on matching the request - in this case `{role: "user", cmd: "create"` to the appropriate service. 
+Consider an example system with a consumer process and two services, a user service and a basket service which could occur as part of some larger e-commerce system. As illustrated in Figure 8.6 below the consumer simple dispatches a message asking for a user or basket operation, in this case to create a user or to add something to the basket. The pattern router figures out how to route these messages to the appropriate service based on matching the request - in this case `{role: "user", cmd: "create"` to the appropriate service.
 
 ![image](./images/overlay.png)
 
@@ -555,7 +555,7 @@ Mu has a small API surface area to allow us to setup and use pattern routing in 
 Finally you may have noticed that in the code for this recepie we did not use the localhost ip address or a specific port number. Instead our service code used environment variables for example in the `adder-service` wiring file used the following:
 
 ```
-mu.inbound({role: 'basic', cmd: '*'}, tcp.server({port: process.env.SERVICE_PORT, 
+mu.inbound({role: 'basic', cmd: '*'}, tcp.server({port: process.env.SERVICE_PORT,
                                                   host: process.env.SERVICE_HOST}))
 ```
 
@@ -565,7 +565,7 @@ These were generated for us by Fuge in order to provide our early development sy
 Mu supports a number of transport mechanism for both point to point and buss based message interactions. Whilst this list is growing it currently supports:
 
 * local function transports for in process message routing
-* raw TCP 
+* raw TCP
 * HTTP
 * Redis queues
 * RabbitMQ
@@ -593,7 +593,7 @@ Tools such as Mu and Fuge aim to help us build applications that follow the 12 f
 
 
 ## Using Containers
-Container technology has recently gained rapid adoption within the industry and for good reason. Containers provide a powerful abstraction and isolation mechnanism to that can lead to robust and repeatable production deployments. 
+Container technology has recently gained rapid adoption within the industry and for good reason. Containers provide a powerful abstraction and isolation mechnanism to that can lead to robust and repeatable production deployments.
 
 Then container model for software deployment has become synonomous with microservice based systems largely because the architectural model is a natural fit with the underlying container model. Whilst a full discussion of the merits of containers is outside the scope of this book some of the key benefits to bear in mind are:
 
@@ -601,7 +601,7 @@ Then container model for software deployment has become synonomous with microser
 
 * Immutability - Once a container is built it can be treated as an immutable unit of functionality and promoted through test and staging environments to production
 
-* Homogenity - By applying the same abstration to all deployable elements of a system, depoyment and operations changes significantly. 
+* Homogenity - By applying the same abstration to all deployable elements of a system, depoyment and operations changes significantly.
 
 * Scale - Given that we contstruct our services correctly, containers can be rapidly scaled up or down for a single or multiple service elements
 
@@ -620,8 +620,8 @@ $ docker run hello-world
 This command should output `hello from docker` along with some help text. This command has actually done quite a lot. Specifically it has pulled the `hello-world` image from the Docker Hub - a central repository of public docker images, created a new container from that image and run the executable.
 
 > #### Container Terminology.. ![](../info.png)
-> It is important to clearly diferentiate between a container and an image. An image is the 
-> serialized 'on disk' artefact that is stored on our disks locally and in Docker 
+> It is important to clearly diferentiate between a container and an image. An image is the
+> serialized 'on disk' artefact that is stored on our disks locally and in Docker
 > repositories. A container is the running instantiation of an image. We will be applying
 > this terminology consistently.
 
@@ -784,7 +784,7 @@ var router = express.Router()
 var mu = require('mu')()
 var tcp = require('mu-tcp')
 
-mu.outbound({role: 'audit'}, tcp.client({port: process.env.AUDIT_SERVICE_SERVICE_PORT, 
+mu.outbound({role: 'audit'}, tcp.client({port: process.env.AUDIT_SERVICE_SERVICE_PORT,
                                          host: process.env.AUDIT_SERVICE_SERVICE_HOST}))
 
 router.get('/', function (req, res, next) {
@@ -878,24 +878,24 @@ We used fuge to run both our container and also our system as processes. Whilst 
 
 We connected to the Mongo container using this url:
 
-```
+```javascript
 'mongodb://' + process.env.MONGO_SERVICE_HOST + ':' + process.env.MONGO_SERVICE_PORT + '/audit'
 ```
 
 Fuge has generated these environment variables from the service definition for us which means that we do not have to have a separate configuration file for our service. We will see in the next recepie on service discovery and in the following chapter on deployment how this is important to ensure a smooth transition for our service from development to a production environment.
 
 ### There's more
-We are using Fuge to run our microservices in development as it's very convienient, however there are other approaches. For example we could remove the Mongodb definition from our fuge config file and leave the container running in the background. To try this execute the following command:
+We are using Fuge to run our microservices in development as it's very convenient, however there are other approaches. For example we could remove the Mongodb definition from our fuge config file and leave the container running in the background. To try this execute the following command:
 
-```
-docker run -p 127.0.0.1:27017:27017 -d mongo
+```sh
+$ docker run -p 127.0.0.1:27017:27017 -d mongo
 ```
 
 This will start the mongo container in the background and expose port 27017 from the container to the `localhost` interface. We can now connect to this using the audit service or through the standard Mongodb client. Fuge supplies all of this configuration for us by interpreting the configuration file but it is good to understand the underlying command structure.
 
-In this recepie we modified the front end to record data to the `audit-service`, the add route contained the following code:
+In this recipe we modified the front end to record data to the `audit-service`, the add route contained the following code:
 
-```
+```javascript
 mu.outbound({role: 'basic'}, tcp.client({port: process.env.ADDER_SERVICE_SERVICE_PORT,
                                          host: process.env.ADDER_SERVICE_SERVICE_HOST}))
 
@@ -903,48 +903,277 @@ mu.outbound({role: 'audit'}, tcp.client({port: process.env.AUDIT_SERVICE_SERVICE
                                          host: process.env.AUDIT_SERVICE_SERVICE_HOST}))
 ```
 
-Here we are configuring the pattern routing engine in `mu` to send all message containing `role: basic` to the `adder-service` and all messages containing `role: audit` to the audit service. Whist this is simple example, the pattern routing approach proivdes a clean and simple mechanism to arbitarily extend a system as more more capability is added.
+Here we are configuring the pattern routing engine in `mu` to send all message containing `role: basic` to the `adder-service` and all messages containing `role: audit` to the audit service. Whist this is simple example, the pattern routing approach provides a clean and simple mechanism to arbitrarily extend a system as more more capability is added.
 
 ### See also
-In this chapter we have been using Fuge as our development system runner, another approach is to use Docker Compose. Compose allows us to use a configuration file similar to the Fuge configuration to specify how our services should be run. However Compose only works with containers this means that for every code change a fresh container must be built and executed or we must use Container Volumes which allow us to mount a portion our local storage inside the container. 
+In this chapter we have been using Fuge as our development system runner, another approach is to use Docker Compose. Compose allows us to use a configuration file similar to the Fuge configuration to specify how our services should be run. However Compose only works with containers this means that for every code change a fresh container must be built and executed or we must use Container Volumes which allow us to mount a portion our local storage inside the container.
 
 This is certainly a valid approach to developing a microservice system, however it does involve more overhead and setup than using a tool like Fuge.
 
 ## Service Discovery with DNS
-Once a microservice system begins to grow past a few services the problem of service discovery inevetably becomes an issue:
+Once a microservice system begins to grow past a few services we typically run into the problem of service discovery. By this we mean:
 
-* When a service starts up how do we tell the rest of the system it is available
+* How does the consumer determine how it should connect to and consume a specific service?
 
-* When multiple instances of a service start up how do we know to balance requests between them
-* How do We discover services in development and in production without having to rund produciton infrastructure locally
+* When a service starts up how does it tell the rest of the system it is available and how it can be consumed?
 
-So far in this chapter we have been using environment variables to connect our services together, these variables have been generated for us by the Fuge tool. The astute reader may have wondered as to the format of the variables for instance in the last recepie we used:
+* When multiple instances of a service start up how do we know to balance requests between them?
 
+* How do We discover services in development and in production without having to run production infrastructure locally?
+
+So far in this chapter we have been using environment variables to connect our services together, these variables have been generated for us by the Fuge tool. The astute reader may have wondered as to the format of the variables for instance in the last recipe we used variables of the form:
+
+```javascript
+tcp.client({port: process.env.AUDIT_SERVICE_SERVICE_PORT, host: process.env.AUDIT_SERVICE_SERVICE_HOST})
 ```
-```
 
-There is a reason for this format and that is that it is the same format that is used by Kubernetes. Kubernetes is a container deployment and orchestration system that was developed at Google. Whilst there are alternative container deployment technologies Kubernetes is becoming the de-facto standard for container deployment.
+There is a reason for this format and that is that it is the same format that is used by Kubernetes. Kubernetes is a container deployment and orchestration system that was developed at Google. Whilst there are alternative container deployment technologies Kubernetes is becoming the de-facto standard for container deployment. It clearly makes sense that our development environment should behave as much like our production environment as possible so to this end we are using Fuge to make our development environment match our expected prodution environment as closely as possible.
 
-Kubernetes supports two methods for service discovery firstly the use of environment variables and secondly the use of dns records. Kubernetes is way too heavyweight to use during development, thankfully the Fuge tool also supports dns using the same format as Kubernetes. This means that we can use a lightweight tool like fuge to run our microservice system in development and be confident that we can run the same code in production with no change.
+Kubernetes supports two methods for service discovery firstly the use of environment variables and secondly the use of DNS records. Kubernetes is way too heavyweight to use during development, however, thankfully the Fuge tool also supports DNS using the same format as Kubernetes. This means that we can use a lightweight tool like Fuge to run our microservice system in development and be confident that we can run the same code in production without change.
 
-In this recepie we are going to convert our system to use dns for service discovery as opposed to environment variables.
+In this recipe we are going to convert our system to use DNS for service discovery.
 
 ### Getting Ready
-As we already have everything required for this recepie lets dive right in and covert our code
+As we already have everything required for this recipe lets dive right in and covert our code. To do this we need to use the Mu DNS Adapter. The DNS Adapter uses DNS queries to determine how to connect to service end points. We will need to change the code in our service consumer, which is in the `webapp` project, the service code itself will remain largely unchanged.
 
 ### How to do it
-Firstly lets modify our fuge configuration file to enable dns. 
+Firstly let's make the code changes. `cd` into the `webapp` directory and edit the file `routes/add.js`. We need to edit the following lines:
+
+```javascript
+mu.outbound({role: 'basic'}, tcp.client({port: process.env.ADDER_SERVICE_SERVICE_PORT,
+                                         host: process.env.ADDER_SERVICE_SERVICE_HOST}))
+
+mu.outbound({role: 'audit'}, tcp.client({port: process.env.AUDIT_SERVICE_SERVICE_PORT,
+                                         host: process.env.AUDIT_SERVICE_SERVICE_HOST}))
+
+```
+We also need to require the Mu DNS adapter module, edit the file so that it looks like the code below:
+
+```javascript
+var express = require('express')
+var router = express.Router()
+var mu = require('mu')()
+var tcp = require('mu-tcp')
+var dns = require('mu-dns')
+
+mu.outbound({role: 'basic'}, dns(tcp, {name: 'adder_service', portName: '_main'}))
+mu.outbound({role: 'audit'}, dns(tcp, {name: 'audit_service', portName: '_main'}))
+
+router.get('/', function (req, res, next) {
+  res.render('add', { first: 0, second: 0, result: 0 })
+})
+
+
+router.post('/calculate', function (req, res, next) {
+  mu.dispatch({role: 'basic', cmd: 'add', first: req.body.first, second: req.body.second}, function (err, result) {
+    var calcString = '' + req.body.first + ' + ' + req.body.second
+    mu.dispatch({role: 'audit', cmd: 'append', calc: calcString, calcResult: result}, function (err) { })
+    res.render('add', {first: req.body.first, second: req.body.second, result: result})
+  })
+})
+
+module.exports = router
+```
+
+We also need to modify the file `routes/audit.js` in a similar manner:
+
+```javascript
+var express = require('express')
+var router = express.Router()
+var mu = require('mu')()
+var tcp = require('mu-tcp')
+var dns = require('mu-dns')
+
+mu.outbound({role: 'audit'}, dns(tcp, {name: 'audit_service', portName: '_main'}))
+
+router.get('/', function (req, res, next) {
+  mu.dispatch({role: 'audit', cmd: 'list'}, function (err, result) {
+    res.render('audit', result)
+  })
+})
+
+module.exports = router
+```
+
+Finally lets modify our audit service so that it can discover the Mongodb database through dns. To do this will use a module called `concordant`.  
+
+```javascript
+var MongoClient = require('mongodb').MongoClient
+var conc = require('concordant')()
+
+module.exports = function () {
+  var url
+
+  function init () {
+    conc.dns.resolve('_main._tcp.mongo.micro.svc.cluster.local', function (err, result) {
+      if (err) { console.log(err) }
+      url = 'mongodb://' + result[0].host + ':' + result[0].port + '/audit'
+    })
+  }
+
+  function append (args, cb) {
+    MongoClient.connect(url, function (err, db) {
+      if (err) return cb(err)
+
+      var audit = db.collection('audit')
+      var data = { ts: Date.now(),
+        calc: args.calc,
+        result: args.calcResult }
+
+      audit.insert(data, function (err, result) {
+        if (err) return cb(err)
+        cb(null, result)
+        db.close()
+      })
+    })
+  }
+
+  function list (args, cb) {
+    MongoClient.connect(url, function (err, db) {
+      if (err) return cb(err)
+
+      var audit = db.collection('audit')
+      audit.find({}, {limit: 10, sort: [['ts', 'desc']]}).toArray(function (err, docs) {
+        if (err) return cb(err)
+        cb(null, {list: docs})
+        db.close()
+      })
+    })
+  }
+
+  init()
+  return {
+    append: append,
+    list: list
+  }
+}
+```
+
+That takes care of the code changes, next we need to edit our Fuge configuration file to enable DNS discovery. To do this we need to edit the `fuge_global` section so that it looks like this:
+
+```
+fuge_global:
+  run_containers: false
+  tail: true
+  dns_enabled: true
+  dns_host: 127.0.0.1
+  dns_port: 53053
+  dns_suffix: svc.cluster.local
+  dns_namespace: micro
+  monitor: true
+  monitor_excludes:
+    - '**/node_modules/**'
+    - '**/.git/**'
+    - '*.log'
+  auto_generate_environment: true
+  environment:
+    - USE_TRANSPORT=http
+```
+
+Those are all of the changes so we should now be good to go. Let's fire up the `fuge` shell:
+
+```sh
+$ fuge shell fuge/fuge.yml
+fuge> start all
+```
+
+Once all of the process and containers have started up let's check that everything works as before by visiting `http://localhost:3000/add` and `http://localhost:3000/audit`. We should observe exactly the same behavior except that this time we are dynamically resolving our service endpoints rather than using environment variables.
 
 ### How it works
-mu dns uses speicific in dev switches to standard system dns in production dependingon environment
+DNS is one of the oldest service discovery mechanisms available and has of course been around since before the Word Wide Web. DNS is typically used for resolving host names - for example `www.google.com` into IP addresses but it can also be used to provide other information. For service discovery we are interested in two pieces of information, namely the IP address and also the port number that the service resides on. To find this information using DNS we need to query two types of records: `SRV` records and `A` records.
+
+Firstly we perform an `SRV` query, this returns the port number for the service and a `CNAME` record (canonical name record). We then perform a host lookup - `A` record - against the `CNAME` to obtain an IP address for the service. Once we have these two pieces of information we can proceed to connect to and consume the service. The concordant module takes care of all of this detail for us, however it is important to understand what is happening under the hood.
+
+If we look at the code in the Audit service, we can see that the service is using the following code to resolve a hostname and port number for the `mongodb` database:
+
+```javascript
+  conc.dns.resolve('_main._tcp.mongo.micro.svc.cluster.local', function (err, result) {
+    url = 'mongodb://' + result[0].host + ':' + result[0].port + '/audit'
+  })
+```
+
+Under the hood the `concordant` module is performing the `SRV` and `A` record lookups against the internal Fuge DNS server. `concordant` performs it's service discovery based on how it's environment is configured. If a DNS_HOST environment variable is present `concordant` will query this server directly. In a production environment  `concordant` will use the system configured DNS infrastructure as opposed to a direct lookup. This of course means that the application code does not need to take this into account, the environment differences between development and production are encapsulated within the `concordant` module for us.
+
+The hostname that we are passing to the `concordant` module looks a little long. This is the standard format for Kubernetes DNS based lookups and it follows a well defined schema:
+
+```
+_<port name>._<protocol>.<service name>.<namespace>.svc.cluster.local
+```
+
+In we look at the mongo configuration in our Fuge configuration file, we can see that we have named our mongo port `main` and the service is called `mongo`. The underlying protocol is of course `tcp`. So the mapping to this hostname is fairly straightforward.
+
+Let's take a look at how the `webapp` code is consuming the `adder` and `audit` services, in the file `webapp/routes/add.js` we can see the following code:
+
+```javascript
+mu.outbound({role: 'basic'}, dns(tcp, {name: 'adder_service', portName: '_main'}))
+mu.outbound({role: 'audit'}, dns(tcp, {name: 'audit_service', portName: '_main'}))
+```
+
+Here we are using the Mu DNS adapter to discover our services. Under the hood this module uses `concordant` to perform DNS lookups in exactly the same way as the audit service, the `mu-dns` adapter just provides us with some additional help in forming a hostname query that is compatible with Kubernetes.
 
 ### There's more
+Fuge exposes information on both environment variabels and DNS for us through the `info` and `zone` commands to aid us in debugging our service discoveruy process. Lets try this out. Start the fuge shell and then run the info command for a service:
+
+```sh
+$ fuge shell fuge/fuge.yml
+fuge> info audit_service
+```
+
+Fuge will display the environment that is passed into the `audit_service` which should look like the following:
+
+```
+command: node index.js
+directory: ...
+environment:
+  DNS_HOST=127.0.0.1
+  DNS_PORT=53053
+  DNS_NAMESPACE=micro
+  DNS_SUFFIX=svc.cluster.local
+  AUDIT_SERVICE_SERVICE_HOST=127.0.0.1
+  AUDIT_SERVICE_SERVICE_PORT=8081
+  AUDIT_SERVICE_PORT=tcp://127.0.0.1:8081
+  AUDIT_SERVICE_PORT_8081_TCP=tcp://127.0.0.1:8081
+  AUDIT_SERVICE_PORT_8081_TCP_PROTO=tcp
+  AUDIT_SERVICE_PORT_8081_TCP_PORT=8081
+  AUDIT_SERVICE_PORT_8081_TCP_ADDR=127.0.0.1
+  WEBAPP_SERVICE_HOST=127.0.0.1
+  WEBAPP_SERVICE_PORT=3000
+  .
+  .
+  ```
+
+All of these environment variables will be available to the service process. Note that Fuge also supplies the DNS_HOST environment variable along with a port, namespace and suffix. The Mu DNS adapter uses these environment variables to form service lookup queries.
+
+Let's now run the `zone` command, this should provide us with out put similar to the following:
+
+```
+type      domain                                                address                                  port
+A         adder_service.micro.srv.cluster.local                 127.0.0.1                                -
+A         audit_service.micro.srv.cluster.local                 127.0.0.1                                -
+A         webapp.micro.srv.cluster.local                        127.0.0.1                                -
+A         mongo.micro.srv.cluster.local                         127.0.0.1                                -
+SRV       _main._tcp.adder_service.micro.srv.cluster.local      adder_service.micro.srv.cluster.local    8080
+SRV       _main._tcp.audit_service.micro.srv.cluster.local      audit_service.micro.srv.cluster.local    8081
+SRV       _http._tcp.webapp.micro.srv.cluster.local             webapp.micro.srv.cluster.local           3000
+SRV       _main._tcp.mongo.micro.srv.cluster.local              mongo.micro.srv.cluster.local            27017
+```
+
+As we can see Fuge is supplying both SRV and A records for discovery.
 
 ### See also
-Mention consul also etcd SWIM
-also docker swarm
-mesos
-and so on
+In this recipe we have used DNS as our service discovery mechanism. We did this specifically to align our development environment with our expected production environment under Kubernetes. There are of course many ways to deploy a microservice system and also many other service discovery mechanisms that we could have used. We will cover these options in more detail in the chapter on deployment, however for now some of the options that you should consider researching are listed below. Firstly for service discovery:
+
+* Consul.io by Hasicorp, provides a robust service discovery mechanism providing both http and DNS based registration and lookup.
+* etcd, distributed key value store. This is used internally by Kubernetes
+* Zookeeper, distributed key value store from the Apache project
+* SWIM, Scaleable Weakly consistent Infection style process group Membership protocol. Peer to peer based service discovery protocol
+
+For deployment you should review:
+
+* Swarm - from Docker, provides a distributed container deployment service similar to Kubernetes
+* AWS Container Services - Cloud based container deployment platform from Amazon
+* OpenShift - Kubenetes based hybrid container deployment platform from RedHat
+* Triton - Container orchestration from Joyent (now samsung) layered on top of SmartOS
 
 ## Adding a Queue Based Service
 Introduce a redis container and a redis mu service. The service should do some computation and store a result. Then run all 3 services and the front end with fuge
@@ -958,19 +1187,3 @@ Introduce a redis container and a redis mu service. The service should do some c
 ### There's more
 
 ### See also
-
-
-
-## Preparing for production
-Ensure that the system will work locally with kubernetes
-
-### Getting Ready
-
-### How to do it
-
-### How it works
-
-### There's more
-
-### See also
-
