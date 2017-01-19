@@ -10,6 +10,8 @@ This chapter covers the following topics
 * Service discovery with DNS
 * Adding a queue based service
 
+* potentially one on logging ? or save this for the deployment chapter?
+
 ## Introduction
 
 Microservices are very much in vogue at the moment and for good reason. There are many benefits to adopting a microservices architecture such as:
@@ -1178,14 +1180,228 @@ For deployment you should review:
 * Triton - Container orchestration from Joyent (now Samsung) layered on top of SmartOS
 
 ## Adding a Queue Based Service
-Introduce a redis container and a redis mu service. The service should do some computation and store a result. Then run all 3 services and the front end with fuge
+In this recipe we will create a simple asynchronous event recording service. In this context asynchronous means that we will expose the service over a queue rather than a direct point to point connection. We will be using Redis as a our queue mechanism for this recipe as it is simple and lightweight to use.
 
 ### Getting Ready
+To prepare for this recipe we need to ensure that we have Redis available. The simplest way to do this is to use the official Docker Redis image, so, to get ready for this section you will need to pull this image:
+
+```sh
+$ docker pull redis
+```
+
+Once this image is downloaded we are good to get started on this recipe.
 
 ### How to do it
+Our service is going to record events of interest in the system such as page loads. In a full system we might record this type of information against specific user ID's in order to analyze system usage patterns, however for our system where we don't have a user context we will simply be recording the events. Let's start by creating a directory for our service and initializing it with a `package.json` file:
+
+```sh
+$ cd micro
+$ mkdir event-service
+$ cd event-service
+$ npm init -y
+```
+
+Now, following the same pattern as before, let's create our `index.js` file and add the following code:
+
+```javascript
+var wiring = require('./wiring')
+var service = require('./service')()
+wiring(service)
+```
+
+Next let's add our wiring, create a file `wiring.js` and add the following:
+
+```javascript
+var mu = require('mu')()
+var dns = require('mu-dns')
+var redis = require('mu-redis')
+
+mu.inbound({role: 'events'}, dns(redis, {portName: '_main', name: 'redis', list: 'events'}))
+mu.inbound({role: 'report'}, dns(redis, {portName: '_main', name: 'redis', list: 'report'}))
+
+module.exports = function (service) {
+  mu.define({role: 'events', cmd: 'record'}, service.record)
+  mu.define({role: 'report', cmd: 'summary'}, service.summary)
+}
+```
+
+Lastly for this service we need to add the implementation, create a file `service.js` and add the code below:
+
+```javascript
+var MongoClient = require('mongodb').MongoClient
+var conc = require('concordant')()
+
+module.exports = function () {
+  var url
+
+  function init () {
+    conc.dns.resolve('_main._tcp.mongo.micro.srv.cluster.local', function (err, result) {
+      if (err) { console.log(err) }
+      url = 'mongodb://' + result[0].host + ':' + result[0].port + '/events'
+    })
+  }
+
+  function record (args, cb) {
+    console.log('record')
+    MongoClient.connect(url, function (err, db) {
+      if (err) return cb(err)
+      var events = db.collection('events')
+      var data = { ts: Date.now(),
+        eventType: args.type,
+        url: args.url }
+
+      events.insert(data, function (err, result) {
+        if (err) return cb(err)
+        cb(null, result)
+        db.close()
+      })
+    })
+  }
+
+  function summary (args, cb) {
+    var summary = {}
+
+    MongoClient.connect(url, function (err, db) {
+      if (err) { return cb(err) }
+
+      var events = db.collection('events')
+      events.find({}).toArray(function (err, docs) {
+        if (err) return cb(err)
+
+        docs.forEach(function (doc) {
+          if (!(summary[doc.url])) {
+            summary[doc.url] = 1
+          } else {
+            summary[doc.url]++
+          }
+        })
+        cb(null, summary)
+        db.close()
+      })
+    })
+  }
+
+  init()
+  return {
+    record: record,
+    summary: summary
+  }
+}
+```
+
+That takes care of our events service, which is exposed over a Redis queue. Next we have to hook this into our web application. We are going to do this by adding a small piece of middleware to our express server. Open the file `webapp/app.js` and add the following code to it:
+
+```javascript
+  var mu = require('mu')()
+  var dns = require('mu-dns')
+  var redis = require('mu-redis')
+  .
+  .
+  mu.outbound({role: 'events'}, dns(redis, {name: 'redis', portName: '_main', list: 'events'}))
+  var eventLogger = function (req, res, next) {
+    next()
+    mu.dispatch({role: 'events', cmd: 'record', type: 'page', url: req.protocol + '://' + req.get('host') + req.originalUrl})
+  }
+  .
+  .
+  app.use(eventLogger)
+```
+
+This will send an event message to the redis queue for each page load event in the system.
+
+Finally we need something to read our recorded events for us. We implemented a `summary` method in the `event-service` so we need something to call this. We would not normally expose this type of information to our `webapp` so let's just write a small command line application to expose this summary information for us in lieu of a full analytics system!
+
+To do this create a new directory called `report` and initialize it with a `package.json`:
+
+```sh
+$ cd micro
+$ mkdir report
+$ cd report
+$ npm init -y
+```
+
+Next create a file `index.js` and add the following code:
+
+```javascript
+var mu = require('mu')()
+var dns = require('mu-dns')
+var redis = require('mu-redis')
+var CliTable = require('cli-table')
+
+mu.outbound({role: 'report'}, dns(redis, {name: 'redis', portName: '_main', list: 'report'}))
+mu.dispatch({role: 'report', cmd: 'summary'}, function (err, result) {
+
+  if (err) {
+    console.log('ERROR: ' + err)
+    return
+  }
+
+  var table = new CliTable({head: ['url', 'count'], colWidths: [50, 10]})
+  Object.keys(result).forEach(function (key) {
+    table.push([key, result[key]])
+  })
+  console.log(table.toString())
+
+  mu.tearDown()
+})
+```
+
+We also need to create a small shell script to run this code, so let's create a file report.sh and add this code to it:
+
+```sh
+#!/bin/bash
+export DNS_HOST=127.0.0.1
+export DNS_PORT=53053
+export DNS_NAMESPACE=micro
+export DNS_SUFFIX=srv.cluster.local
+node index.js
+```
+
+Finally we need to add the Redis container and our new `event-service` to our Fuge configuration. Edit the file `fuge/fuge.yml` and add the following two entries:
+
+```
+event_service:
+  type: process
+  path: ../event-service
+  run: 'node index.js'
+  ports:
+    - main=8082
+.
+.
+redis:
+  image: redis
+  type: container
+  ports:
+    - main=6379:6379
+```
+
+OK we should be good to go now! Let's start up the system in our Fuge shell:
+
+```sh
+$ fuge shell fuge/fuge.yml
+fuge> start all
+```
+
+We can now see that along with the rest of our system the Redis conainter and `event-service` have also started up. As before we can browse the application add some numbers and look at the audit log. However this time every page load is being recorded. Lets confirm this by running a report. Open up another shell - leaving Fuge running and execute the following:
+
+```sh
+$ cd micro/report
+$ sh report.#!/bin/sh
+```
+
+Output similar to the following should be displayed:
+
+![image](./images/eventreport.png)
+
 
 ### How it works
+description of redis and so on
 
+diagram of final system here including reporting tool
+
+test mu dns with redis and htp transports also
+
+write a middleware for express and record events using redis here?? fire and forget
 ### There's more
 
 ### See also
