@@ -10,8 +10,6 @@ This chapter covers the following topics
 * Service discovery with DNS
 * Adding a queue based service
 
-* potentially one on logging ? or save this for the deployment chapter?
-
 ## Introduction
 
 Microservices are very much in vogue at the moment and for good reason. There are many benefits to adopting a microservices architecture such as:
@@ -1393,15 +1391,41 @@ Output similar to the following should be displayed:
 
 ![image](./images/eventreport.png)
 
-
 ### How it works
-description of redis and so on
+In this recipe we created a queue based microservice that used Redis as a lightweight queueing mechanism. We used a Redis container and discovered this container using DNS. It is interesting to note that in this case, neither the service or consumer end had direct knowledge of each other, rather each simply placed messages onto an intermediary queue.
 
-diagram of final system here including reporting tool
+Our event service used the following wiring code:
 
-test mu dns with redis and htp transports also
+```javascript
+mu.inbound({role: 'events'}, dns(redis, {portName: '_main', name: 'redis', list: 'events'}))
+mu.inbound({role: 'report'}, dns(redis, {portName: '_main', name: 'redis', list: 'report'}))
+```
 
-write a middleware for express and record events using redis here?? fire and forget
+Here we are using DNS to discover the Redis service as before, supplying the portName and service name for discovery. We are also supplying the name of the internal lis structure that Redis should use for these messages. Internally Mu will use and `events` list for event recording information and a `report` list for report requests. The report list is used by our offline reporting tool.
+
+The `event-service` simply records each event into a MongoDB database and provides a simple report function on this database when requested.
+
+Now that we have constructed a system with several services, a front end and an offline reporting tool lets take a look at the overall architecture:
+
+![image](./images/finalsystem.png)
+
+As can be seen, this corresponds very closely to the idealized system architecture that we reviewed at the start of this chapter. We should also note that the system adheres to some key microservice principals:
+
+#### Single Responsibility
+ Each service in our system is tasked with a single area. The `adder_service` adds numbers, the event service records and reports on events. It is important to keep this principal in mind as a system grows as it helps to naturally decide the boundaries between services.
+
+#### Low Coupling
+Each of our point to point services (`adder_service` and `audit_service`) must be accessed using a clearly defined message structure. As capability is added to a service, additional messages may be added but the code in the service is never directly accessible by the consumer. For our bus based service (`event_service`) the consumer is not even directly connected, it simply passes a message and forgets.
+
+#### Vertical separation
+Our services are clearly separated right into the data layer. This is an important concept. Notice that whilst the same MongoDB container is being used the `audit_service` and the `event_service` use completely separate databases. Also notice that the reporting service does not connect to MongoDB to extract data, rather it asks the `event_service` to perform this task. As a system grows in functionality it is important that this vertical separation always be maintained, otherwise we end up with a distributed monolith which is not a good place to be!
+
+#### Stateless
+Notice that all of our services are stateless. Whist this is a simple example system, we should always strive to make our services stateless. Practically this usually means loading user context on demand or passing user state information through from the client right to each service. Keeping our services stateless means that we can scale each service horizontally as demand requires.
+
 ### There's more
 
+TODO
+
 ### See also
+TODO
