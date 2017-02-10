@@ -9,9 +9,9 @@ This chapter covers the following topics
 
 ## Introduction
 
-"Designing for Isolation"
-"Packer vs Docker"
-"Snowflakes vs Immutability"
+- "Designing for Isolation"
+- "Packer vs Docker"
+- "Snowflakes vs Immutability"
 
 ## Creating Units of Deployment
 
@@ -53,22 +53,7 @@ This chapter covers the following topics
 
 ### See also
 
-## Automating Deployment
-
-- harbour efficiency
-- mention chef puppet ansible etc.
-
-### Getting Ready
-
-### How to do it
-
-### How it works
-
-### There's more
-
-### See also
-
-## Scaling with Clustering
+## Scaling with Orchestration 
 
 swarm, coreOs (there's more)
 
@@ -97,6 +82,18 @@ kubernetes (mesos there's more)
 ### See also
 
 ## Using PaaS Infrastructure
+
+### Getting Ready
+
+### How to do it
+
+### How it works
+
+### There's more
+
+### See also
+
+## Node.js and nginx 
 
 ### Getting Ready
 
