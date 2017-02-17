@@ -32,7 +32,7 @@ $ touch Dockerfile
 Next we need to add the following to the just created Dockerfile:
 
 ```yaml
-FROM busybox
+FROM mhart/alpine-node:base-6.9
 EXPOSE 8080
 
 RUN mkdir -p /usr/src/app
@@ -64,7 +64,7 @@ In this way we are telling *fuge* to run `adder-service` inside of a container i
 > For more information on docker https://docs.docker.com/
 
 ### How it works
-Let's not get confused by the `image` declaration: Docker is not a virtual machine but `busybox'` is the container type used to host our application.
+Let's not get confused by the `image` declaration: Docker is not a virtual machine but `alpine-node` is the container type used to host our application.
 
 ### There's more
 
