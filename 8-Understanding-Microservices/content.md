@@ -14,20 +14,41 @@ This chapter covers the following topics
 
 Microservices are very much in vogue at the moment and for good reason. There are many benefits to adopting a microservices architecture such as:
 
-* TODO LIST HERE
+* Focus - Each service should do one thing only and do it well. This means that an individual microservice should contain a small amount of code that is easy for an individual developer to reason about.
 
-Of course it is not always appropriate to use microservices, certainly the 'golden hammer' anti-pattern should be avoided at all costs, however in our experience it is a powerful approach when applied correctly. In this chapter we will learn how to construct a simple RESTful microservice and also how this might be consumed. We will also look at a powerful approach to microservice construction, that of pattern matching. We will use the Mu library to do this. We will also look at how to set up a clean local development environment using the Fuge toolkit and then look at how to build services that communicate over protocols other than simple HTTP. Finally we will discuss when and when not to adopt the microservices architecture.
+* Decoupled - Services run in their own process space and are therefore decoupled from the rest of the system. This makes it easy to replace an individual microservice without disturbing the rest of the system
 
-However before diving into code we should take a moment to review what we mean by a microservice and how this concept plays into a reference architectural frame.
+* Continuous Delivery / Deployment - Services are individually deployable, this leads to a model whereby deployment can be ongoing as each individual change can be at the service level. This removes the need for 'Big Bang' deployments.
 
-Figure 8.1 below depicts a typical microservice system. Under this architecture...
-TODO - describe the architecture!
+* Individually scaleable - systems may be scaled at the service level leading to more efficient use of compute resources.
+
+* Language independent - microservice systems may be composed of services written in multiple languages, allowing developers t select the most appropriate tool for each specific service.
+
+Of course it is not always appropriate to use microservices, certainly the 'golden hammer' anti-pattern should be avoided at all costs, however in our experience it is a powerful approach when applied correctly. In this chapter we will learn how to construct a simple RESTful microservice and also how this might be consumed. We will also look at a powerful approach to microservice construction, that of pattern matching. We will use the Mu library to do this. We will also look at how to set up a clean local development environment using the Fuge toolkit and then look at how to build services that communicate over protocols other than simple HTTP. Finally we will build in a simple service discovery mechanism to allow us to consume our services without hard coding.
+
+Before diving into code, however, we should take a moment to review what we mean by a microservice and how this concept plays into a reference architectural frame. Figure 7.1 below depicts a typical microservice system.
 
 ![image](./images/logical.png)
 
-**Figure 8.1 Microservice reference architecture**
+**Figure 7.1 Microservice reference architecture**
 
-From this we will use the following definition for a microservice:
+Our reference architecture contains the following elements that are typical to most microservice style systems:
+
+* Clients - typically web web based or mobile applications, make HTTP connections to an API layer.
+
+* Static assets - such as images, style sheets and other elements that are used to render the user interface.
+
+* API layer - This is usually a thin layer that provides the routing between client requests and microservices that ultimately respond to these requests.
+
+* Service Discovery - Some mechanism for discovering and routing to microservices. This can be as simple as a shared configuration file or a more dynamic mechanism such as DNS
+
+* Direct response services - These types of services are typically reached via a point to point protocol such as HTTP or raw TCP and will usually perform a distinct action and return a result.
+
+* Async services - These types of services are typically invoked via some bus based technology such as RabbitMQ or Apache Kafka and may or may not return a response to the caller.
+
+* Data sources and External APIs - Services will usually interact with some data source or external system in order to generate responses to requests
+
+Based on this logical architecture we will use the following definition for a microservice:
 
 *A microservice is a small, highly cohesive unit of code that has responsibility for a small functional area of a system. It should be independently deployable and should be of a size that it could be rewritten by a single developer in two weeks at maximum.*
 
@@ -116,18 +137,17 @@ The :first, :second parts of this tell `restify` to match path elements in these
 Finally our service sent a response using the `res.send` function.
 
 ### There's more
-Whilst this is a trivial service it should serve to implement the principal that a microservice is really nothing more than a Node module that runs as an independent process. A microservice system is a collection of these co-operating processes. Of course it gets more complicated in a real system where you have lots of services and have to manage problems such as service discovery and deployment, however keep in mind that the core concept is really very simple.
+Whilst this is a trivial service it should serve to illustrate the fact that a microservice is really nothing more than a Node module that runs as an independent process. A microservice system is a collection of these co-operating processes. Of course it gets more complicated in a real system where you have lots of services and have to manage problems such as service discovery and deployment, however keep in mind that the core concept is really very simple.
 
 In the following recipes we will look at how microservices operate in the context of an example system, how to set up an effective development environment for this style of coding and also introduce other messaging and communication protocols
 
 ### See also
-* TODO
-
+Whilst we have used `restify` to create this simple service, we could also have just used the node core HTTP module to create our service or one of the other popular web frameworks such as `Express` [http://expressjs.com/](http://expressjs.com/) or `HAPI` [https://hapijs.com/](https://hapijs.com/). We will be using the Express framework to build a front end to our services in the following recipes but it can also be used for service creation.
 
 ## Creating the context
 
 ### Getting Ready
-In this recipe we are going to create a web application that will consume our microservice. This is the API and client tier in our reference architecture depicted in figure 3.1. We will be using the Express web framework to do this. We will be using the Express Generators to create an application skeleton for us so we first need to install the Generators. To do this run.
+In this recipe we are going to create a web application that will consume our microservice. This is the API and client tier in our reference architecture depicted in figure 7.1. We will be using the Express web framework to do this. We will be using the Express Generators to create an application skeleton for us so we first need to install the Generators. To do this run.
 
 ```sh
 npm install -g express-generator
@@ -168,10 +188,10 @@ Once this has completed we can run the application:
 $ npm start
 ```
 
-If we now point a browser to `http://localhost:3000` we should see a page rendered by our application as in figure 8.2 below:
+If we now point a browser to `http://localhost:3000` we should see a page rendered by our application as in figure 7.2 below:
 
 ![image](./images/fig3.2.png)
-**Figure 8.2 express application**
+**Figure 7.2 express application**
 
 Now that we have our web application skeleton its time to wire it up to our microservice. Let's begin by creating a route and a front end to interact with our service. Firstly the route, using your favorite editor create a file `add.js` in the directory `webapp/routes` and add the following code:
 
@@ -232,7 +252,7 @@ Next we need to create a template to provide users of the app with access to the
 We then need to update the file `webapp/app.js` to wire in the template and route. We need to make the following changes:
 
 ![image](./images/app.js.png)
-**Figure 8.3 changes to app.js**
+**Figure 7.3 changes to app.js**
 
 Finally we need to install the `restify` module into our webapp project. To do this run:
 
@@ -258,42 +278,52 @@ $ npm start
 > #### npm start ![](../info.png)
 > the Express Generator adds in a connivence script to `package.json`, in this case a start script. If we open up `package.json` we can see that this simply uses Node to execute the `./bin/www` script under the `webapp` project.
 
-Now that we have our webapp and service running, open a browser and point it to `http://localhost:3000/add`. This will render the template that we created above and should look as depicted as in figure 8.
+Now that we have our webapp and service running, open a browser and point it to `http://localhost:3000/add`. This will render the template that we created above and should look as depicted as in figure 7.4.
 
 ![image](./images/addscreen.png)
-**Figure 8.4 addition front end**
+**Figure 7.4 addition front end**
 
 Type a number into each of the input fields and hit the calculate button to verify that the service is called and returns the correct result:
 
 ### How it works
-Figure 8.5 depicts the elements of our reference architecture that we have touched on so far.
+Figure 7.5 depicts the elements of our reference architecture that we have touched on so far.
 
 ![image](./images/recip2diagram.png)
-**Figure 8.5 our system so far**
+**Figure 7.5 our system so far**
 
 As can been seen we have implemented a front end and a single back end service. When our front end page renders the user is presented with a standard web form. When our use hits submit a standard HTTP post request is made to our API tier, which is implemented using the Express framework.
 
 We implemented a route in our API tier that uses `restify` to make a connection to our microservice. This route marshals parameters from the original form `POST` request and sends them onto our microservice via a HTTP `GET` request. Once the service has returned a result, our Express application renders it using our Ejs template.
 
 ### There's more
-Of course, for a small system like this it is hardly worth going to the trouble of building a microservice, however this is just for illustrative purposes. As a system grows in functionality the benefits of this type of architectural approach become apparent.
+Of course, for a small system like this it is hardly worth going to the trouble of building a microservice, however this is just for illustrative purposes. As a system grows in functionality the benefits of this type of architectural approach become more apparent.
 
 It is also important to note the reason for the API tier (the Express application). Microservice systems tend to be architected in this manner in order to minimize the public API surface area. It is highly recommended that you never expose microservices directly to the client tier, even on protected networks, preferring instead to use this type of API gateway pattern to minimize the attack surface.
 
 The following recipes will go on to build on more elements of our system however before we do so our next recipe will look at how we can configure an effective local development environment.
 
 ### See also
-**TODO**
+A full discussion of security as pertaining to microservices is outside the scope of this chapter, however it is important to note that of course all of the usual rules pertaining to online application security apply. In our reference architecture we have applied what is sometimes referred to as the API gateway pattern. Simply put this means do not expose microservices directly to public networks, instead only expose the minimal API surface area required. We suggest at a minimum that the following practices be given consideration when implementing a microservice system:
+
+* Always use the API gateway pattern and minimize the exposed application surface area
+
+* Never expose internal service details in client code - i.e. front end code that runs in web browsers or on mobile devices. Front end code should communicate via an API only. This means that you should avoid using inherently insecure architectural patterns such as `client side service discovery`.
+
+* Identify and classify services based on the sensitivity of the data that they handle. Consider the deployment and management policy for services based on this classification.
+
+* Ensure that regular and robust security testing is carried out.
+
+* Be familiar with the OWASP top ten security risks [https://www.owasp.org/index.php/Category:OWASP_Top_Ten_Project](https://www.owasp.org/index.php/Category:OWASP_Top_Ten_Project)
 
 ## Setting up a development environment
 
 ### Getting Ready
-Microservice systems have many advantages to traditional monolithic development, however this type of development does present it's own challenges. One of these has been termed Shell Hell. This occurs when we have many microservices to spin up and down on a local development machine in order to run integration and regression testing against the system.
+Microservice systems have many advantages to traditional monolithic systems, however this style of development does present it's own challenges. One of these has been termed Shell Hell. This occurs when we have many microservices to spin up and down on a local development machine in order to run integration and regression testing against the system.
 
-**TODO**
-![image](shellhell.png)
+![image](./images/shellhell.jpg)
+**Figure 7.6 Shell Hell**
 
-As depicted in figure 8.6 above, things can get out of control quite quickly. In order to avoid the problems of shell hell we are going to install and configure `fuge` in this recipie. Fuge is a node module designed specifically to help with local microservice development, to install it run the following command:
+As depicted in figure 7.6 above, things can get out of control quite quickly. In order to avoid the problems of shell hell we are going to install and configure `fuge` in this recipie. Fuge is a node module designed specifically to help with local microservice development, to install it run the following command:
 
 ```sh
 npm install -g fuge
@@ -533,11 +563,11 @@ Secondly we are not using an explicit url to reach our service. Under the hood M
 > #### Pattern Routing ![](../tip.png)
 > Mu uses pattern routing to build an overlay network for message passing that is independent of the underlying transport mechanisms.
 
-Consider an example system with a consumer process and two services, a user service and a basket service which could occur as part of some larger e-commerce system. As illustrated in Figure 8.6 below the consumer simple dispatches a message asking for a user or basket operation, in this case to create a user or to add something to the basket. The pattern router figures out how to route these messages to the appropriate service based on matching the request - in this case `{role: "user", cmd: "create"` to the appropriate service.
+Consider an example system with a consumer process and two services, a user service and a basket service which could occur as part of some larger e-commerce system. As illustrated in Figure 7.7 below the consumer simple dispatches a message asking for a user or basket operation, in this case to create a user or to add something to the basket. The pattern router figures out how to route these messages to the appropriate service based on matching the request - in this case `{role: "user", cmd: "create"` to the appropriate service.
 
 ![image](./images/overlay.png)
 
-**Figure 8.6 Pattern Routing**
+**Figure 7.7 Pattern Routing**
 
 The receiving router within the user service then figures out the appropriate handler to call based again on the message pattern. Once the handler has executed a response message is passed through both routers to end up at the initiating call site within the consumer process. This  approach is sometimes known as an overlay network, because it creates a logical network structure over the lower level network fabric.
 
@@ -860,6 +890,7 @@ $ ps
 
 You should now see `audit_service` listed as type process along with `adder_service`, `webapp` and `mongo`. Issue the `start all` command to Fuge to spin the system up. As before we can now see that Fuge has started our mongo container, both services and our front end:
 
+**TODO**
 ![image](TODO)
 
 If we now point a browser to `http://localhost:3000/audit` a blank audit history is displayed. We can add some history by opening `http://localhost:3000/add` and submitting some calculations. Once this is done open `http://localhost:3000/audit` again and a list of the calculations will be displayed as shown below:
@@ -1401,7 +1432,7 @@ mu.inbound({role: 'events'}, dns(redis, {portName: '_main', name: 'redis', list:
 mu.inbound({role: 'report'}, dns(redis, {portName: '_main', name: 'redis', list: 'report'}))
 ```
 
-Here we are using DNS to discover the Redis service as before, supplying the portName and service name for discovery. We are also supplying the name of the internal lis structure that Redis should use for these messages. Internally Mu will use and `events` list for event recording information and a `report` list for report requests. The report list is used by our offline reporting tool.
+Here we are using DNS to discover the Redis service as before, supplying the portName and service name for discovery. We are also supplying the name of the internal list structure that Redis should use for these messages. Internally Mu will use an `events` list for event recording information and a `report` list for report requests. The report list is used by our offline reporting tool.
 
 The `event-service` simply records each event into a MongoDB database and provides a simple report function on this database when requested.
 
@@ -1412,7 +1443,7 @@ Now that we have constructed a system with several services, a front end and an 
 As can be seen, this corresponds very closely to the idealized system architecture that we reviewed at the start of this chapter. We should also note that the system adheres to some key microservice principals:
 
 #### Single Responsibility
- Each service in our system is tasked with a single area. The `adder_service` adds numbers, the event service records and reports on events. It is important to keep this principal in mind as a system grows as it helps to naturally decide the boundaries between services.
+Each service in our system is tasked with a single area. The `adder_service` adds numbers, the event service records and reports on events. It is important to keep this principal in mind as a system grows as it helps to naturally decide the boundaries between services.
 
 #### Low Coupling
 Each of our point to point services (`adder_service` and `audit_service`) must be accessed using a clearly defined message structure. As capability is added to a service, additional messages may be added but the code in the service is never directly accessible by the consumer. For our bus based service (`event_service`) the consumer is not even directly connected, it simply passes a message and forgets.
@@ -1421,7 +1452,7 @@ Each of our point to point services (`adder_service` and `audit_service`) must b
 Our services are clearly separated right into the data layer. This is an important concept. Notice that whilst the same MongoDB container is being used the `audit_service` and the `event_service` use completely separate databases. Also notice that the reporting service does not connect to MongoDB to extract data, rather it asks the `event_service` to perform this task. As a system grows in functionality it is important that this vertical separation always be maintained, otherwise we end up with a distributed monolith which is not a good place to be!
 
 #### Stateless
-Notice that all of our services are stateless. Whist this is a simple example system, we should always strive to make our services stateless. Practically this usually means loading user context on demand or passing user state information through from the client right to each service. Keeping our services stateless means that we can scale each service horizontally as demand requires.
+Notice that all of our services are stateless. Whist this is a simple example system, we should always strive to make our services stateless. Practically this usually means loading user context on demand or passing user state information through from the client. Keeping our services stateless means that we can scale each service horizontally as demand requires.
 
 ### There's more
 
