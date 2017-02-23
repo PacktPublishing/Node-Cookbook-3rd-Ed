@@ -1,5 +1,4 @@
 # 8 Understanding Microservices
-
 This chapter covers the following topics
 
 * Building a simple RESTful microservice
@@ -16,19 +15,20 @@ Microservices are very much in vogue at the moment and for good reason. There ar
 
 * Focus - Each service should do one thing only and do it well. This means that an individual microservice should contain a small amount of code that is easy for an individual developer to reason about.
 
-* Decoupled - Services run in their own process space and are therefore decoupled from the rest of the system. This makes it easy to replace an individual microservice without disturbing the rest of the system
+* Decoupled - Services run in their own process space and are therefore decoupled from the rest of the system. This makes it easy to replace an individual microservice without greatly perturbing the rest of the system.
 
-* Continuous Delivery / Deployment - Services are individually deployable, this leads to a model whereby deployment can be ongoing as each individual change can be at the service level. This removes the need for 'Big Bang' deployments.
+* Continuous Delivery / Deployment - Services are individually deployable, this leads to a model whereby deployment can be an ongoing process. thus removing the need for 'Big Bang' deployments.
 
 * Individually scaleable - systems may be scaled at the service level leading to more efficient use of compute resources.
 
-* Language independent - microservice systems may be composed of services written in multiple languages, allowing developers t select the most appropriate tool for each specific service.
+* Language independent - microservice systems may be composed of services written in multiple languages, allowing developers to select the most appropriate tool for each specific job.
 
 Of course it is not always appropriate to use microservices, certainly the 'golden hammer' anti-pattern should be avoided at all costs, however in our experience it is a powerful approach when applied correctly. In this chapter we will learn how to construct a simple RESTful microservice and also how this might be consumed. We will also look at a powerful approach to microservice construction, that of pattern matching. We will use the Mu library to do this. We will also look at how to set up a clean local development environment using the Fuge toolkit and then look at how to build services that communicate over protocols other than simple HTTP. Finally we will build in a simple service discovery mechanism to allow us to consume our services without hard coding.
 
 Before diving into code, however, we should take a moment to review what we mean by a microservice and how this concept plays into a reference architectural frame. Figure 7.1 below depicts a typical microservice system.
 
 ![image](./images/logical.png)
+
 
 **Figure 7.1 Microservice reference architecture**
 
@@ -142,7 +142,7 @@ Whilst this is a trivial service it should serve to illustrate the fact that a m
 In the following recipes we will look at how microservices operate in the context of an example system, how to set up an effective development environment for this style of coding and also introduce other messaging and communication protocols
 
 ### See also
-Whilst we have used `restify` to create this simple service, we could also have just used the node core HTTP module to create our service or one of the other popular web frameworks such as `Express` [http://expressjs.com/](http://expressjs.com/) or `HAPI` [https://hapijs.com/](https://hapijs.com/). We will be using the Express framework to build a front end to our services in the following recipes but it can also be used for service creation.
+Whilst we have used `restify` to create this simple service, we could also have just used the node core HTTP module to create our service or one of the other popular web frameworks such as `Express` [http://expressjs.com/](http://expressjs.com/) or `HAPI` [https://hapijs.com/](https://hapijs.com/). We will be using the Express framework to build a front end to our services in the following recipes but bear in mind that it can also be used for service creation.
 
 ## Creating the context
 
@@ -154,7 +154,6 @@ npm install -g express-generator
 ```
 
 Lets build our web app.
-
 
 ### How to do it
 First let's open a command prompt and `cd` into the directory we created in the first recipe.
@@ -191,6 +190,8 @@ $ npm start
 If we now point a browser to `http://localhost:3000` we should see a page rendered by our application as in figure 7.2 below:
 
 ![image](./images/fig3.2.png)
+
+
 **Figure 7.2 express application**
 
 Now that we have our web application skeleton its time to wire it up to our microservice. Let's begin by creating a route and a front end to interact with our service. Firstly the route, using your favorite editor create a file `add.js` in the directory `webapp/routes` and add the following code:
@@ -252,6 +253,8 @@ Next we need to create a template to provide users of the app with access to the
 We then need to update the file `webapp/app.js` to wire in the template and route. We need to make the following changes:
 
 ![image](./images/app.js.png)
+
+
 **Figure 7.3 changes to app.js**
 
 Finally we need to install the `restify` module into our webapp project. To do this run:
@@ -281,6 +284,8 @@ $ npm start
 Now that we have our webapp and service running, open a browser and point it to `http://localhost:3000/add`. This will render the template that we created above and should look as depicted as in figure 7.4.
 
 ![image](./images/addscreen.png)
+
+
 **Figure 7.4 addition front end**
 
 Type a number into each of the input fields and hit the calculate button to verify that the service is called and returns the correct result:
@@ -289,6 +294,8 @@ Type a number into each of the input fields and hit the calculate button to veri
 Figure 7.5 depicts the elements of our reference architecture that we have touched on so far.
 
 ![image](./images/recip2diagram.png)
+
+
 **Figure 7.5 our system so far**
 
 As can been seen we have implemented a front end and a single back end service. When our front end page renders the user is presented with a standard web form. When our use hits submit a standard HTTP post request is made to our API tier, which is implemented using the Express framework.
@@ -321,6 +328,8 @@ A full discussion of security as pertaining to microservices is outside the scop
 Microservice systems have many advantages to traditional monolithic systems, however this style of development does present it's own challenges. One of these has been termed Shell Hell. This occurs when we have many microservices to spin up and down on a local development machine in order to run integration and regression testing against the system.
 
 ![image](./images/shellhell.jpg)
+
+
 **Figure 7.6 Shell Hell**
 
 As depicted in figure 7.6 above, things can get out of control quite quickly. In order to avoid the problems of shell hell we are going to install and configure `fuge` in this recipie. Fuge is a node module designed specifically to help with local microservice development, to install it run the following command:
@@ -346,20 +355,19 @@ fuge_global:
   monitor_excludes:
     - '**/node_modules/**'
     - '**/.git/**'
-    - '*.log'
-  auto_generate_environment: true
+    - '**/*.log'
+adder_service:
+  type: process
+  path: ../adder-service
+  run: 'node service.js'
+  ports:
+    - main=8080
 webapp:
   type: process
   path: ../webapp
   run: 'npm start'
   ports:
     - http=3000
-adder_service:
-  type: process
-  path: ../adder-service
-  run: 'node service.js'
-  ports:
-    - http=8080
 ```
 
 Fuge will provide us with an execution shell for our apps and services. To start this up run the following command:
@@ -412,9 +420,11 @@ If we now go back to the Fuge shell we can see that Fuge detected this change an
 
 ![image](./images/fuge-restart.png)
 
+
 Finally lets shutdown our system by issuing the `stop all` command in the Fuge shell. fuge will stop all managed processes. We can check that this has completed successfully by issuing a `ps` command.
 
 ![image](./images/fuge-stopall.png)
+
 
 We can now exit the Fuge shell by typing `exit`.
 
@@ -423,25 +433,21 @@ Building a microservice system of any significant size comes with challenges, on
 
 Under the hood Fuge reads its configuration file to determine what processes it needs to manage it then provides an execution environment for those processes. Fuge also watches our code for changes and will automatically restart a service as changes are made. This is very useful when developing systems with a significant number of microservices as Fuge takes care of a lot of the grunt process management work for us.
 
-Fuge can also manage Docker containers locally for us and that will be a subject for our next recipe.
+Fuge can also manage Docker containers locally for us and that will be a subject for one of our later recipes.
 
 ### There's more
 As we saw by running the `help` command Fuge has a number of other useful commands for example:
 
 * pull - to pull fresh code for each managed project
 * grep - to search logs of all running processes
-* build - to run a nominated build script for each managed project
+* test - to run a nominated test script for each managed project
 * stop/start - to stop/start processes individually
 * watch/unwatch - to toggle process restart watching individually
 * tail/untail - to toggle log tailing for all processes
 * info - to display process environment information
-
-Fuge is under active development, so the following commands are still experimental:
-
 * debug - attach a debugger to a specific process
-* profile - gather profile information for a specific process
 
-We should note that Fuge is a development tool, something that we use during development. Fuge should not be used for running microservices in a production environment.
+It should be noted that Fuge is a development tool, something that is used locally. Fuge should not be used for running microservices in a production environment.
 
 ### See also
 Fuge is just one tool for managing microservices in development. There are of course other approaches. For example:
@@ -490,7 +496,7 @@ module.exports = function () {
 }
 ```
 
-Having cleaned the service code up we need to add some wiring to connect it to the outside world, firstly lets add a file called `wiring-mu.js` in the same directory and add the following code:
+Having cleaned the service code up we need to add some wiring to connect it to the outside world, firstly lets add a file called `wiring.js` in the same directory and add the following code:
 
 ```javascript
 var mu = require('mu')()
@@ -507,12 +513,21 @@ mu.inbound({role: 'basic', cmd: '*'}, tcp.server({port: process.env.ADDER_SERVIC
 Finally we need to add something to connect the service to the wiring. Let's add a file `index.js` again in the same directory, which should have the following code:
 
 ```javascript
-var wiring = require('./wiring-mu')
+var wiring = require('./wiring')
 var service = require('./service')()
 wiring(service)
 ```
 
-That takes care of the service. We now have a Mu based service that is listening on a raw tcp socket for messages. However our `webapp` code is expecting to consume a restful based API so we need to convert the consuming code also. Let's edit the file `micro/webapp/routes/add.js` so that it now contains the following code:
+That takes care of the service. We now have a Mu based service that will listen on a raw tcp socket for messages. However our `webapp` code is expecting to consume a restful based API so we need to convert the consuming code also.
+
+Firstly we need to install Mu as a dependency of `webapp`:
+
+```sh
+$ cd micro/webapp
+$ npm install --save mu
+```
+
+Next we need to edit the file `micro/webapp/routes/add.js` so that it contains the following code:
 
 ```javascript
 var express = require('express')
@@ -540,7 +555,18 @@ router.post('/calculate', function (req, res, next) {
 module.exports = router
 ```
 
-If you left `fuge` running in the background the service and `webapp` will have been automatically restarted for you if not let's run the system with `fuge`.
+Finally we need to update our Fuge configuration. Edit the file `micro/fuge/fuge.yml` and update the section for the `adder_service` so that it now starts by running `index.js` as below:
+
+```
+adder_service:
+  type: process
+  path: ../adder-service
+  run: 'node index.js'
+  ports:
+    - main=8080
+```
+
+We are now good to go, so lets start our updated system:
 
 ```sh
 $ cd micro
@@ -548,15 +574,15 @@ $ fuge shell fuge/fuge.yml
 fuge> start all
 ```
 
-The system should start up as before. If we open up a browser and point it to `http://localhost:3000` we should be able to add numbers in exactly the same way as with the restify based service. We have just implemented our first pattern based, transport independent microservice.
+The system should start up as before. If we open up a browser and point it to `http://localhost:3000` we should be able to add numbers in exactly the same way as with the `restify` based service. We have just implemented our first pattern based, transport independent microservice.
 
 ### How it works
-The changes that we have just made to the system do not affect how it works functionally, we have, however, restructured the code. Let's review some of the important points. Firstly we have replaced restify with Mu, in doing this we also refactored the service code a little. The important point about this refactoring is that the code that implements the service logic no longer needs to understand the context in which it is called.
+The changes that we have just made to the system do not affect how it works functionally, we have, however, restructured the code. Let's review some of the important points. Firstly we have replaced Restify with Mu, in doing this we also refactored the service code a little. The important point about this refactoring is that the code that implements the service logic no longer needs to understand the context in which it is called.
 
-This is an important principle in developing a microservice system. If we look again at the updated service code we can see that `service.js` just provides the business logic for our service. Whilst this could be achieved using restify or some other HTTP based mechanism, we have chosen to wire the service up using Mu. In this case we have used the TCP transport, however, Mu provides a number of different transport mechanisms and we could just have easily wired the service up using Mu HTTP transport, a local function call transport or some form of message bus for example RabbitMQ or Kafka with no change to the service business logic.
+This is an important principle in developing a microservice system. If we look again at the updated service code we can see that `service.js` just provides the business logic for our service. Whilst this could be achieved using Restify or some other HTTP based mechanism, we have chosen to wire the service up using Mu. In this case we have used the TCP transport, however, Mu provides a number of different transport mechanisms and we could just have easily wired the service up using Mu HTTP transport, a local function call transport or some form of message bus for example RabbitMQ or Kafka with no change to the service business logic.
 
 > #### Transport Independent ![](../tip.png)
-> Microservice business logic should execute independent of the transport context.
+> Microservice business logic should execute independent of the context in which it is called. Put another way a microservice should not know anything about the context that it is executing in.
 
 Secondly we are not using an explicit url to reach our service. Under the hood Mu uses a pattern based routing algorithm to dispatch messages to services. We can think of this operating in much the same way that an IP network functions except that in place of IP addresses Mu uses patterns to route messages to services. In a Mu based microservice system every participating entity has a pattern routing table at its core.
 
@@ -566,6 +592,7 @@ Secondly we are not using an explicit url to reach our service. Under the hood M
 Consider an example system with a consumer process and two services, a user service and a basket service which could occur as part of some larger e-commerce system. As illustrated in Figure 7.7 below the consumer simple dispatches a message asking for a user or basket operation, in this case to create a user or to add something to the basket. The pattern router figures out how to route these messages to the appropriate service based on matching the request - in this case `{role: "user", cmd: "create"` to the appropriate service.
 
 ![image](./images/overlay.png)
+
 
 **Figure 7.7 Pattern Routing**
 
@@ -593,7 +620,7 @@ mu.inbound({role: 'basic', cmd: '*'}, tcp.server({port: process.env.SERVICE_PORT
 These were generated for us by Fuge in order to provide our early development system with a rudimentary form of service discovery. In a later recipie we will update our system with a more complete service discovery mechanism, in order to make our code ready for production deployment.
 
 ### There's more
-Mu supports a number of transport mechanism for both point to point and buss based message interactions. Whilst this list is growing it currently supports:
+Mu supports a number of transport mechanism for both point to point and bus based message interactions. Whilst this list is growing it currently supports:
 
 * local function transports for in process message routing
 * raw TCP
@@ -625,7 +652,7 @@ Tools such as Mu and Fuge aim to help us build applications that follow the 12 f
 ## Using Containers
 Container technology has recently gained rapid adoption within the industry and for good reason. Containers provide a powerful abstraction and isolation mechanism to that can lead to robust and repeatable production deployments.
 
-Then container model for software deployment has become synonymous with microservice and distributed systems in general, systems largely because the architectural model is a natural fit with the underlying container model. Whilst a full discussion of the merits of containers is outside the scope of this book some of the key benefits to bear in mind are:
+Then container model for software deployment has become synonymous with microservice and distributed systems in general, largely because the architectural model is a natural fit with the underlying container model. Whilst a full discussion of the merits of containers is outside the scope of this book some of the key benefits to bear in mind are:
 
 * Isolation - containers provide a clean isolated environment for our services to run in. The container 'brings' the correct environment with it so we can be sure that if it runs on my machine it will run on yours!
 
@@ -639,7 +666,7 @@ By following this recipe and some of the subsequent ones in this chapter we shou
 
 
 ### Getting Ready
-For this recipe we will be using the Docker container engine. Firstly we will need to install this and validate that it is operating correctly. To do this head over to www.docker.com and install the appropriate binary for your system. Docker supports Linux, Windows and Mac natively.
+For this recipe we will be using the Docker container engine. Firstly we will need to install this and validate that it is operating correctly. To do this head over to `http://www.docker.com` and install the appropriate binary for your system. Docker supports Linux, Windows and Mac natively.
 
 We can check that Docker was installed successfully by opening a shell and running the following:
 
@@ -647,13 +674,11 @@ We can check that Docker was installed successfully by opening a shell and runni
 $ docker run hello-world
 ```
 
-This command will pull the `hello-world` image from Docker Hub - a central repository of public Docker images, create a new container from that image and run it. The executable within the contain will output `hello from docker` along with some help text.
+This command will pull the `hello-world` image from Docker Hub - a central repository of public Docker images, create a new container from that image and run it. The executable within the container will output `hello from docker` along with some help text.
 
-> #### Container Terminology.. ![](../info.png)
-> It is important to clearly differentiate between a container and an image. An image is the
-> serialized 'on disk' artifact that is stored on our disks locally and in Docker
-> repositories. A container is the running instantiation of an image. We will be applying
-> this terminology consistently.
+> #### Docker Installation.. ![](../info.png)
+> Docker was originally built for Linux based operating systems. Until recently running docker on Mac or Windows required the use of a virtual machine using either > VirtualBox or VMWare, however Docker is now available natively on both Mac and Windows. This requires a recent version of OSX or Windows so be sure to check the
+> prerequisites when installing Docker.
 
 Now that we have Docker installed we can press ahead. In this recipe we will be adding a new microservice that stores data into a MongoDB container.
 
@@ -672,7 +697,7 @@ This will pull the official MongoDB image from the central Docker Hub repository
 $ docker images
 ```
 
-This command will list all of the images that are available on the local machine. We should see the just pulled MongoDB image in this list.
+This command will list all of the images that are available on the local machine. We should see the MongoDB image in this list.
 
 Now that we have a MongoDB container available we can update our Fuge configuration file for the system. Edit the file `fuge.yml` and add the following section:
 
@@ -733,10 +758,10 @@ var tcp = require('mu-tcp')
 
 module.exports = function (service) {
   mu.define({role: 'audit', cmd: 'append'}, service.append)
-  mu.define({role: 'audit', cmd: 'list'}, service.append)
+  mu.define({role: 'audit', cmd: 'list'}, service.list)
 }
 
-mu.inbound({role: 'audit', cmd: '*'}, tcp.server({port: process.env.SERVICE_PORT, host: process.env.SERVICE_HOST}))
+mu.inbound({role: 'audit', cmd: '*'}, tcp.server({port: process.env.AUDIT_SERVICE_SERVICE_PORT, host: process.env.AUDIT_SERVICE_SERVICE_HOST}))
 ```
 
 As we can see the audit service will support two operations, one to append to our audit log and a second to list entries from the log. Now we have the boilerplate out of the way, it's time to actually write our service logic!
@@ -745,7 +770,7 @@ Create a file `service.js` and add the following code to it:
 
 ```javascript
 var MongoClient = require('mongodb').MongoClient
-var url = 'mongodb://' + process.env.MONGO_HOST + ':' + process.env.MONGO_PORT + '/audit'
+var url = 'mongodb://' + process.env.MONGO_SERVICE_HOST + ':' + process.env.MONGO_SERVICE_PORT + '/audit'
 
 module.exports = function () {
 
@@ -888,10 +913,15 @@ $ fuge shell fuge/fuge.yml
 $ ps
 ```
 
+> #### Container Terminology.. ![](../info.png)
+> It is important to clearly differentiate between a container and an image. An image is the
+> serialized 'on disk' artifact that is stored on our disks locally and in Docker
+> repositories. A container is the running instantiation of an image. We will be applying
+> this terminology consistently.
+
 You should now see `audit_service` listed as type process along with `adder_service`, `webapp` and `mongo`. Issue the `start all` command to Fuge to spin the system up. As before we can now see that Fuge has started our mongo container, both services and our front end:
 
-**TODO**
-![image](TODO)
+![image](./images/auditservicerun.png)
 
 If we now point a browser to `http://localhost:3000/audit` a blank audit history is displayed. We can add some history by opening `http://localhost:3000/add` and submitting some calculations. Once this is done open `http://localhost:3000/audit` again and a list of the calculations will be displayed as shown below:
 
@@ -913,7 +943,7 @@ We connected to the Mongo container using this url:
 'mongodb://' + process.env.MONGO_SERVICE_HOST + ':' + process.env.MONGO_SERVICE_PORT + '/audit'
 ```
 
-Fuge has generated these environment variables from the service definition for us which means that we do not have to have a separate configuration file for our service. We will see in the next recipe on service discovery and in the following chapter on deployment how this is important to ensure a smooth transition for our service from development to a production environment.
+Fuge generated these environment variables from the service definition for us which means that we do not have to have a separate configuration file for our service. We will see in the next recipe on service discovery and in the following chapter on deployment how this is important to ensure a smooth transition for our service from development to a production environment.
 
 ### There's more
 We are using Fuge to run our microservices in development as a convenience. However another approach would be to run the container manually with Docker and remove it from the Fuge config file. To run the MongoDB container with Docker execute the following command:
@@ -939,7 +969,8 @@ Here we are configuring the pattern routing engine in `mu` to send all message c
 ### See also
 In this chapter we have been using Fuge as our development system runner, another approach is to use Docker Compose. Compose allows us to use a configuration file similar to the Fuge configuration to specify how our services should be run. However Compose only works with containers this means that for every code change a fresh container must be built and executed or we must use Container Volumes which allow us to mount a portion our local storage inside the container.
 
-This is certainly a valid approach to developing a microservice system, however it does involve more overhead and setup than using a tool like Fuge.
+> #### Docker Compose .. ![](../info.png)
+> You can find out more about Docker Compose from the offical Docker documentation site here: `https://docs.docker.com/compose/`
 
 ## Service Discovery with DNS
 Once a microservice system begins to grow past a few services we typically run into the challenge of service discovery. By this we mean:
@@ -952,13 +983,13 @@ Once a microservice system begins to grow past a few services we typically run i
 
 * How we discover services in development and in production without having to run production infrastructure locally
 
-So far in this chapter we have been using environment variables to connect our services together, these variables have been generated for us by the Fuge tool. The astute reader may have wondered as to the format of the variables for instance in the last recipe we used variables of the form:
+So far in this chapter we have been using environment variables to connect our services together, these variables have been generated for us by the Fuge tool. The astute reader may have wondered as to the format of the variables, for instance in the last recipe we used variables of the form:
 
 ```javascript
 tcp.client({port: process.env.AUDIT_SERVICE_SERVICE_PORT, host: process.env.AUDIT_SERVICE_SERVICE_HOST})
 ```
 
-There is a reason for this format and that is that it is the same format that is used by both Kubernetes and Docker Compose two of the current leading container deployment technologies. Kubernetes is a container deployment and orchestration system that was developed at Google, Compose is developed by Docker. Whilst there are alternative container deployment technologies, Kubernetes is currently gaining the most adoption across the industry.
+There is a reason for this format and that is that it is the same format that is used by both Kubernetes and Docker Swarm, two of the current leading container deployment technologies. Kubernetes is a container deployment and orchestration system that was developed at Google, Compose is developed by Docker. Whilst there are alternative container deployment technologies, Kubernetes is currently gaining the most adoption across the industry.
 
 It clearly makes sense that our development environment should behave as much like our production environment as possible so to this end we are using Fuge to make our development environment match our expected production environment as closely as possible through injecting the same environment.
 
@@ -1086,21 +1117,17 @@ That takes care of the code changes, next we need to edit our Fuge configuration
 
 ```
 fuge_global:
-  run_containers: false
-  tail: true
   dns_enabled: true
   dns_host: 127.0.0.1
   dns_port: 53053
   dns_suffix: svc.cluster.local
   dns_namespace: micro
+  tail: true
   monitor: true
   monitor_excludes:
     - '**/node_modules/**'
     - '**/.git/**'
-    - '*.log'
-  auto_generate_environment: true
-  environment:
-    - USE_TRANSPORT=http
+    - '**/*.log'
 ```
 
 Those are all of the changes so we should now be good to go. Let's fire up the `fuge` shell:
@@ -1113,7 +1140,10 @@ fuge> start all
 Once all of the process and containers have started up let's check that everything works as before by visiting `http://localhost:3000/add` and `http://localhost:3000/audit`. We should observe exactly the same behavior except that this time we are dynamically resolving our service endpoints rather than using environment variables.
 
 ### How it works
-DNS is one of the oldest service discovery mechanisms available and has of course been around since before the Word Wide Web. DNS is typically used for resolving host names - for example `www.google.com` into IP addresses but it can also be used to provide other information. For service discovery we are interested in two pieces of information, namely the IP address and also the port number that the service resides on. To find this information using DNS we need to query two types of records: `SRV` records and `A` records.
+DNS is one of the oldest service discovery mechanisms available and has of course been around since before the Word Wide Web. DNS is primarily used for resolving host names - for example `www.google.com` into IP addresses but it can also be used to provide other information. For service discovery we are interested in two pieces of information, namely the IP address and also the port number that the service resides on. To find this information using DNS we need to query two types of records: `SRV` records and `A` records.
+
+> #### DNS record types .. ![](../info.png)
+> A full list of DNS record types can be found on Wikipedia at this URL `https://en.wikipedia.org/wiki/List_of_DNS_record_types`
 
 Firstly we perform an `SRV` query, this returns the port number for the service and a `CNAME` record (canonical name record). We then perform a host lookup - `A` record - against the `CNAME` to obtain an IP address for the service. Once we have these two pieces of information we can proceed to connect to and consume the service. The concordant module takes care of all of this detail for us, however it is important to understand what is happening under the hood.
 
@@ -1132,6 +1162,9 @@ The hostname that we are passing to the `concordant` module looks a little long.
 ```
 _<port name>._<protocol>.<service name>.<namespace>.svc.cluster.local
 ```
+
+> #### Kubernetes naming .. ![](../info.png)
+> Full documentation on Kubernetes DNS can be found at the official Kubernetes site at this URL `https://kubernetes.io/docs/admin/dns/`
 
 In we look at the mongo configuration in our Fuge configuration file, we can see that we have named our mongo port `main` and the service is called `mongo`. The underlying protocol is of course `tcp`. So the mapping to this hostname is fairly straightforward.
 
@@ -1218,7 +1251,7 @@ To prepare for this recipe we need to ensure that we have Redis available. The s
 $ docker pull redis
 ```
 
-Once this image is downloaded we are good to get started on this recipe.
+Once this image is downloaded we are good to get started.
 
 ### How to do it
 Our service is going to record events of interest in the system such as page loads. In a full system we might record this type of information against specific user ID's in order to analyze system usage patterns, however for our system where we don't have a user context we will simply be recording the events. Let's start by creating a directory for our service and initializing it with a `package.json` file:
@@ -1254,7 +1287,7 @@ module.exports = function (service) {
 }
 ```
 
-Lastly for this service we need to add the implementation, create a file `service.js` and add the code below:
+Now lets add our implementation, create a file `service.js` and add the code below:
 
 ```javascript
 var MongoClient = require('mongodb').MongoClient
@@ -1264,7 +1297,7 @@ module.exports = function () {
   var url
 
   function init () {
-    conc.dns.resolve('_main._tcp.mongo.micro.srv.cluster.local', function (err, result) {
+    conc.dns.resolve('_main._tcp.mongo.micro.svc.cluster.local', function (err, result) {
       if (err) { console.log(err) }
       url = 'mongodb://' + result[0].host + ':' + result[0].port + '/events'
     })
@@ -1318,6 +1351,21 @@ module.exports = function () {
 }
 ```
 
+Lastly we need to add our index file and install dependencies. Create a file `index.js` and add the following code:
+
+```javascript
+var wiring = require('./wiring')
+var service = require('./service')()
+wiring(service)
+```
+
+Then install dependencies at the command prompt by running:
+
+```sh
+$ npm install --save mu
+$ npm install --save mongo
+```
+
 That takes care of our events service, which is exposed over a Redis queue. Next we have to hook this into our web application. We are going to do this by adding a small piece of middleware to our express server. Open the file `webapp/app.js` and add the following code to it:
 
 ```javascript
@@ -1336,7 +1384,7 @@ That takes care of our events service, which is exposed over a Redis queue. Next
   app.use(eventLogger)
 ```
 
-This will send an event message to the redis queue for each page load event in the system.
+This will send an event message to the Redis queue for each page load event in the system.
 
 Finally we need something to read our recorded events for us. We implemented a `summary` method in the `event-service` so we need something to call this. We would not normally expose this type of information to our `webapp` so let's just write a small command line application to expose this summary information for us in lieu of a full analytics system!
 
@@ -1382,8 +1430,15 @@ We also need to create a small shell script to run this code, so let's create a 
 export DNS_HOST=127.0.0.1
 export DNS_PORT=53053
 export DNS_NAMESPACE=micro
-export DNS_SUFFIX=srv.cluster.local
+export DNS_SUFFIX=svc.cluster.local
 node index.js
+```
+
+Lastly for our report utility we need to install dependencies:
+
+```javascript
+$ npm install --save mu
+$ npm install --save cli-table
 ```
 
 Finally we need to add the Redis container and our new `event-service` to our Fuge configuration. Edit the file `fuge/fuge.yml` and add the following two entries:
@@ -1455,8 +1510,50 @@ Our services are clearly separated right into the data layer. This is an importa
 Notice that all of our services are stateless. Whist this is a simple example system, we should always strive to make our services stateless. Practically this usually means loading user context on demand or passing user state information through from the client. Keeping our services stateless means that we can scale each service horizontally as demand requires.
 
 ### There's more
+During these recipes we have been starting and stopping both processes and Docker containers. Restarting containers is sometimes not the ideal solution, this is because container storage is ephemeral and once a container is stopped any changes are lost, for example the astute reader will have noted that each time the system is restarted all of the data is removed from the MongoDB database. Also stopped containers are still left on disk and will eventually need to be cleaned up. To see this open up a command prompt and run:
 
-TODO
+```sh
+$ docker ps -a
+```
+
+A list of stopped containers will be displayed. We can restart a stopped container by running `docker start <container id>`, but normally we start containers using the `run` command which instantiates a container from an image. We can remove all of these stopped containers by running:
+
+```sh
+$ docker rm $(docker ps -a -q)
+```
+
+It is perfectly possible to just leave containers running in the background and this is often useful for databases and other infrastructure. To do this with our microservice system edit the Fuge configuration file and add the following entry into the global section:
+
+```
+fuge_global:
+  .
+  .
+  run_containers: false
+  .
+  .
+```
+
+This tells fuge not to start up any containers. If we open up a shell prompt we can start both of our containers manually by running:
+
+```sh
+$ docker run -p 27107:27017 -d mongo
+$ docker run -p 6379:6379 -d redis
+```
+
+If we now start up our system using fuge:
+
+```sh
+$ fuge shell fuge/fuge.yml
+fuge> ps
+```
+
+We can see that the containers are grayed out and will not be managed by fuge. Note that we still need to tell our system about these containers so that our services can resolve them via DNS. Lets go ahead and start the system as before:
+
+```sh
+fuge> start all
+```
+
+The system should function normally except that once we stop all of the managed processes with Fuge our container will keep running in the background.
 
 ### See also
-TODO
+In this chapter we have explored some techniques and approaches to building microservices using Node. In the next chapter we will look at some strategies for deploying these types of systems to production.
