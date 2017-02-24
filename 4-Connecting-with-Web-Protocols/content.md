@@ -35,44 +35,296 @@ and servers in the "Application Layer" of the TCP/IP stack.
 
 ## Creating an HTTP server
 
+HTTP is the most prolific protocol in the Application Layer of the 
+Internet Protocol Suite. Node comes bundled with the core `http` module 
+which providers both client and server capabilities. 
+
+In this recipe we're going to create an HTTP server from scratch.  
+
 ### Getting Ready
+
+To keep things interesting, our server is actually going to be a RESTful HTTP
+server, so let's create a folder called `rest-server`, containing a file 
+named `index.js`. 
 
 ### How to do it
 
+We only need one module, the `http` module.
+
+Let's require it:
+
 ```js
 const http = require('http')
-const host = '0.0.0.0'
-const port = 8080
+```
 
-http.createServer((req, res) => {
-  if (req.method !== 'GET') {
-    res.statusCode = 400
-    res.end('Bad Request')
-    return
-  }
-  switch (req.url) {
-    case '/about': return about(res)
-    case '/contact': return contact(res)
-    default: return index(res)
-  }
-}).listen(port, host)
+Now we'll define a host and port which our HTTP server will attach to:
+
+```js
+const host = process.env.HOST || '0.0.0.0'
+const port = process.env.PORT || 8080
+```
+Next, let's create the actually HTTP server:
+
+```js
+const server = http.createServer((req, res) => {
+  if (req.method !== 'GET') return error(res, 405)
+  if (req.url === '/users') return users(res)
+  if (req.url === '/') return index(res)
+  error(res, 404)
+})
+```
+
+In the request handling function we passed to the `http.createServer`
+method, we reference three other functions, `error`, `users` and `index`.
+
+First let's write our route handling functions: 
+
+```js
+function users (res) {
+  res.end('{"data": [{"id": 1, "first_name": "Bob", "second_name": "Smith"}]}') 
+}
 
 function index (res) {
-  res.write('<a href="/about">about</a>')
+  res.end('{"name": "my-rest-server", "version": 0}')
 }
+```
 
-function about (res) {
-  res.end('all about this thing')
+Next we'll write our `error` function:
+
+```js
+function error (res, code) {
+  res.statusCode = code
+  res.end(`{"error": "${http.STATUS_CODES[code]}"}`)
 }
+```
+
+Finally we'll tell our server to listen on the previously defined 
+`port` and `host`. 
+
+```js
+server.listen(port, host)
+```
+
+We can not try out our server.
+
+We start our server like so:
+
+```sh
+$ node index.js
+```
+
+Then in another terminal, we can use `curl` to check the routes:
+
+```sh
+$ curl http://localhost:8080/users
+{"data": [{"id": 1, "first_name": "Bob", "second_name": "Smith"}]}
+```
+
+```sh
+$ curl http://localhost:8080/
+{"name": "my-rest-server", "version": 0}
 ```
 
 ### How it works
 
+Node's core `http` module sits on top of the core `net` module 
+(just as the HTTP protocol is layer over the TCP protocol).
+
+When we call `http.createServer` it returns an object (which we
+call `server`) that has a `listen` method. The `listen` method, binds
+our server to a given port and host.
+
+Our `port` and `host` assignments at the top of the file check 
+`process.env.PORT` and `process.env.HOST`, before defaulting to port 
+8080 and host '0.0.0.0'. This is good practice since it allows us
+(or a deployment orchestrator) to inject the desired settings into
+our server at execution time.
+
+The `http.createServer` method takes a function, this is known
+as the request handler. Every time a client makes a request of 
+our server, this request handler function is called, and passed
+a Request (`req`) object and a Response (`res`) object.
+
+Our request handler sets up logic paths based on the `req.url` and `req.method`
+properties. The first thing we do is check `req.method`, which holds the HTTP 
+verb. In our case we're only supporting `GET` request, so anything other than
+`GET` receives a 405 response (Method not Allowed). From a puritanical perspective
+we should only be giving a 405 to any unsupported yet recognized HTTP method, 
+and 400 (Bad Request) to nonsensical methods. However, for our purposes we simply
+don't care.  
+
+The `url` property of the Request object tends to be a misnomer, 
+since it generally relates more to the relative path (the route) than the 
+full URL. This is because in an HTTP request, a client will usually
+only specify the relative path (the full URL is known because the client
+has connected to the domain already at this point). Whether the requested
+route is `/` or `/users` we delegate to a specific route handling function, passing it
+the `res` object and then in each route handling function we call `res.end`
+with the desired content. 
+
+Finally if no conditional checks match, we never explicitly `return`
+from the request handler function, and reach the final `error` function
+call, which sends a 404 (Not Found) HTTP status code. The `error` function
+uses the `http.STATUS_CODES` constants to map HTTP codes to their equivalent 
+descriptions. 
+
 ### There's more
 
-#### Handling Multipart POST Requests
+How can we bind to a any free port, what about serving dynamic content by
+handling more complex URL patterns? 
 
-#### In-Process Caching
+#### Bind to a random free port
+
+To assign the server to a random free port, we simply set the port number 
+to 0. 
+
+Let's copy the `rest-server` folder and call the new folder 
+`rest-server-random-port`. 
+
+Now in the `rest-server-random-port/index.js` file let's change 
+our `port` reference near the top of the file to the following:
+
+```js
+const port = process.env.PORT || 0
+```
+
+Next we'll change our `server.listen` statement at the bottom of the
+file like so:
+
+```js
+server.listen(port, host, () => console.log(JSON.stringify(server.address())))
+```
+
+We've added a third callback argument to `server.listen`. The server 
+binding process is asychronous, so we won't know which port we're bound to
+immediately. The callback is triggered once the server has bound to a port,
+then we can use the `server.address` method to get the port, host and IP
+family (IPv4 or IPv6). We `JSON.stringify` the object returned from 
+`server.address`, this way a deployment orchestrator could easily take the data 
+and parse it, passing it to some kind of discovery server.
+
+#### Dynamic Content
+
+There's not much point in a static HTTP server written in Node. Node's strength
+lies in it's ability to rapidly serve dynamic content.
+
+Let's add a small filtering feature to our server.
+
+We'll begin by copying the main `rest-server` folder created in the main 
+recipe to a new folder called `rest-server-dynamic-content`.
+
+Let's modify the top of `rest-server-dynamic-content/index.js` to 
+look like so:
+
+```js
+const http = require('http')
+const qs = require('querystring')
+const url = require('url')
+```
+
+Next let's add a mocked our user list resource:
+
+```js
+const userList = [
+  {'id': 1, 'first_name': 'Bob', 'second_name': 'Smith', type: 'red'},
+  {'id': 2, 'first_name': 'David', 'second_name': 'Clements', type: 'blue'}
+]
+```
+
+Next we'll rearrange the `http.createServer` request handler function
+to the following:
+
+```js
+const server = http.createServer((req, res) => {
+  if (req.method !== 'GET') return error(res, 405)
+  if (req.url === '/') return index(res)
+  const {pathname, query} = url.parse(req.url)
+  if (pathname === '/users') return users(query, res)
+  
+  error(res, 404)
+})
+```
+
+We've moved the `/` route logic above the `/users` route logic, 
+because the conditional check against `req.url` is very cheap, 
+we want to prioritize low cost routes and rather than penalize them 
+with prior routes that require additional parsing.
+
+We then use `url.parse` to break up `req.url` into an object. We're
+particularly interested in the `pathname` and `query` portions of the
+URL. Once we have a pathname we can do a direct comparison (no regular
+expressions required), and pass the `query` to the `users` route handling
+function. Notice we've modified the `users` function signature to 
+additionally accept a `query` argument.
+
+Let's now modify our `users` route handling function:
+
+```js
+function users (query, res) {
+  const {type} = qs.parse(query)
+  const list = !type ? userList : userList.filter((user) => user.type === type)
+  res.end(`{"data": ${JSON.stringify(list)}}`) 
+}
+``` 
+
+By default the `query` portion of a URL string that has been parsed with
+`url.parse` is a string. So we also need to parse the query string it 
+self, we use `qs.parse` to do this, and use deconstruction to pull out
+a `type` property. Imagine we have a route `/users?type=blue`, our
+`query` parameter will be `?type=blue`, and the result of passing
+that to `qs.parse` will be an object: `{type: 'blue'}`. This means our
+`type` reference will be the string: `'blue'`. If there is no query string, 
+or there's a query string with no type argument then the `type` value will 
+be `undefined` (which is coerced to a falsey value in the ternary condition). 
+If we have a `type` we filter our `userList`, or other set `list` to the
+entire `userList`. Finally we call `JSON.stringify` on our `list` array,
+as we pass the entire JSON payload to `res.end`.
+
+We can try this out like so:
+
+```sh
+$ node index.js
+```
+
+```sh
+$ curl http://localhost:8080/users?type=blue
+{"data": [{"id":2,"first_name":"David","second_name":"Clements","type":"blue"}]}
+```
+
+For bonus points, we can refine our code a little more. 
+
+The `url.parse` module can run the querystring `parse` function for us. 
+
+Let's copy `rest-server-dynamic-content/index.js` to 
+`rest-server-dyncamic-content/terser-index.js` to begin refining.
+
+First we'll remove the `querystring` module, our require 
+statements at the top of the file should look like so:
+
+```js
+const http = require('http')
+const url = require('url')
+```
+
+Next pass a second argument to `url.parse`, with a value of `true`, 
+in our `http.createServer` request handler function we alter the line
+where `url.parse` occurs to the following:
+
+```js
+  const {pathname, query} = url.parse(req.url, true)
+```
+
+Finally we no longer need to manually parse the querystring in our 
+`users` route handling function, so we'll update `users` to:
+
+```js
+function users ({type}, res) {
+  const list = !type ? userList : userList.filter((user) => user.type === type)
+  res.end(`{"data": ${JSON.stringify(list)}}`) 
+}
+```
+
+This server will behave in exactly the same way.
 
 ### See also
 
