@@ -1,9 +1,9 @@
 const {hash} = require('xxhash')
 const through = require('through2')
 const eos = require('end-of-stream')
-const level = require('level')
-
-const db = level('./data')
+const levelup = require('levelup')
+const sqldown = require('sqldown')
+const db = levelup('./data', {db: sqldown})
 
 const params = {
   author: process.argv[2],

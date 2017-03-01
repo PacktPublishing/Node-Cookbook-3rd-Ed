@@ -390,7 +390,16 @@ https://www.postgresql.org/download/windows/.
 
 For Linux systems we can obtain an appropriate package
 from https://www.postgresql.org/download/linux/.
-  
+
+Once installed we'll want to create a database named after
+our system username. 
+
+After installation, in the usual command terminal run:
+
+```sh
+$ createdb `whoami` 
+```
+
 Once we have Postgres up and running, let's create a folder called `postgress-app` 
 with an `index.js` file.
 
@@ -405,14 +414,27 @@ $ npm install --save pg
 
 ### How to do it 
 
+Let's begin by requiring the `pg` module and create a new client:
+
 ```js
 const pg = require('pg') 
 const db = new pg.Client()
+```
+
+We don't need to provide any configuration, because Postgres adds environment
+variables which the `pg` module reads from.
+
+Now, let's add a `params` object which will hold user supplied 
+`author` and `quote`: 
+
+```js
 const params = {
   author: process.argv[2], 
   quote: process.argv[3]
 }
+```
 
+```js
 db.connect((err) => {
   if (err) throw err
   db.query(`
@@ -1165,27 +1187,81 @@ this is taken care of internally.
 
 ## Embedded Persistance with LevelDB 
 
+LevelDB is an embedded database developed at Google, and inspired
+by elements of Google's proprietary BigTable database. It's a 
+log-structured key-value store purposed for fast read/write 
+access of large data sets. 
+
+LevelDB has no command line or server interface, it's intended for 
+use directly as a library. One of the advantages of an embedded 
+database is we eliminate peer dependencies - we don't have to assume 
+that a database is available at a certain host and port, we simply 
+require a module and use the database directly.
+
+In this recipe we're going to implement a quotes application on
+top of LevelDB.
+
+
 ### Getting Ready
+
+There's no external database to install, all we need to do
+is create a folder, with an `index.js`, initialize it as a package
+and install some dependencies:
 
 ```sh
 $ mkdir level-app
 $ cd level-app
 $ touch index.js
 $ npm init -y
-$ npm install --save level lexicographic-integer
+$ npm install --save level xxhash end-of-stream-through2
 ```
 
-
 ### How to do it
+
+Let's start by loading our dependencies:
 
 ```js
 const {hash} = require('xxhash')
 const through = require('through2')
 const eos = require('end-of-stream')
 const level = require('level')
+```
 
+The `xxhash` module is an implementaion of a very fast 
+hashing algorithm which we'll be using in part to generate
+keys. The `through2` and `end-of-stream` modules are stream
+utility modules, and appear throughout this book.  
+
+The `level` module is a combination of LevelDOWN which provides
+native C++ bindings to the LevelDB embedded library, and LevelUP
+which provides a cohesive API layer.  
+
+Let's instantiate a LevelDB database:
+
+```js
 const db = level('./data')
+```
 
+On first run this will create a `data` folder in our `level-app` directory.
+
+We want to be able to add and list quotes, and we'll control our 
+quotes application via the command line. 
+
+So to add a quote our command will be
+
+```sh
+$ node index "<Author>" "<Quote>"
+```
+
+To list quotes by a certain author, the command will be 
+
+```sh
+$ node index "<Author>"
+```
+
+So let's implement the command line interface portion:
+
+```js
 const params = {
   author: process.argv[2],
   quote: process.argv[3]
@@ -1203,33 +1279,156 @@ if (params.author) {
   list(params.author)
   return
 }
+```
 
+In the previous snippet we reference to functions which are as yet unwritten,
+the `add` and `list` functions. 
+
+Let's write the `add` function: 
+
+
+```js
 function add({quote, author}, cb) {
   const key = author + hash(Buffer.from(quote), 0xDAF1DC)
   db.put(key, quote, cb) 
 }
+```
+
+Finally, we'll implement the `list` function:
+
+```js
 
 function list (author) {
+  if (!author) db.close()
   const quotes = db.createValueStream({
     gte: author,
-    lt: String.fromCharCode(author[0].charCodeAt(0) + 1)
+    lt: String.fromCharCode(author.charCodeAt(0) + 1)
   })
   const format = through((quote, enc, cb) => {
     cb(null, `${author} ${quote}`)
   })
   quotes.pipe(format).pipe(process.stdout)
-  eos(format, console.log)
+  eos(format, () => {
+    db.close()
+    console.log()
+  })
 }
+```
+
+Now we should be able to test like so:
+
+```sh
+$ node index.js "Like...no way man!" "Shaggy" 
 ```
 
 ### How it works
 
+When we call `level` and pass it a path a folder is created that 
+holds all the data for our database. 
+
+Getting parameters from `process.argv` is fairly common fare, 
+we load these values into an object containing `author` and `quote`
+properties. 
+
+If both `params.author` and `params.quote` are non-falsey we pass the 
+`params` object to the `add` function which uses argument destructuring
+to assign the `author` and `quote` properties to function scoped variables
+of the same name within the `add` function. 
+
+We create a unique key for our quote by suffixing the author name with
+a hash of the quote, then we call `db.put` passing our `key` as the key,
+and the user supplied `quote` as the value.
+
+The callback is called upon insertion, if there was an error we're sure 
+to log it out, and then we go on to call the `list` function with the 
+`params.author` value as the only input (the `list` function is also called
+straight away if the user does not supply a quote).  
+
+A fundamental principle of LevelDB is lexicographic 
+sorting (JavaScript Arrays `sort` function is lexicographic which is why 
+`[11, 100, 1].sort()` is `[ 1, 100, 11 ]`)).  
+
+If we cared about preserving insertion order in the `add` function 
+we may have instead appended a persisted lexicographic counter, using the 
+[lexicographic-integer](https://www.npmjs.com/package/lexicographic-integer) module.
+
+Our `list` function calls `db.createValueStream` with an options object
+containing `gte` and `lt` properties, assigning the resulting stream to `quotes`. 
+
+The `gte` property instructs LevelDB
+to output all values whose keys are lexicographically greater than or 
+equal to `author` (as ultimately provided by the user via the command 
+line interface). 
+
+The `lt` property is set to the character which is the 
+next code point up from the first character in the authors name. 
+For instance of the author was "Adam Smith", the `lt` property would 
+be the letter "B" (`String.fromCharCode('Adam Smith'.charCodeAt(0) + 1)` returns `'B'`).
+So here we'll telling LevelDB to give us everything key whose lexicographical value 
+is less than (but not including) the next code point up. 
+
+In essence, this means our `quotes` stream will output all quotes by a given author.
+Beneath the `quotes` stream we create a `format` stream with the `through2` module,
+which essentially takes each quote and prefixes it with the `author`. 
+Then we pipe from the `quotes` stream through the `format` stream to `process.stdout`. 
+
+The eager incremental processing afforded by LevelDB allows us to apply
+Node's stream paradigm over the top of LevelDB. Using streams means we 
+can begin receiving, processing and sending results immediately, not matter
+how many results there are.  
+
+For the sake of aesthethetics its nice to have a newline at the end of all
+the output, to achieve this we use the `end-of-stream` module (assigned to
+`eos`) and pass the `format` stream to it. When the `format` stream is done
+we explicitly close the database and log a blank line. We cannot use `end-of-stream`
+on `process.stdout` because it has the unique quality of being an uncloseable stream. 
+
 ### There's more
 
-#### JSON encoding
+Let's take a look at swapping out storage mechanisms. 
 
-#### Command Batching
+#### Alternative Storage Adapters
 
-#### Sublevels 
+The `levelup` module was separated from the `leveldown` module, 
+so that various storage backends could be swapped in. 
 
-#### LevelGraph
+For instance, let's take our `level-app` folder from the main recipe,
+and copy it to a new folder, naming it `level-sql-app`:
+
+```sh
+$ cp -fr level-app level-sql-app
+```
+
+Now we'll remove the old `data` folder, unisntall `level` and install 
+`levelup`, `sqlite` and `sqldown`:
+
+```sh
+$ cd level-sql-app
+$ rm -fr data
+$ npm uninst --save level
+$ npm i --save levelup sqlite sqldown
+```
+
+Now we simply change the following lines from our main recipe:
+
+```js
+const level = require('level')
+
+const db = level('./data')
+```
+
+To the following:
+
+```js
+const levelup = require('levelup')
+const sqldown = require('sqldown')
+const db = levelup('./data', {db: sqldown})
+```
+
+Our application will run in exactly the same way, except now we're
+storing to SQLite instead of LevelDB. 
+
+The `sqldown` module also supports MySql and Postgres, and there's 
+a myriad of other alternative adapters (including backends that can
+use browser storage mechanisms) listed at <https://github.com/Level/levelup/wiki/Modules#storage-back-ends>.
+
