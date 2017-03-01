@@ -2,13 +2,11 @@
 
 This chapter covers the following topics
 
-* Connecting and sending SQL to a MySQL server
-* Populating and querying a Postgres database
-* Storing and retrieving data with MongoDB
-* Storing and retrieving data with Redis
-* Persisting with LevelDB
-* GRAPH DATABASE ?
-* Recording to the InfluxDB time series database
+* Relational data storage with a MySQL (or MariaDB) server
+* Object-Relational data storage with Postgres
+* NoSQL Document storage with MongoDB
+* Storing to Redis, the in memory key-value data structure store 
+* Embedded Persistance with LevelDB
 
 ## Introduction
 
@@ -66,10 +64,16 @@ We can see if the mysql server is running using the following command:
 $ mysqladmin -u root ping
 ``` 
 
-If it is installed but not running, we can use the following command: 
+If it is installed but not running, we can use the following command on Linux: 
 
 ```sh
 $ sudo service mysql start
+```
+
+Or on MacOS:
+
+```sh
+$ mysql.server start
 ``` 
 
 If MySQL isn't installed, we can use the relevant package manager 
@@ -78,6 +82,14 @@ follow instructions to start the server.
 
 If we're using Node on Windows, we can head to 
 http://dev.mysql.com/downloads/mysql and download the installer. 
+
+> #### MariaDB ![](../info.png)
+> This recipe, including extra code in the **There's More** section will 
+> run with MariaDB without changing any code. We can install MariaDB
+> instead of MySQL if we choose. The advantages of MariaDB is it's owned
+> by an open source foundation (MariaDB Foundation) instead of a corporation (Oracle)
+> and it has dynamic storage options (instead of requiring recompilation).
+> See http://mariadb.com for more.  
 
 Once we have MySQL up and running, let's create a folder called `mysql-app` 
 with an `index.js` file.
@@ -349,6 +361,164 @@ $ node index.js "%"
 ### See also
 
 * TBD
+
+## Connecting and sending SQL to a MySQL server
+Structured Query Language has been a standard since 1986, 
+and it's the prevailing language for relational databases. 
+MySQL is the most popular SQL relational database server around,
+often appearing in the prevalent Linux Apache MySQL PHP (LAMP) stack. 
+
+If a relational database was conceptually relevant to our goals in
+a new project, or we were migrating a MySQL-backed project from another
+framework to Node, the `mysql` module would be particularly useful. 
+
+In this task, we will discover how to connect to a MySQL server
+with Node and execute SQL queries across the wire. 
+
+### Getting Ready
+
+We'll need to install a Postgress server. 
+
+On macOS we can use homebrew (http://brew.sh): 
+
+```sh
+$ brew install postgres
+```
+
+For Windows systems, we can download a GUI installer from
+https://www.postgresql.org/download/windows/. 
+
+For Linux systems we can obtain an appropriate package
+from https://www.postgresql.org/download/linux/.
+  
+Once we have Postgres up and running, let's create a folder called `postgress-app` 
+with an `index.js` file.
+
+Then, we'll initialize the folder with a `package.json` file and 
+grab the `pg`  module, which is a pure JavaScript module
+(as opposed to a C++ binding to the MySQL C driver). 
+
+```sh
+$ npm init -y
+$ npm install --save pg
+``` 
+
+### How to do it 
+
+```js
+const pg = require('pg') 
+const db = new pg.Client()
+const params = {
+  author: process.argv[2], 
+  quote: process.argv[3]
+}
+
+db.connect((err) => {
+  if (err) throw err
+  db.query(`
+    CREATE TABLE IF NOT EXISTS quotes ( 
+      id SERIAL,  
+      author VARCHAR ( 128 ) NOT NULL, 
+      quote TEXT NOT NULL, PRIMARY KEY ( id ) 
+    )
+  `, (err) => {
+    if (err) throw err
+    
+    if (params.author && params.quote) {
+      db.query(`
+        INSERT INTO quotes (author, quote)
+        VALUES ($1, $2);
+      `, [params.author, params.quote], (err) => {
+        if (err) throw err
+        list()
+      })
+    }
+
+    if (!params.quote) list()
+
+    function list () {
+      if (!params.author) return db.end()
+      db.query(`
+        SELECT * FROM quotes 
+        WHERE author LIKE ${db.escapeLiteral(params.author)}
+      `, (err, results) => {
+        if (err) throw err 
+        results.rows.forEach(({author, quote}) => {
+          console.log(`${author} ${quote}`)
+        })
+        db.end()
+      })
+    }
+  })
+})
+```
+
+ 
+### How it works
+
+### There's more
+
+#### Connection Pooling
+
+#### Storing Object-modelled Data 
+
+```js
+const pg = require('pg') 
+const db = new pg.Client()
+const params = {
+  author: process.argv[2], 
+  quote: process.argv[3]
+}
+
+db.connect((err) => {
+  if (err) throw err
+  db.query(`
+    CREATE TABLE IF NOT EXISTS quote_docs (
+      id SERIAL,  
+      doc jsonb,
+      CONSTRAINT author CHECK (length(doc->>'author') > 0 AND (doc->>'author') IS NOT NULL),
+      CONSTRAINT quote CHECK (length(doc->>'quote') > 0 AND (doc->>'quote') IS NOT NULL)
+    )
+  `, (err) => {
+    if (err) throw err
+
+    if (params.author && params.quote) {
+      db.query(`
+        INSERT INTO quote_docs (doc)
+        VALUES ($1);
+      `, [params], (err) => {
+        if (err) throw err
+        list()
+      })
+    }
+
+    if (!params.quote) list()
+
+    function list () {
+      if (!params.author) return db.end()
+      db.query(`
+        SELECT * FROM quote_docs
+        WHERE doc ->> 'author' LIKE ${db.escapeLiteral(params.author)}
+      `, (err, results) => {
+        if (err) throw err 
+        results.rows
+          .map(({doc}) => doc)
+          .forEach(({author, quote}) => {
+            console.log(`${author} ${quote}`)
+          })
+        db.end()
+      })
+    }
+  })
+})
+```
+
+
+### See also
+
+* TBD
+
+
 
 ## Storing and Retrieving Data with MongoDB
 
@@ -988,3 +1158,78 @@ The password has to be sent before any other commands.
 The `redis` module seamlessly handles re-authentication, 
 we don't need to call client.auth again at failure points, 
 this is taken care of internally. 
+
+### See also
+
+* TBD
+
+## Embedded Persistance with LevelDB 
+
+### Getting Ready
+
+```sh
+$ mkdir level-app
+$ cd level-app
+$ touch index.js
+$ npm init -y
+$ npm install --save level lexicographic-integer
+```
+
+
+### How to do it
+
+```js
+const {hash} = require('xxhash')
+const through = require('through2')
+const eos = require('end-of-stream')
+const level = require('level')
+
+const db = level('./data')
+
+const params = {
+  author: process.argv[2],
+  quote: process.argv[3]
+}
+
+if (params.author && params.quote) {
+  add(params, (err) => {
+    if (err) console.error(err)    
+    list(params.author)
+  })
+  return
+}
+
+if (params.author) { 
+  list(params.author)
+  return
+}
+
+function add({quote, author}, cb) {
+  const key = author + hash(Buffer.from(quote), 0xDAF1DC)
+  db.put(key, quote, cb) 
+}
+
+function list (author) {
+  const quotes = db.createValueStream({
+    gte: author,
+    lt: String.fromCharCode(author[0].charCodeAt(0) + 1)
+  })
+  const format = through((quote, enc, cb) => {
+    cb(null, `${author} ${quote}`)
+  })
+  quotes.pipe(format).pipe(process.stdout)
+  eos(format, console.log)
+}
+```
+
+### How it works
+
+### There's more
+
+#### JSON encoding
+
+#### Command Batching
+
+#### Sublevels 
+
+#### LevelGraph

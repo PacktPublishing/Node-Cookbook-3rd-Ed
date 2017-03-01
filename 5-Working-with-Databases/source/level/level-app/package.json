@@ -1,0 +1,18 @@
+{
+  "name": "level-app",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "end-of-stream": "^1.1.0",
+    "level": "^1.6.0",
+    "through2": "^2.0.3",
+    "xxhash": "^0.2.4"
+  }
+}
