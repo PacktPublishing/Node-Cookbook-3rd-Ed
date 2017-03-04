@@ -1,4 +1,4 @@
-# 6 Weilding Express
+# 6 Working with Web Frameworks
 
 This chapter covers the following topics
 
