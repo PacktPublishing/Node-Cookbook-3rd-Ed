@@ -1,4 +1,4 @@
-# 4 Connecting with Web Protocols
+# 4 Wielding Web Protocols
 
 This chapter covers the following topics
 
