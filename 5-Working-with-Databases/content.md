@@ -434,6 +434,10 @@ const params = {
 }
 ```
 
+Next we'll connect to the database, conditionally create 
+a table to store our quotes and insert a quote when the user
+supplies both author and quote arguments.
+
 ```js
 db.connect((err) => {
   if (err) throw err
@@ -452,46 +456,153 @@ db.connect((err) => {
         VALUES ($1, $2);
       `, [params.author, params.quote], (err) => {
         if (err) throw err
-        list()
+        list(db, params)
       })
     }
 
-    if (!params.quote) list()
-
-    function list () {
-      if (!params.author) return db.end()
-      db.query(`
-        SELECT * FROM quotes 
-        WHERE author LIKE ${db.escapeLiteral(params.author)}
-      `, (err, results) => {
-        if (err) throw err 
-        results.rows.forEach(({author, quote}) => {
-          console.log(`${author} ${quote}`)
-        })
-        db.end()
-      })
-    }
+    if (!params.quote) list(db, params)
   })
 })
 ```
 
- 
+Finally we'll implement the `list` function that's called after 
+the insertion, or in cases where only the author is supplied. 
+
+```js
+function list (db, params) {
+  if (!params.author) return db.end()
+  db.query(`
+    SELECT * FROM quotes 
+    WHERE author LIKE ${db.escapeLiteral(params.author)}
+  `, (err, results) => {
+    if (err) throw err 
+    results.rows.forEach(({author, quote}) => {
+      console.log(`${author} ${quote}`)
+    })
+    db.end()
+  })
+}
+```
+
+Now we should be able to try out our app with:
+
+```
+$ node index.js "" ""
+```
+
 ### How it works
 
-### There's more
+Postgres offers slight SQL variants (along with a non-standard superset) 
+SQL compared to MySQL.
 
-#### Connection Pooling
+Accepted convention in Postgres is to expect a database named after the 
+user account that owns a gives process. This is why in the getting ready 
+section we ran `cretedb whoami` on the command line. 
+
+When we instantiate `pg.Client` (storing the instance to the `db` variable) 
+it reads the `USER` (or `USERNAME` on Windows) environment variable and 
+attempts to connect to a database named after the current user, as that user, 
+on the default Postgres port. By default the database is passwordless. 
+
+The upshot is we didn't need to supply a configuration to `pg.Client`.
+
+We call `pg.connect` to connect to the Postgres server and use the 
+database (as named after the user). This will trigger the callback we supplied.
+Since we're writing a command line application we will throw any errors 
+that come through any callbacks for instant user feedback.
+
+From this point we're simply sending SQL to the Postgres server via
+the `db.query` method. If the user has supplied both author and quote
+arguments we perform an `INSERT`. We clean the user input by using placeholders
+(`VALUES($1, $2)`) and supplying an array of values matching the 
+placeholder index.
+
+The `list` function sends a `SELECT` query, this time we clean user input
+using `db.escapeLiteral`.
+
+### There's More
+
+Postgres is a hybrid Object-Relational database, we can store and query both 
+relational and object data, whilst the `pg` module can interface with Postgres
+with both pure JavaScript and C bindings. 
+
+#### Using native bindings
+The `pg` module primarily provides a pure JavaScript driver for Postgres,
+but can also supply a consistent API over a native C driver with Node bindings
+(the `pg-native` module) which should provide enhanced performance.
+
+Let's copy our `postgres-app` folder to `postgres-native-app`, 
+then install the `pg-native` module:
+
+```sh
+$ cp -fr postgres-app postgres-native-app
+$ cd postgres-native-app
+$ npm install --save-opt pg-native
+```
+
+When we install a module with `--save-opt` it is added
+to the `package.json` file as an optional dependency 
+(in the `optionalDependencies` field). 
+
+This means if we install `pg-native` on a machine that 
+fails to compile, the installation process will still 
+report successful completion.   
+
+The first line of `index.js` we change to:
+
+```js
+const pg = require('pg').native || require('pg')
+```
+
+If `pg-native` failed to install, the `native` property
+of the `pg` module will be `null`, in which case we drop 
+back to the JavaScript implementation.
+
+Finally we need to alter the `list` function slightly:
+
+```js
+function list (db, params) {
+  if (!params.author) return db.end()
+  db.query(`
+    SELECT * FROM quotes 
+    WHERE author LIKE $1
+  `, [params.author], (err, results) => {
+    if (err) throw err 
+    results.rows.forEach(({author, quote}) => {
+      console.log(`${author} ${quote}`)
+    })
+    db.end()
+  })
+}
+```
+
+The native API is high parity with the pure JavaScript API,
+though with very slightly reduced functionality. This means
+we can't use the `db.escapeLiteral` function, so revert to the
+(more normative) placeholder injection (`LIKE $1`).
+
 
 #### Storing Object-modelled Data 
 
-```js
-const pg = require('pg') 
-const db = new pg.Client()
-const params = {
-  author: process.argv[2], 
-  quote: process.argv[3]
-}
+Postgres also has the ability to store object data, allowing for hybrid
+data strategies with the same database. In other words, we can couple
+a relational approach with a noSQL document store paradigm in the same
+database. 
 
+Let's convert our main recipe to an object-relational approach instead of
+pure relational. 
+
+Let's copy the `postgres-app` folder from our main recipe to `postgres-object-app`.
+
+```
+$ cp postgres-app postgres-object-app
+```
+
+Now let's edit the `index.js` file.
+
+We'll start by changing the `db.connect` call to the following:
+
+```js
 db.connect((err) => {
   if (err) throw err
   db.query(`
@@ -510,37 +621,69 @@ db.connect((err) => {
         VALUES ($1);
       `, [params], (err) => {
         if (err) throw err
-        list()
+        list(db, params)
       })
     }
 
-    if (!params.quote) list()
+    if (!params.quote) list(db, params)
 
-    function list () {
-      if (!params.author) return db.end()
-      db.query(`
-        SELECT * FROM quote_docs
-        WHERE doc ->> 'author' LIKE ${db.escapeLiteral(params.author)}
-      `, (err, results) => {
-        if (err) throw err 
-        results.rows
-          .map(({doc}) => doc)
-          .forEach(({author, quote}) => {
-            console.log(`${author} ${quote}`)
-          })
-        db.end()
-      })
-    }
   })
 })
+``` 
+
+The only thing we've changed her is the SQL queries (and their inputs). 
+
+We've altered the name of the table we create (from `quotes` to `quote_docs`),
+and we define two fields instead of three. The `id` field remains the same, 
+but instead of `author` and `quote` fields we have a `doc` field with type
+`jsonb`. Postgres has two object types, `json` and `jsonb` (JSON Binary). 
+The `json` datatype is little more than a text field with JSON validation, whereas
+the `jsonb` is structured, allowing for queries and even index creation
+within objects. We might use the `json` type if all we're interested in
+is storing data blobs wholesale (such as log storage), but `jsonb` if we
+want to interact with the data inside the database. 
+
+We also added `CONSTRAINT` statements to validate the objects passed 
+to Postgress. 
+
+In the second query, we only need to pass in one value, an object with
+`author` and `quotes` properties. So in our inputs array (second argument
+to the second occurence `db.query`), we simply pass the `params` object.
+Postgress takes this object, converts it to JSON, and then stores it 
+as the `jsonb` datatype. 
+
+Now let's modify the `list` function to query the object data:
+
+```js
+function list (db, params) {
+  if (!params.author) return db.end()
+  db.query(`
+    SELECT * FROM quote_docs
+    WHERE doc ->> 'author' LIKE ${db.escapeLiteral(params.author)}
+  `, (err, results) => {
+    if (err) throw err 
+    results.rows
+      .map(({doc}) => doc)
+      .forEach(({author, quote}) => {
+        console.log(`${author} ${quote}`)
+      })
+    db.end()
+  })
+}
 ```
+
+We've modified the SQL in our `list` function to run a nested query, 
+`doc` is the `jsonb` datatype, so we use the `->>` operator to query 
+keys within the objects found. 
+
+> #### The JSONB datatype
+> We're only scratching the surface here, for see <https://www.postgresql.org/docs/9.4/static/functions-json.html>
+> for more information on Postgres JSONB query operators.
 
 
 ### See also
 
 * TBD
-
-
 
 ## Storing and Retrieving Data with MongoDB
 
@@ -1318,7 +1461,7 @@ function list (author) {
 Now we should be able to test like so:
 
 ```sh
-$ node index.js "Like...no way man!" "Shaggy" 
+$ node index.js "Shaggy" "Like...no way man!" 
 ```
 
 ### How it works
@@ -1432,3 +1575,6 @@ The `sqldown` module also supports MySql and Postgres, and there's
 a myriad of other alternative adapters (including backends that can
 use browser storage mechanisms) listed at <https://github.com/Level/levelup/wiki/Modules#storage-back-ends>.
 
+### See also
+
+* TBD

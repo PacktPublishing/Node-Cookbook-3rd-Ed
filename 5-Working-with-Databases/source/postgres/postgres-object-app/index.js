@@ -23,31 +23,29 @@ db.connect((err) => {
         VALUES ($1);
       `, [params], (err) => {
         if (err) throw err
-        list()
+        list(db, params)
       })
     }
 
-    if (!params.quote) list()
+    if (!params.quote) list(db, params)
 
-    function list () {
-      if (!params.author) return db.end()
-      db.query(`
-        SELECT * FROM quote_docs
-        WHERE doc ->> 'author' LIKE ${db.escapeLiteral(params.author)}
-      `, (err, results) => {
-        if (err) throw err 
-        results.rows
-          .map(({doc}) => doc)
-          .forEach(({author, quote}) => {
-            console.log(`${author} ${quote}`)
-          })
-        db.end()
-      })
-    }
   })
 })
 
-
-
+function list (db, params) {
+  if (!params.author) return db.end()
+  db.query(`
+    SELECT * FROM quote_docs
+    WHERE doc ->> 'author' LIKE ${db.escapeLiteral(params.author)}
+  `, (err, results) => {
+    if (err) throw err 
+    results.rows
+      .map(({doc}) => doc)
+      .forEach(({author, quote}) => {
+        console.log(`${author} ${quote}`)
+      })
+    db.end()
+  })
+}
 
 

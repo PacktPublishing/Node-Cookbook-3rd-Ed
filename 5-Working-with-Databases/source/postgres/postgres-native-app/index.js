@@ -1,4 +1,4 @@
-const pg = require('pg') 
+const pg = require('pg').native || require('pg')
 const db = new pg.Client()
 const params = {
   author: process.argv[2], 
@@ -34,8 +34,8 @@ function list (db, params) {
   if (!params.author) return db.end()
   db.query(`
     SELECT * FROM quotes 
-    WHERE author LIKE ${db.escapeLiteral(params.author)}
-  `, (err, results) => {
+    WHERE author LIKE $1
+  `, [params.author], (err, results) => {
     if (err) throw err 
     results.rows.forEach(({author, quote}) => {
       console.log(`${author} ${quote}`)
