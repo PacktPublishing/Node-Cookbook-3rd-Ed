@@ -1,4 +1,4 @@
-# 1 Writing Modules
+# 2 Writing Modules
 
 This chapter covers the following topics
 
