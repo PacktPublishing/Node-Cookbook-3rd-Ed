@@ -756,26 +756,193 @@ generate a logging function that defaults to a no-op (an empty
 function) but writes log messages to STDOUT when the relevant
 flag appears in the `NODE_DEBUG` environment variable.
 
-We can use `util.debuglog` to create out own core like log messages
+We can use `util.debuglog` to create our own core like log messages.
 
-[ how to etc ]
+Let's take our `app` folder we created in the main recipe and
+copy it to `instrumented-app`,
 
-[ tip box recommending `debug` module instead ]
+```sh
+$ cp -fr app instrumented-app
+```
+
+Now let's make `index.js` look like so:
+
+```js
+const util = require('util')
+const express = require('express')
+const debug = util.debuglog('my-app')
+const app = express()
+
+app.get('/', (req, res) => {
+  debug('incoming request on /', req.route)
+  res.send('hey')
+})
+
+setTimeout(function myTimeout() { 
+   debug('timeout complete')
+   console.log('I waited for you.')
+}, 100)
+
+app.listen(3000)
+```
+
+Now we can turn on our custom debug logs like so:
+
+```sh
+$  NODE_DEBUG=my-app node index.js
+```
+
+If we make a request to http://localhost:3000 the output of our process 
+should like something like this:
+
+```
+MY-APP 30843: timeout complete
+I waited for you.
+MY-APP 30843: incoming request on / Route {
+  path: '/',
+  stack:
+   [ Layer {
+       handle: [Function],
+       name: '<anonymous>',
+       params: undefined,
+       path: undefined,
+       keys: [],
+       regexp: /^\/?$/i,
+       method: 'get' } ],
+  methods: { get: true } }
+```
+
+> #### Prefer the `debug` module ![](../tip.png) 
+> In many cases, using the third party `debug` module
+> instead of `util.debuglog` is preferable. The `debug`
+> modules output is more time stamped and color coded,
+> while the production cost of using it is negligible.
+> See the **Enabling Debug Logs** recipe in this chapter for more.
 
 #### Debugging Node Core Libraries
 
-* run with --node-inspect and --debug-brk (point to previous
-recipe dealing with general usage of node--inspect)
-* navigate to (no domain) files
-* find util.js
-* find exports.debuglog
-* set breakpoint in function created by debuglog
-* press run
-* cycle through messages until message is odd number (like 819)
-* use stack inspector to find the utcDate function 
-* understand timers.enroll and unrefActive
-* understand what utcDate is doing 
+The core libraries that come bundled with the Node binary
+are written in JavaScript. Which means we can debug them 
+the same way we debug our own code. This level of introspection
+means we can understand internal mechanics to a fine level of 
+detail.
 
+Let's use the Devtools to pick apart how `util.debuglog` works.
+
+> #### Devtools ![](../info.png)
+> To understand how to use Devtools, see the first recipe
+> in this chapter **Debugging Node with Chrome Devtools** 
+
+We'll run our code we prepared in the **Getting Ready** section
+like so (Node 8+):
+
+```sh
+$ NODE_DEBUG=timer node --inspect-brk index.js
+```
+
+Or if we're using Node 6.3.0+
+
+```sh
+$ NODE_DEBUG=timer node --debug-brk --inspect index.js
+```
+
+Next we copy and paste the `chrome-devtools://` URI
+into Chrome, and we should see something like the following:
+
+![](images/core-debug-1.png)
+
+Now in left hand pane (the Navigation pane), we should see 
+two drop down tree, `(no domain)` and `file://`. The `(no domain)`
+files are files that came compiled into Node. 
+
+Let's click the small right facing triangle next to `(no domain)`,
+to expand the list. Then locate the `util.js` file and double click
+to open. At this point we should see something like the following:
+
+![](images/core-debug-2.png)
+
+Next we want to find the `debuglog` function, an easy way to do this
+is to press Cmd+F on macOs or Ctrl+F on Linux and Windows, to bring
+up the small find dialog, then type "debuglog", this should highlight
+the exported `debuglog` method.
+
+![](images/core-debug-3.png)
+
+If we read the exported function, we should be able to ascertain
+that given the right conditions (e.g. if the flag is set on `NODE_DEBUG`),
+a function is created and associated to a namespace. Different Node versions
+could have differences in their `util.js`, in our case the first line
+of this generated function is line 147, so we set a breakpoint on line 
+147 (or wherever the first line of the generated function may be).
+
+![](images/core-debug-4.png)
+
+Now if we press run, our breakpoint should be triggered almost
+immediately. Let's hover over the `arguments` object referenced
+in the generated function 
+
+![](images/core-debug-5.png)
+
+We should see that the second argument passed to the
+generated debug function is `100` this relates to the millisecond
+parameter we pass to `setTimeout` in our `index.js` and is part of
+the first debug message ("no 100 list was found..."). 
+
+Now let's hit the play button three more times, until the blue
+play button no longer shows (and there's a pause button) in it's place
+and there's a "error" count in the top right corner of 4, as 
+demonstrated in the following:
+
+![](images/core-debug-6.png)
+
+Devtools perceives each log errors because the debug messages 
+are written to STDERR, this is why the error count in the top right
+corner is 4.
+
+Now let's open a new browser tab and navigate to http://localhost:3000.
+
+Devtools should have paused again at our breakpoint, if we hover over
+the `arguments` object in the generated function we should see that
+the second argument is `12000`, this relates to the default 2 minute 
+timeout on sockets (as discussed in the main recipe).
+
+![](images/core-debug-7.png)
+
+If we hit the play button again, and inspect the `arguments` object
+we should see the second argument is a number that's less than 1000.
+
+![](images/core-debug-8.png)
+
+Over on the right hand side, in the Call Stack there's a frame called
+`utcDate`, let's select that frame to view the function.
+
+![](images/core-debug-9.png)
+
+This function is in a library that's only for internal core use
+called `_http_outgoing.js`. 
+
+We can see that it's currently within the an `if` block that 
+checks whether `dateCache` is falsey. If `dateCache` is falsey,
+it creates a new date, and assigns the output of `toUTCString`
+to `dateCache`. Then it uses `timers.enroll`,
+this is a way of creating a `setTimeout`, where the provided object
+represents the timeout reference. It sets the time to `1000` minus
+the millisecond unit in the date object which effectively measures
+how long there's is left of the current second. Then it calls
+`timers._unrefActive` which activates the timer without allowing
+the timer to keep the event loop open. The `utcDate._onTimeout` method
+sets `dateCache` to `undefined`, so at the end of the timeout, 
+`dateCache` is cleared. 
+
+If we look down the Call Stack, we should be able to infer that the `utcDate` function is called when a request
+is made, and is to do with HTTP header generation (specifically the `Date`
+HTTP header). 
+
+The net effect is that a process may receive, say, 10000 requests in a second,
+and only the first of those 10000 has to perform the relatively expensive
+Date generation, while the following 9999 requests all use the cached date.
+
+And that's the sort of things we can learn by debugging core.
 
 ### See also
 
