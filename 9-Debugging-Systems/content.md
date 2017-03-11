@@ -12,7 +12,20 @@ This chapter covers the following topics
 
 ## Introduction
 
-One to two paragraph intro to chapter
+Debugging JavaScript has traditionally been non-trivial, 
+this is partly to do with evented asynchronous paradigms
+inherent in the programming model and partly to do with
+tooling (and the difficulties in creating tooling that is
+well matched to JavaScripts programming model). 
+
+In recent years, however, as JavaScript usage has exponentially
+increased in both browser and server side development, tooling
+has improved and continues to improve.
+
+In this chapter, we talk about how to use fundamental debugging tools,
+discuss helpful techniques, introduce some additional useful 
+introspection resources and delve deeper into advanced production
+debugging tools and techniques such as async tracing and postmortems.
 
 ## Debugging Node with Chrome Devtools
 
