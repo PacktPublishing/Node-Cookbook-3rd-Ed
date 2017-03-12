@@ -1,11 +1,13 @@
 const express = require('express')
 const app = express()
+const stylus = require('stylus')
 
-app.get('/', (req, res) => res.send('hey'))
-
-
-setTimeout(function myTimeout() { 
-   console.log('I waited for you.')
-}, 100)
+app.get('/some.css', (req, res) => {
+  const css = stylus(`
+    body
+      color:black
+  `).render()
+  res.send(css)
+})
 
 app.listen(3000)

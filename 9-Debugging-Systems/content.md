@@ -579,19 +579,172 @@ It's now (again) obvious where the mistake lies, there is no
 
 ## Enabling Debug Logs
 
+More 13450 modules directly depend on the third party `debug` module
+(at time of writing). Many other modules indirectly use the `debug` module
+by there use of those 13450. Some highly notable libraries, like
+Express, Koa and Socket.io also use the `debug` module. 
+
+In many code bases there's a wealth of often uptapped 
+tracing and debugging logs that we can use to infer and understand how
+our application is behaving. 
+
+In this recipe we'll discover how to enable and effectively 
+analyse these log messages
+
 ### Getting Ready
+
+Let's create a small Express app which we'll be debugging.
+
+On the command line we execute the following commands: 
+
+```sh
+$ mkdir app
+$ cd app
+$ npm init -y
+$ npm install --save express
+$ touch index.js
+``` 
+
+Our `index.js` file should contain the following:
+
+```js
+const express = require('express')
+const app = express()
+const stylus = require('stylus')
+
+app.get('/some.css', (req, res) => {
+  const css = stylus(`
+    body
+      color:black
+  `).render()
+  res.send(css)
+})
+
+app.listen(3000)
+```
+
+> #### Web Frameworks ![](../tip.png)
+> We're only using express here as an example,
+> to learn more about Express and other Frameworks
+> see **Chapter 7 Working With Web Frameworks** 
 
 ### How to do it
 
+Let's turn on all debug logging:
+
+```sh
+DEBUG=* node index.js
+```
+
+As soon as we start the server, we see some debug
+output that should be something like the following image.
+
+![](images/debug-1.png)
+
+The first message is 
+
+```sh
+  express:application set "x-powered-by" to true +0ms
+```
+
+Let's make a mental note to add `app.disable('x-powered-by')`
+since it's much better for security to not publicly announce
+the software a server is using.
+
+> #### Security ![](../info.png)
+> For more on Security and server hardening
+> see **Chapter 8 Dealing with Security**
+
+This debug log line has helped us to understand how our chosen framework 
+actually behaves, and allows us to mitigate any undesired behavior 
+in an informed manner.
+
+Now let's make a request to the server, if we have 
+`curl` installed we can do:
+
+```sh
+$ curl http://localhost:3000/some.css
+```
+
+(Or otherwise we can simply use a browser to access the same route).
+
+This results in more debug output, mostly a very large amount of `stylus`
+debug logs.
+
+![](images/debug-2.png)
+
+While it's interesting to see the Stylus parser at work, it's a 
+little overwhelming, so let's try just looking at `express` logs:
+
+```sh
+$ DEBUG=express:* node index.js
+```
+
+And we'll make a request again (we can use `curl` or a browser as appropriate):
+
+```sh
+$ curl http://localhost:3000/some.css
+```
+
+![](images/debug-3.png)
+
+This time our log filtering enabled us to easily see the debug 
+messages for an incoming request.
+
+
 ### How it works
+
+In our recipe, we initially set `DEBUG` to `*`, which means enable
+all logs. Then we wanted to zoom in explicitly on express related
+log messages. So we set `DEBUG` to `express:*`, which means enable
+all logs that begin with the characters `express:`. By convention,
+modules and frameworks delimit sub-namespaces with the `:` colon.   
+
+At an internal level, the `debug` module reads from the `process.env.DEBUG`,
+splits the string by whitespace or commas, and then converts each 
+item into a regular expression.
+
+When a module uses the `debug` module, if will require `debug`
+and call it with a namespace representing that module to 
+create a logging function that it then uses to output messages
+when debug logs are enabled for that module. 
+
+> #### Using the `debug` module ![](../info.png)
+> For more on using `debug` module in our own code
+> see **Instrumenting code with `debug`** in the *There's More* section
+
+Each time a module registers itself with the `debug` module 
+the list of regular expressions (as generated from the `DEBUG`
+environment variable) are tested against the namespace 
+provided by the registering module. 
+
+If there's no match the resulting logger function is a no-op
+(that is, an empty function). So the cost of the debug logs in
+production is minimal. 
+
+If there is a match, the returned logging function will accept input,
+decorate it with ANSI codes (for terminal coloring), and create a time
+stamp on each call to the logger.
+
+> #### A development tool ![](../tip.png)
+> The `debug` module is primarily a development tool,
+> it's output is not really suited to production log messages
+> and performance could be better. However,
+> see **Converting debug logs into high-performance production logs**
+> in the *There's More* section to learn how to avail of the 
+> in depth and highly useful information that percolates through
+> the `debug` module in a production situation.
 
 ### There's more
 
-#### pino-debug
+#### Instrumenting code with `debug`
 
-#### 
+#### Converting debug logs into high-performance production logs
+
 
 ### See also
+
+* TBD
 
 ## Enabling Core Debug Logs
 
@@ -749,7 +902,7 @@ is seconds, a timeout is set for the amount of milliseconds left before
 the next second and the `Date` header is provided the same string for
 the remainder of that second.
 
-> #### Core Mechanics ![](info.png)
+> #### Core Mechanics ![](../info.png)
 > For a deeper understanding of our discussion here, see the
 > There's More section where we use debugging tools to step
 > through code in Node core to show how to fully pick apart
@@ -828,8 +981,9 @@ MY-APP 30843: incoming request on / Route {
 > #### Prefer the `debug` module ![](../tip.png) 
 > In many cases, using the third party `debug` module
 > instead of `util.debuglog` is preferable. The `debug`
-> modules output is more time stamped and color coded,
-> while the production cost of using it is negligible.
+> modules supports wildcards, and the output is 
+> time stamped and color coded, while the production cost of 
+> using it is negligible.
 > See the **Enabling Debug Logs** recipe in this chapter for more.
 
 #### Debugging Node Core Libraries
