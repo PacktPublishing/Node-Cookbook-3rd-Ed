@@ -4,7 +4,7 @@ This chapter covers the following topics
 * Building a simple RESTful microservice
 * Creating the context
 * Setting up a development environment
-* Using pattern matching with Mu
+* Improving the service code
 * Using Containers
 * Service discovery with DNS
 * Adding a queue based service
@@ -23,7 +23,7 @@ Microservices are very much in vogue at the moment and for good reason. There ar
 
 * Language independent - microservice systems may be composed of services written in multiple languages, allowing developers to select the most appropriate tool for each specific job.
 
-Of course it is not always appropriate to use microservices, certainly the 'golden hammer' anti-pattern should be avoided at all costs, however in our experience it is a powerful approach when applied correctly. In this chapter we will learn how to construct a simple RESTful microservice and also how this might be consumed. We will also look at a powerful approach to microservice construction, that of pattern matching. We will use the Mu library to do this. We will also look at how to set up a clean local development environment using the Fuge toolkit and then look at how to build services that communicate over protocols other than simple HTTP. Finally we will build in a simple service discovery mechanism to allow us to consume our services without hard coding.
+Of course it is not always appropriate to use microservices, certainly the 'golden hammer' anti-pattern should be avoided at all costs, however in our experience it is a powerful approach when applied correctly. In this chapter we will learn how to construct a simple RESTful microservice and also how this might be consumed. We will also look at how to set up a clean local development environment using the Fuge toolkit and then look at how to build services that communicate over protocols other than simple HTTP. Finally we will build in a simple service discovery mechanism to allow us to consume our services without hard coding.
 
 Before diving into code, however, we should take a moment to review what we mean by a microservice and how this concept plays into a reference architectural frame. Figure 7.1 below depicts a typical microservice system.
 
@@ -461,26 +461,35 @@ The other advantage of Fuge is of course that it is fully open sourced and imple
 > #### Full Discolsure.. ![](../info.png)
 > In the interests of full disclosure it should be noted that Fuge is implemented by the authors of this book!
 
-## Using pattern matching with Mu
+## Improving the Code
 
 ### Getting Ready
-So far we have implemented a front end web application that consumes a restify based microservice and setup our local development environment. In this recipe we are going to convert our microservice to use the Mu library, clean up the service code a little and send messages over a raw TCP socket as opposed to HTTP. Mu provides a way to build microservice systems using two key concepts:
-
-* Pattern routing
-
-* Transport independence
-
-We will explore these concepts later in this recipe, however for now let's dive right in.
+In this recipe we are going to improve our service and calling code by removing hard coded urls and port numbers and also switch to the `restify` JSON client as a more natural way to invoke and recieve data from our services. We already have everything we need in our codebase so lets dive in and fix the code!
 
 ### How to do it
-Firstly lets install mu as a dependency of our service, to do this `cd` into the the service folder and install Mu using `npm`:
+Firstly lets update our `adder-service`. This code is a little tangled at the moment in that the service logic is wrapped up with the `restify` framework code. In addition the port number that this service listens on is hardcoded. To fix this, firstly create a file `wiring.js` in the directory `micro/adder-service` and add the following code to it:
 
-```sh
-$ cd micro/adder-service
-$ npm install --save mu
+```javascript
+var restify = require('restify')
+
+module.exports = function (service) {
+  var server = restify.createServer()
+
+  server.get('/add/:first/:second', function (req, res, next) {
+    service.add(req.params, function (err, result) {
+      if (err) { return res.send(err) }
+      res.send(200, {result: result})
+      next()
+    })
+  })
+
+  server.listen(process.env.ADDER_SERVICE_SERVICE_PORT, '0.0.0.0', function () {
+    console.log('%s listening at %s', server.name, server.url)
+  })
+}
 ```
 
-Now that we have Mu installed let's convert the service and at the same time improve the code a little. To do this open the file `service.js` in an editor and change the code to the following:
+Next change the code in the file `service.js` and remove the restify code from it as below:
 
 ```javascript
 module.exports = function () {
@@ -496,21 +505,7 @@ module.exports = function () {
 }
 ```
 
-Having cleaned the service code up we need to add some wiring to connect it to the outside world, firstly lets add a file called `wiring.js` in the same directory and add the following code:
-
-```javascript
-var mu = require('mu')()
-var tcp = require('mu-tcp')
-
-module.exports = function (service) {
-  mu.define({role: 'basic', cmd: 'add'}, service.add)
-}
-
-mu.inbound({role: 'basic', cmd: '*'}, tcp.server({port: process.env.ADDER_SERVICE_SERVICE_PORT,
-                                                  host: process.env.ADDER_SERVICE_SERVICE_HOST}))
-```
-
-Finally we need to add something to connect the service to the wiring. Let's add a file `index.js` again in the same directory, which should have the following code:
+Finally for this service, we need to connect the service logic to the wiring that exposes it, to do this add a file `index.js` to the service and add the code below:
 
 ```javascript
 var wiring = require('./wiring')
@@ -518,37 +513,23 @@ var service = require('./service')()
 wiring(service)
 ```
 
-That takes care of the service. We now have a Mu based service that will listen on a raw tcp socket for messages. However our `webapp` code is expecting to consume a restful based API so we need to convert the consuming code also.
-
-Firstly we need to install Mu as a dependency of `webapp`:
-
-```sh
-$ cd micro/webapp
-$ npm install --save mu
-```
-
-Next we need to edit the file `micro/webapp/routes/add.js` so that it contains the following code:
+That takes care of the service. Let's now turn our attention to the `webapp`. Modify the code in the file `micro/webapp/routes/add.js` so that it looks as below:
 
 ```javascript
 var express = require('express')
 var router = express.Router()
-var mu = require('mu')()
-var tcp = require('mu-tcp')
+var restify = require('restify')
 
 router.get('/', function (req, res, next) {
   res.render('add', { first: 0, second: 0, result: 0 })
 })
 
-mu.outbound({role: 'basic', cmd: 'add'},
-             tcp.client({port: process.env.ADDER_SERVICE_SERVICE_PORT,
-                         host: process.env.ADDER_SERVICE_SERVICE_HOST}))
-
 router.post('/calculate', function (req, res, next) {
-  mu.dispatch({role: 'basic', cmd: 'add', first: req.body.first, second: req.body.second},
-               function (err, result) {
-    console.log(err)
-    console.log(result)
-    res.render('add', {first: req.body.first, second: req.body.second, result: result})
+  var addClient = restify.createJsonClient({url: 'http://' + process.env.ADDER_SERVICE_SERVICE_HOST + ':' + process.env.ADDER_SERVICE_SERVICE_PORT})
+
+  addClient.get('/add/' + req.body.first + '/' + req.body.second, function (err, serviceReq, serviceRes, resultObj) {
+    if (err) { console.log(err) }
+    res.render('add', {first: req.body.first, second: req.body.second, result: resultObj.result})
   })
 })
 
@@ -566,7 +547,7 @@ adder_service:
     - main=8080
 ```
 
-We are now good to go, so lets start our updated system:
+We should be good to go now, so lets start our updated system:
 
 ```sh
 $ cd micro
@@ -574,80 +555,68 @@ $ fuge shell fuge/fuge.yml
 fuge> start all
 ```
 
-The system should start up as before. If we open up a browser and point it to `http://localhost:3000` we should be able to add numbers in exactly the same way as with the `restify` based service. We have just implemented our first pattern based, transport independent microservice.
+The system should start up as before. If we open up a browser and point it to `http://localhost:3000` we should be able to add numbers in exactly the same way as before.
 
 ### How it works
-The changes that we have just made to the system do not affect how it works functionally, we have, however, restructured the code. Let's review some of the important points. Firstly we have replaced Restify with Mu, in doing this we also refactored the service code a little. The important point about this refactoring is that the code that implements the service logic no longer needs to understand the context in which it is called.
+Whilst we have only made minor code changes to the system, organizationally these changes are important. Our first change was to remove any hard coded service configuration information from the code. In the file `micro/adder-service/wiring.js`, we changed the listen code to:
 
-This is an important principle in developing a microservice system. If we look again at the updated service code we can see that `service.js` just provides the business logic for our service. Whilst this could be achieved using Restify or some other HTTP based mechanism, we have chosen to wire the service up using Mu. In this case we have used the TCP transport, however, Mu provides a number of different transport mechanisms and we could just have easily wired the service up using Mu HTTP transport, a local function call transport or some form of message bus for example RabbitMQ or Kafka with no change to the service business logic.
+```javascript
+.
+  server.listen(process.env.ADDER_SERVICE_SERVICE_PORT, '0.0.0.0', function () {
+    console.log('%s listening at %s', server.name, server.url)
+  })
+.
+```
+
+This means that the port that the service is listening on is now supplied by the environment. Whilst it might be fine to hard code this information for a small system, it quickly becomes unmanageable in a larger system so this approach to service configuration is important. Of course when we start the `adder-service` the environment needs to be set up correctly otherwise our process will fail to start. The Fuge shell provides this environment variable for us. To see this start the fuge shell as before and run the `info` command:
+
+```sh
+fuge> info adder-service full
+.
+.
+ADDER_SERVICE_SERVICE_HOST=127.0.0.1
+ADDER_SERVICE_SERVICE_PORT=8080
+ADDER_SERVICE_PORT=tcp://127.0.0.1:8080
+ADDER_SERVICE_PORT_8080_TCP=tcp://127.0.0.1:8080
+ADDER_SERVICE_PORT_8080_TCP_PROTO=tcp
+ADDER_SERVICE_PORT_8080_TCP_PORT=8080
+ADDER_SERVICE_PORT_8080_TCP_ADDR=127.0.0.1
+.
+```
+
+We can see that the port setting is provided by Fuge to the `adder-service` process along with a number of other environment variables. It should be noted that Fuge uses a specific format for the environment variables that it injects into a process, following the same format as deployment tools like Kubernetes and Docker Swarm. We will explore this more in the chapter on deployment but for now it is important to realize that there is a specific non-random naming convention in play!
+
+> #### Environment Configuration ![](../tip.png)
+> Microservices should pick up any required configuration information from their environment. This should never be hardcoded.
+
+Our second change was to separate the service logic from the framework logic in the `adder-service`. If we look again at the file `micro/adder-service/service.js` we can see that it has no external dependencies and is therefore independent of the calling context. By this we mean that it would be perfectly possible to replace our `wiring.js` file with a similar one that used `express` instead of `restify` and our service logic would remain unchanged. This is an important principle to observe when building microservice systems, namely that a service should run independently of the context that it is called in.
 
 > #### Transport Independent ![](../tip.png)
 > Microservice business logic should execute independent of the context in which it is called. Put another way a microservice should not know anything about the context that it is executing in.
 
-Secondly we are not using an explicit url to reach our service. Under the hood Mu uses a pattern based routing algorithm to dispatch messages to services. We can think of this operating in much the same way that an IP network functions except that in place of IP addresses Mu uses patterns to route messages to services. In a Mu based microservice system every participating entity has a pattern routing table at its core.
+
+### There's more
+Throughout this chapter we are using `restify` as our tool to create `REST` based interfaces to our microservices. However it should be stressed that this is just one approach to creating point to point connections to services, there are of course several other approaches that one might use. It is of course perfectly possible to use other HTTP based frameworks to accomplish the same end, however there are other approaches which are certainly worth considering.
+
+The Seneca framework `http://senecajs.org` provides an interesting approach to microservice construction. Rather than using explicit point to point connections, Seneca provides is layered over two key ideas: Pattern matching and transport independence. This means that rather than explicitly wiring service together, using Seneca, we define a pattern routing network overlay and allow this network overlay determine how services are invoked.
+
+We can think of this operating in much the same way that an IP network functions except that in place of IP addresses Seneca uses patterns to route messages to services. In a Seneca based microservice system every participating entity has a pattern routing table at its core.
 
 > #### Pattern Routing ![](../tip.png)
-> Mu uses pattern routing to build an overlay network for message passing that is independent of the underlying transport mechanisms.
+> Seneca  uses pattern routing to build an overlay network for message passing that is independent of the underlying transport mechanisms.
 
 Consider an example system with a consumer process and two services, a user service and a basket service which could occur as part of some larger e-commerce system. As illustrated in Figure 7.7 below the consumer simple dispatches a message asking for a user or basket operation, in this case to create a user or to add something to the basket. The pattern router figures out how to route these messages to the appropriate service based on matching the request - in this case `{role: "user", cmd: "create"` to the appropriate service.
 
 ![image](./images/overlay.png)
 
-
 **Figure 7.7 Pattern Routing**
 
 The receiving router within the user service then figures out the appropriate handler to call based again on the message pattern. Once the handler has executed a response message is passed through both routers to end up at the initiating call site within the consumer process. This  approach is sometimes known as an overlay network, because it creates a logical network structure over the lower level network fabric.
 
-Mu has a small API surface area to allow us to setup and use pattern routing in our microservice systems as follows:
-
-* `define` - define a handler method and associate it with a pattern. Handler methods are where the business logic of a service resides
-
-* `inbound` - define an inbound routing rule. Inbound rules associate patterns with server transports.
-
-* `outbound` - define an outbound routing rule. Outbound rules associate patterns with client transports.
-
-* `dispatch` - dispatch a message consisting of a pattern and associated data to the router.
-
-* `tearDown` - gracefully close all transport connections in this mu instance and shutdown.
-
-Finally you may have noticed that in the code for this recipe we did not use the localhost ip address or a specific port number. Instead our service code used environment variables for example in the `adder-service` wiring file used the following:
-
-```javascript
-mu.inbound({role: 'basic', cmd: '*'}, tcp.server({port: process.env.SERVICE_PORT,
-                                                  host: process.env.SERVICE_HOST}))
-```
-
-These were generated for us by Fuge in order to provide our early development system with a rudimentary form of service discovery. In a later recipie we will update our system with a more complete service discovery mechanism, in order to make our code ready for production deployment.
-
-### There's more
-Mu supports a number of transport mechanism for both point to point and bus based message interactions. Whilst this list is growing it currently supports:
-
-* local function transports for in process message routing
-* raw TCP
-* HTTP
-* Redis queues
-* RabbitMQ
-* Kafkia
-
-If you would like to add an additional transport the maintainers are always happy to review pull requests or issues over at the projects `github` page: `https://github.com/apparatus/mu`.
-
-> #### Full Discolsure.. ![](../info.png)
-> In the interests of full disclosure it should be noted that Mu is also implemented by the authors of this book!
-
-Mu also supports the notion of transport adapters. These are mechanisms to extend the transport topology within a microservice system through a simple node modules. Transport adapters allow us to chain functionality into a service call thereby introducing additional functionality into the message protocol. For example `circuit breakers` or `load shedding` can be implemented using this mechanism. As an example the following code:
-
-```javascript
-mu.outbound({...}, balance([breaker(tcp.client({port: 3001, host: '127.0.0.1'})),
-                            breaker(tcp.client({port: 3002, host: '127.0.0.1'}))]))
-```
-
-Uses a `circuit breaker` adapter and `tcp transport` to create a two end points. A `balance adaptert` is then used to round robin traffic to these endpoints. Of course in a high load environment it is unlikely that we would use such a simplistic approach to load balancing however this should illustrate the concept. Adapters are also used to help with service discovery and we will see more of this in a later recipe.
-
+Frameworks such as Seneca can help in taking out a lot of the boilerplate work associated with microservice construction, however you should carefully consider the requirements of the system you are constructing and the costs / benefits of adoption of any framework before diving in!
 
 ### See also
-The principles that Mu uses evolved from an earlier `node.js` microservice framework called `seneca.js`. Seneca provides a full execution framework for microservices and you may find that it better suits your needs depending upon your particular project. Find out more about Seneca at http://senecajs.org.
-
-Tools such as Mu and Fuge aim to help us build applications that follow the 12 factor app principles. If you are not familiar with these you can read about them in more detail here here: `https://12factor.net/`
+The code changes in the recipe are broadly inline with the principles outlined in the `12 factor app`. If you are not familiar with these you can read about them in more detail here here: `https://12factor.net/`
 
 ## Using Containers
 Container technology has recently gained rapid adoption within the industry and for good reason. Containers provide a powerful abstraction and isolation mechanism to that can lead to robust and repeatable production deployments.
@@ -735,10 +704,10 @@ $ cd audit-service
 $ npm init -y
 ```
 
-This will create a fresh `package.json` for us. Next let's add in the `mu` and `mongodb` modules for our service, run:
+This will create a fresh `package.json` for us. Next let's add in the `restify` and `mongodb` modules for our service, run:
 
 ```sh
-$ npm install mu --save
+$ npm install --save restify  --no-opitional
 $ npm install mongodb --save
 ```
 
@@ -750,18 +719,38 @@ var service = require('./service')()
 wiring(service)
 ```
 
-Secondly create a file `wiring.js` and add the code to it:
+Secondly create a file `wiring.js` and add this code to it:
 
 ```javascript
-var mu = require('mu')()
-var tcp = require('mu-tcp')
+var restify = require('restify')
 
 module.exports = function (service) {
-  mu.define({role: 'audit', cmd: 'append'}, service.append)
-  mu.define({role: 'audit', cmd: 'list'}, service.list)
-}
+  var server = restify.createServer()
 
-mu.inbound({role: 'audit', cmd: '*'}, tcp.server({port: process.env.AUDIT_SERVICE_SERVICE_PORT, host: process.env.AUDIT_SERVICE_SERVICE_HOST}))
+  server.use(restify.bodyParser())
+
+  server.post('/append', function (req, res, next) {
+    service.append(req.params, function (err, result) {
+      if (err) { return res.send(err) }
+      res.send('' + result)
+      next()
+    })
+  })
+
+
+  server.get('/list', function (req, res, next) {
+    service.list(req.params, function (err, result) {
+      if (err) { return res.send(err) }
+      res.send(200, result)
+      next()
+    })
+  })
+
+
+  server.listen(process.env.AUDIT_SERVICE_SERVICE_PORT, '0.0.0.0', function () {
+    console.log('%s listening at %s', server.name, server.url)
+  })
+}
 ```
 
 As we can see the audit service will support two operations, one to append to our audit log and a second to list entries from the log. Now we have the boilerplate out of the way, it's time to actually write our service logic!
@@ -777,7 +766,6 @@ module.exports = function () {
   function append (args, cb) {
     MongoClient.connect(url, function (err, db) {
       if (err) return cb(err)
-
       var audit = db.collection('audit')
       var data = { ts: Date.now(),
                    calc: args.calc,
@@ -794,7 +782,6 @@ module.exports = function () {
   function list (args, cb) {
     MongoClient.connect(url, function (err, db) {
       if (err) return cb(err)
-
       var audit = db.collection('audit')
       audit.find({}, {limit: 10}).toArray(function (err, docs) {
         if (err) return cb(err)
@@ -836,19 +823,15 @@ Next add the following code to `routes/audit.js`:
 ```javascript
 var express = require('express')
 var router = express.Router()
-var mu = require('mu')()
-var tcp = require('mu-tcp')
-
-mu.outbound({role: 'audit'}, tcp.client({port: process.env.AUDIT_SERVICE_SERVICE_PORT,
-                                         host: process.env.AUDIT_SERVICE_SERVICE_HOST}))
+var restify = require('restify')
 
 router.get('/', function (req, res, next) {
-  mu.dispatch({role: 'audit', cmd: 'list'}, function (err, result) {
-    res.render('audit', result)
+  var client = restify.createJsonClient({url: 'http://' + process.env.AUDIT_SERVICE_SERVICE_HOST + ':' + process.env.AUDIT_SERVICE_SERVICE_PORT})
+  client.get('/list', function (err, serviceReq, serviceRes, obj) {
+    if (err) { console.log(err) }
+    res.render('audit', obj)
   })
 })
-
-module.exports = router
 ```
 
 Now that we have our view and a route to exercise it we need to add the route into the `webapp`. To do this open the file `app.js` and hook the audit route in a similar manner to the add route by adding the following two lines at the appropriate point:
@@ -869,26 +852,25 @@ So we now have an audit route that will display our audit log, the last thing we
 ```javascript
 var express = require('express')
 var router = express.Router()
-var mu = require('mu')()
-var tcp = require('mu-tcp')
-
-mu.outbound({role: 'basic'}, tcp.client({port: process.env.ADDER_SERVICE_SERVICE_PORT,
-                                         host: process.env.ADDER_SERVICE_SERVICE_HOST}))
-
-mu.outbound({role: 'audit'}, tcp.client({port: process.env.AUDIT_SERVICE_SERVICE_PORT,
-                                         host: process.env.AUDIT_SERVICE_SERVICE_HOST}))
+var restify = require('restify')
 
 router.get('/', function (req, res, next) {
   res.render('add', { first: 0, second: 0, result: 0 })
 })
 
 router.post('/calculate', function (req, res, next) {
-  mu.dispatch({role: 'basic', cmd: 'add', first: req.body.first, second: req.body.second},
-               function (err, result) {
+  var addClient = restify.createJsonClient({url: 'http://' + process.env.ADDER_SERVICE_SERVICE_HOST + ':' + process.env.ADDER_SERVICE_SERVICE_PORT})
+  var auditClient = restify.createJsonClient({url: 'http://' + process.env.AUDIT_SERVICE_SERVICE_HOST + ':' + process.env.AUDIT_SERVICE_SERVICE_PORT})
+
+  addClient.get('/add/' + req.body.first + '/' + req.body.second, function (err, serviceReq, serviceRes, resultObj) {
+    if (err) { console.log(err) }
+
+    res.render('add', {first: req.body.first, second: req.body.second, result: resultObj.result})
+
     var calcString = '' + req.body.first + ' + ' + req.body.second
-    mu.dispatch({role: 'audit', cmd: 'append', calc: calcString, calcResult: result},
-                 function () {})
-    res.render('add', {first: req.body.first, second: req.body.second, result: result})
+    auditClient.post('/append', {calc: calcString, calcResult: resultObj.result}, function (err, req, res, obj) {
+      if (err) { console.log(err) }
+    })
   })
 })
 
@@ -927,7 +909,6 @@ If we now point a browser to `http://localhost:3000/audit` a blank audit history
 
 ![image](./images/auditlog.png)
 
-
 ### How it works
 In this recipe we introduced Docker containers and worked with the official MondoDB container. We could just as easily have used a MySql container or some other database. It should be clear that using the mongo container was very simple, there was no need for a compilation or installation of binaries on our local machine. The MongoDB container came preconfigured with everything it needed to run already encapsulated.
 
@@ -954,18 +935,6 @@ $ docker run -p 127.0.0.1:27017:27017 -d mongo
 
 This will start the MongoDB container in the background and expose port `27017` from the container to the `localhost` interface. We can now connect to this using the audit service or through the standard Mongodb client. Fuge supplies all of this configuration for us by interpreting the configuration file but it is good to understand the underlying command structure.
 
-In this recipe we modified the front end to record data to the `audit-service`, the add route contained the following code:
-
-```javascript
-mu.outbound({role: 'basic'}, tcp.client({port: process.env.ADDER_SERVICE_SERVICE_PORT,
-                                         host: process.env.ADDER_SERVICE_SERVICE_HOST}))
-
-mu.outbound({role: 'audit'}, tcp.client({port: process.env.AUDIT_SERVICE_SERVICE_PORT,
-                                         host: process.env.AUDIT_SERVICE_SERVICE_HOST}))
-```
-
-Here we are configuring the pattern routing engine in `mu` to send all message containing `role: basic` to the `adder-service` and all messages containing `role: audit` to the audit service. Whist this is simple example, the pattern routing approach provides a clean and simple mechanism to arbitrarily extend a system as more more capability is added.
-
 ### See also
 In this chapter we have been using Fuge as our development system runner, another approach is to use Docker Compose. Compose allows us to use a configuration file similar to the Fuge configuration to specify how our services should be run. However Compose only works with containers this means that for every code change a fresh container must be built and executed or we must use Container Volumes which allow us to mount a portion our local storage inside the container.
 
@@ -986,10 +955,10 @@ Once a microservice system begins to grow past a few services we typically run i
 So far in this chapter we have been using environment variables to connect our services together, these variables have been generated for us by the Fuge tool. The astute reader may have wondered as to the format of the variables, for instance in the last recipe we used variables of the form:
 
 ```javascript
-tcp.client({port: process.env.AUDIT_SERVICE_SERVICE_PORT, host: process.env.AUDIT_SERVICE_SERVICE_HOST})
+var addClient = restify.createJsonClient({url: 'http://' + process.env.ADDER_SERVICE_SERVICE_HOST + ':' + process.env.ADDER_SERVICE_SERVICE_PORT})
 ```
 
-There is a reason for this format and that is that it is the same format that is used by both Kubernetes and Docker Swarm, two of the current leading container deployment technologies. Kubernetes is a container deployment and orchestration system that was developed at Google, Compose is developed by Docker. Whilst there are alternative container deployment technologies, Kubernetes is currently gaining the most adoption across the industry.
+There is a reason for this format and that is that it is the same format that is used by both Kubernetes and Docker Swarm, two of the current leading container deployment technologies. Kubernetes is a container deployment and orchestration system that was developed at Google, Swarm is developed by Docker. Whilst there are alternative container deployment technologies, Kubernetes is currently gaining the most adoption across the industry.
 
 It clearly makes sense that our development environment should behave as much like our production environment as possible so to this end we are using Fuge to make our development environment match our expected production environment as closely as possible through injecting the same environment.
 
@@ -998,30 +967,51 @@ Kubernetes supports two methods for service discovery firstly the use of environ
 In this recipe we are going to convert our system to use DNS for service discovery.
 
 ### Getting Ready
-As we already have everything required for this recipe lets dive right in and covert our code. To do this we need to use the Mu DNS Adapter. The DNS Adapter uses DNS queries to determine how to connect to service end points. We will need to change the code in our service consumer, which is in the `webapp` project, the service code itself will remain largely unchanged.
+As we already have everything required for this recipe lets dive right in and covert our code. To do this we are going to use a module called Concordant. This is a small module that performs DNS lookups for us in oderer to determine the host and port information for a service. We will need to change the code in our service consumer, which is in the `webapp` project, the service code itself will remain largely unchanged.
 
 ### How to do it
-Firstly let's make the code changes. `cd` into the `webapp` directory and edit the file `routes/add.js`. We need to edit the following lines:
+Firstly we need to install the Concordant module in the `webapp` project:
+
+```sh
+$ cd micro/webapp
+$ npm install --save concordant
+```
+
+Next let's make the code changes. In the `webapp` directory create a file `helper.js` that contains the following code:
 
 ```javascript
-mu.outbound({role: 'basic'}, tcp.client({port: process.env.ADDER_SERVICE_SERVICE_PORT,
-                                         host: process.env.ADDER_SERVICE_SERVICE_HOST}))
+var restify = require('restify')
+var conc = require('concordant')()
 
-mu.outbound({role: 'audit'}, tcp.client({port: process.env.AUDIT_SERVICE_SERVICE_PORT,
-                                         host: process.env.AUDIT_SERVICE_SERVICE_HOST}))
+module.exports = function () {
 
+  function createClient (name, cb) {
+    conc.dns.resolve('_main._tcp.' + name + '.micro.svc.cluster.local', function (err, result) {
+      if (err) { console.log(err) }
+      cb(err, restify.createJsonClient({url: 'http://' + result[0].host + ':' + result[0].port}))
+    })
+  }
+
+  return {
+    createClient: createClient
+  }
+}
 ```
-We also need to require the `mu-dns` adapter module, edit the file so that it looks like the code below:
+
+Next open the file `webapp/routes/add.js`. We need to edit the following lines:
+
+```javascript
+var addClient = restify.createJsonClient({url: 'http://' + process.env.ADDER_SERVICE_SERVICE_HOST + ':' + process.env.ADDER_SERVICE_SERVICE_PORT})
+var auditClient = restify.createJsonClient({url: 'http://' + process.env.AUDIT_SERVICE_SERVICE_HOST + ':' + process.env.AUDIT_SERVICE_SERVICE_PORT})
+```
+
+We also need to require our `helper.js` module, edit the file so that it looks like the code below:
 
 ```javascript
 var express = require('express')
 var router = express.Router()
-var mu = require('mu')()
-var tcp = require('mu-tcp')
-var dns = require('mu-dns')
+var helper = require('../helper')()
 
-mu.outbound({role: 'basic'}, dns(tcp, {name: 'adder_service', portName: '_main'}))
-mu.outbound({role: 'audit'}, dns(tcp, {name: 'audit_service', portName: '_main'}))
 
 router.get('/', function (req, res, next) {
   res.render('add', { first: 0, second: 0, result: 0 })
@@ -1029,10 +1019,21 @@ router.get('/', function (req, res, next) {
 
 
 router.post('/calculate', function (req, res, next) {
-  mu.dispatch({role: 'basic', cmd: 'add', first: req.body.first, second: req.body.second}, function (err, result) {
-    var calcString = '' + req.body.first + ' + ' + req.body.second
-    mu.dispatch({role: 'audit', cmd: 'append', calc: calcString, calcResult: result}, function (err) { })
-    res.render('add', {first: req.body.first, second: req.body.second, result: result})
+  helper.createClient('adder_service', function (err, addClient) {
+    if (err) { console.log(err) }
+
+    addClient.get('/add/' + req.body.first + '/' + req.body.second, function (err, serviceReq, serviceRes, resultObj) {
+      if (err) { console.log(err) }
+
+      res.render('add', {first: req.body.first, second: req.body.second, result: resultObj.result})
+      var calcString = '' + req.body.first + ' + ' + req.body.second
+      helper.createClient('audit_service', function (err, auditClient) {
+        if (err) { console.log(err) }
+        auditClient.post('/append', {calc: calcString, calcResult: resultObj.result}, function (err, req, res, obj) {
+          if (err) { console.log(err) }
+        })
+      })
+    })
   })
 })
 
@@ -1044,22 +1045,30 @@ We also need to modify the file `routes/audit.js` in a similar manner:
 ```javascript
 var express = require('express')
 var router = express.Router()
-var mu = require('mu')()
-var tcp = require('mu-tcp')
-var dns = require('mu-dns')
-
-mu.outbound({role: 'audit'}, dns(tcp, {name: 'audit_service', portName: '_main'}))
+var helper = require('../helper')()
 
 router.get('/', function (req, res, next) {
-  mu.dispatch({role: 'audit', cmd: 'list'}, function (err, result) {
-    res.render('audit', result)
+  helper.createClient('audit_service', function (err, client) {
+    if (err) { console.log(err) }
+
+    client.get('/list', function (err, serviceReq, serviceRes, obj) {
+      if (err) { console.log(err) }
+      res.render('audit', obj)
+    })
   })
 })
 
 module.exports = router
 ```
 
-Finally lets modify our audit service so that it can discover the Mongodb database through dns. To do this will use a module called `concordant`.  
+Finally lets modify our audit service so that it can discover the Mongodb database through dns. To do this firstly lets install the Concordant module to the project:
+
+```sh
+$ cd micro/audit-service
+$ npm install --save concordant
+```
+
+Then edit the file `micro/audit-service/service.js` to discover our MongoSB container using DNS:
 
 ```javascript
 var MongoClient = require('mongodb').MongoClient
@@ -1145,7 +1154,7 @@ DNS is one of the oldest service discovery mechanisms available and has of cours
 > #### DNS record types .. ![](../info.png)
 > A full list of DNS record types can be found on Wikipedia at this URL `https://en.wikipedia.org/wiki/List_of_DNS_record_types`
 
-Firstly we perform an `SRV` query, this returns the port number for the service and a `CNAME` record (canonical name record). We then perform a host lookup - `A` record - against the `CNAME` to obtain an IP address for the service. Once we have these two pieces of information we can proceed to connect to and consume the service. The concordant module takes care of all of this detail for us, however it is important to understand what is happening under the hood.
+Under the hood the  Concordant module firstly performs an `SRV` query, this returns the port number for the service and a `CNAME` record (canonical name record). It then perform a host lookup - `A` record - against the `CNAME` to obtain an IP address for the service. Once we have these two pieces of information we can proceed to connect to and consume the service. The concordant module takes care of all of this detail for us, however it is important to understand what is happening internally.
 
 If we look at the code in the Audit service, we can see that the service is using the following code to resolve a hostname and port number for the `mongodb` database:
 
@@ -1155,9 +1164,9 @@ If we look at the code in the Audit service, we can see that the service is usin
   })
 ```
 
-Under the hood the `concordant` module is performing the `SRV` and `A` record lookups against the internal Fuge DNS server. `concordant` performs it's service discovery based on how it's environment is configured. If a DNS_HOST environment variable is present `concordant` will query this server directly. In a production environment  `concordant` will use the system configured DNS infrastructure as opposed to a direct lookup. This of course means that the application code does not need to take this into account, the environment differences between development and production are encapsulated within the `concordant` module for us.
+Concordant performs service discovery based on how it's environment is configured. If a DNS_HOST environment variable is present `concordant` will query this server directly. In a production environment, if this variable if not present, Concordant will use the system configured DNS infrastructure as opposed to a direct lookup. This of course means that the application code does not need to take this into account, the environment differences between development and production are encapsulated within the Concordant module for us.
 
-The hostname that we are passing to the `concordant` module looks a little long. This is the standard format for Kubernetes DNS based lookups and it follows a well defined schema:
+The hostname that we are passing to the Concordant module looks a little long. This is the standard format for Kubernetes DNS based lookups and it follows a well defined schema:
 
 ```
 _<port name>._<protocol>.<service name>.<namespace>.svc.cluster.local
@@ -1168,21 +1177,14 @@ _<port name>._<protocol>.<service name>.<namespace>.svc.cluster.local
 
 In we look at the mongo configuration in our Fuge configuration file, we can see that we have named our mongo port `main` and the service is called `mongo`. The underlying protocol is of course `tcp`. So the mapping to this hostname is fairly straightforward.
 
-Let's take a look at how the `webapp` code is consuming the `adder` and `audit` services, in the file `webapp/routes/add.js` we can see the following code:
-
-```javascript
-mu.outbound({role: 'basic'}, dns(tcp, {name: 'adder_service', portName: '_main'}))
-mu.outbound({role: 'audit'}, dns(tcp, {name: 'audit_service', portName: '_main'}))
-```
-
-Here we are using the Mu DNS adapter to discover our services. Under the hood this module uses `concordant` to perform DNS lookups in exactly the same way as the audit service, the `mu-dns` adapter just provides us with some additional help in forming a hostname query that is compatible with Kubernetes.
+Let's take a look at how the `webapp` code is consuming the `adder` and `audit` services, in the file `webapp/helper.js` we can see that the `createClient` function is using exactly the same naming scheme to dynamically resolve the service end points.
 
 ### There's more
 Fuge exposes information on both environment variables and DNS for us through the `info` and `zone` commands to aid us in debugging our service discovery process. Lets try this out. Start the fuge shell and then run the info command for a service:
 
 ```sh
 $ fuge shell fuge/fuge.yml
-fuge> info audit_service
+fuge> info audit_service full
 ```
 
 Fuge will display the environment that is passed into the `audit_service` which should look like the following:
@@ -1208,7 +1210,7 @@ environment:
   .
   ```
 
-All of these environment variables will be available to the service process. Note that Fuge also supplies the DNS_HOST environment variable along with a port, namespace and suffix. The Mu DNS adapter uses these environment variables to form service lookup queries.
+All of these environment variables will be available to the service process. Note that Fuge also supplies the DNS_HOST environment variable along with a port, namespace and suffix. The Concordant module uses these environment variables to form service lookup queries.
 
 Let's now run the `zone` command, this should provide us with out put similar to the following:
 
@@ -1236,6 +1238,7 @@ In this recipe we have used DNS as our service discovery mechanism. We did this 
 
 For deployment you should review:
 
+* Kubernetes - container orchestration platform from Google.
 * Swarm - from Docker, provides a distributed container deployment service similar to Kubernetes
 * AWS Container Services - Cloud based container deployment platform from Amazon
 * OpenShift - Kubenetes based hybrid container deployment platform from RedHat
@@ -1261,6 +1264,9 @@ $ cd micro
 $ mkdir event-service
 $ cd event-service
 $ npm init -y
+$ npm install --save redis
+$ npm install --save mongo
+$ npm install --save concordant
 ```
 
 Now, following the same pattern as before, let's create our `index.js` file and add the following code:
@@ -1274,16 +1280,45 @@ wiring(service)
 Next let's add our wiring, create a file `wiring.js` and add the following:
 
 ```javascript
-var mu = require('mu')()
-var dns = require('mu-dns')
-var redis = require('mu-redis')
-
-mu.inbound({role: 'events'}, dns(redis, {portName: '_main', name: 'redis', list: 'events'}))
-mu.inbound({role: 'report'}, dns(redis, {portName: '_main', name: 'redis', list: 'report'}))
+var conc = require('concordant')()
+var Redis = require('redis')
+var QNAME = 'event_service'
 
 module.exports = function (service) {
-  mu.define({role: 'events', cmd: 'record'}, service.record)
-  mu.define({role: 'report', cmd: 'summary'}, service.summary)
+  var redis
+
+  var receive = function (cb) {
+    redis.brpop(QNAME, 5, function (err, data) {
+      if (cb && err) { return cb(err) }
+
+      if (data) {
+        var message = JSON.parse(data[1])
+        service[message.action](message, function (err, result) {
+          if (err) { console.log(err) }
+          if (message.returnPath) {
+            redis.lpush(message.returnPath, JSON.stringify(result), function (err) {
+              if (err) { console.log(err) }
+              receive()
+            })
+          } else {
+            receive()
+          }
+        })
+      } else {
+        receive()
+      }
+    })
+  }
+
+  function init () {
+    conc.dns.resolve('_main._tcp.redis.micro.svc.cluster.local', function (err, result) {
+      if (err) { return console.log(err) }
+      redis = Redis.createClient(result[0].port, result[0].host)
+      receive()
+    })
+  }
+
+  init()
 }
 ```
 
@@ -1359,29 +1394,49 @@ var service = require('./service')()
 wiring(service)
 ```
 
-Then install dependencies at the command prompt by running:
-
-```sh
-$ npm install --save mu
-$ npm install --save mongo
-```
-
-That takes care of our events service, which is exposed over a Redis queue. Next we have to hook this into our web application. We are going to do this by adding a small piece of middleware to our express server. Open the file `webapp/app.js` and add the following code to it:
+That takes care of our events service, which is exposed over a Redis queue. Next we have to hook this into our web application. We are going to do this by adding a small piece of middleware to our express server. Firstly create a file `webapp/eventLogger.js` and add this code to it:
 
 ```javascript
-  var mu = require('mu')()
-  var dns = require('mu-dns')
-  var redis = require('mu-redis')
-  .
-  .
-  mu.outbound({role: 'events'}, dns(redis, {name: 'redis', portName: '_main', list: 'events'}))
-  var eventLogger = function (req, res, next) {
-    next()
-    mu.dispatch({role: 'events', cmd: 'record', type: 'page', url: req.protocol + '://' + req.get('host') + req.originalUrl})
+var conc = require('concordant')()
+var Redis = require('redis')
+var QNAME = 'event_service'
+
+module.exports = function () {
+  var redis
+
+  function logEvent (evt) {
+    evt.action = 'record'
+    redis.lpush(QNAME, JSON.stringify(evt), function (err) {
+      if (err) { console.log(err) }
+    })
   }
+
+  function init () {
+    conc.dns.resolve('_main._tcp.redis.micro.svc.cluster.local', function (err, result) {
+      if (err) { return console.log(err) }
+      redis = Redis.createClient(result[0].port, result[0].host)
+    })
+  }
+
+  init()
+  return {
+    logEvent: logEvent
+  }
+}
+```
+
+Next we need to hook this into our application as a piece of middleware, open the file `webapp/app.js` and add the following code to it:
+
+```javascript
+var evt = require('./eventLogger')()
   .
   .
-  app.use(eventLogger)
+  app.use(function (req, res, next) {
+    next()
+    evt.logEvent({type: 'page', url: req.protocol + '://' + req.get('host') + req.originalUrl})
+  })
+  .
+  .
 ```
 
 This will send an event message to the Redis queue for each page load event in the system.
@@ -1395,35 +1450,44 @@ $ cd micro
 $ mkdir report
 $ cd report
 $ npm init -y
+$ npm install --save redis
+$ npm install --save cli-table
+$ npm install --save concordant
 ```
 
 Next create a file `index.js` and add the following code:
 
 ```javascript
-var mu = require('mu')()
-var dns = require('mu-dns')
-var redis = require('mu-redis')
+var conc = require('concordant')()
+var Redis = require('redis')
 var CliTable = require('cli-table')
+var QNAME = 'event_service'
+var RESPONSE_QUEUE = 'sumary'
 
-mu.outbound({role: 'report'}, dns(redis, {name: 'redis', portName: '_main', list: 'report'}))
-mu.dispatch({role: 'report', cmd: 'summary'}, function (err, result) {
+conc.dns.resolve('_main._tcp.redis.micro.svc.cluster.local', function (err, result) {
+  if (err) { return console.log(err) }
 
-  if (err) {
-    console.log('ERROR: ' + err)
-    return
-  }
+  var redis = Redis.createClient(result[0].port, result[0].host)
+  redis.lpush(QNAME, JSON.stringify({action: 'summary', returnPath: RESPONSE_QUEUE}), function (err) {
+    if (err) { return console.log(err) }
 
-  var table = new CliTable({head: ['url', 'count'], colWidths: [50, 10]})
-  Object.keys(result).forEach(function (key) {
-    table.push([key, result[key]])
+    redis.brpop(RESPONSE_QUEUE, 5, function (err, data) {
+      if (err) { return console.log(err) }
+
+      var display = JSON.parse(data[1])
+      var table = new CliTable({head: ['url', 'count'], colWidths: [50, 10]})
+      Object.keys(display).forEach(function (key) {
+        table.push([key, display[key]])
+      })
+      console.log(table.toString())
+      redis.quit()
+    })
   })
-  console.log(table.toString())
-
-  mu.tearDown()
 })
+
 ```
 
-We also need to create a small shell script to run this code, so let's create a file report.sh and add this code to it:
+We also need to create a small shell script to run this code as we will be running it outside of the context of the main system, so let's create a file report.sh and add this code to it:
 
 ```sh
 #!/bin/bash
@@ -1436,11 +1500,6 @@ node index.js
 
 Lastly for our report utility we need to install dependencies:
 
-```javascript
-$ npm install --save mu
-$ npm install --save cli-table
-```
-
 Finally we need to add the Redis container and our new `event-service` to our Fuge configuration. Edit the file `fuge/fuge.yml` and add the following two entries:
 
 ```
@@ -1448,8 +1507,6 @@ event_service:
   type: process
   path: ../event-service
   run: 'node index.js'
-  ports:
-    - main=8082
 .
 .
 redis:
@@ -1466,11 +1523,11 @@ $ fuge shell fuge/fuge.yml
 fuge> start all
 ```
 
-We can now see that along with the rest of our system the Redis conainter and `event-service` have also started up. As before we can browse the application add some numbers and look at the audit log. However this time every page load is being recorded. Lets confirm this by running a report. Open up another shell - leaving Fuge running and execute the following:
+We can now see that along with the rest of our system the Redis container and `event-service` have also started up. As before we can browse the application add some numbers and look at the audit log. However this time every page load is being recorded. Lets confirm this by running a report. Open up another shell - leaving Fuge running and execute the following:
 
 ```sh
 $ cd micro/report
-$ sh report.#!/bin/sh
+$ sh report.sh
 ```
 
 Output similar to the following should be displayed:
@@ -1480,14 +1537,7 @@ Output similar to the following should be displayed:
 ### How it works
 In this recipe we created a queue based microservice that used Redis as a lightweight queueing mechanism. We used a Redis container and discovered this container using DNS. It is interesting to note that in this case, neither the service or consumer end had direct knowledge of each other, rather each simply placed messages onto an intermediary queue.
 
-Our event service used the following wiring code:
-
-```javascript
-mu.inbound({role: 'events'}, dns(redis, {portName: '_main', name: 'redis', list: 'events'}))
-mu.inbound({role: 'report'}, dns(redis, {portName: '_main', name: 'redis', list: 'report'}))
-```
-
-Here we are using DNS to discover the Redis service as before, supplying the portName and service name for discovery. We are also supplying the name of the internal list structure that Redis should use for these messages. Internally Mu will use an `events` list for event recording information and a `report` list for report requests. The report list is used by our offline reporting tool.
+Our event service again used concordant DNS to discover the Redis service as before, supplying the portName and service name for discovery. We are also supplying the name of the internal list structure that Redis should use for these messages, in this case the queue is called `event_service`.
 
 The `event-service` simply records each event into a MongoDB database and provides a simple report function on this database when requested.
 
