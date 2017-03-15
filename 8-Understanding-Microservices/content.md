@@ -55,17 +55,17 @@ Based on this logical architecture we will use the following definition for a mi
 ## Creating a simple RESTful microservice
 
 ### Getting Ready
-In this recipe we will build a simple microservice using the `restify` module. Restify is an easy to use web framework that helps us to rapidly build services that can be consumed over HTTP. We will test our service using the `curl` command. To get started open a command prompt and create a fresh empty directory, lets call it `micro` and also a subdirectory called `adder-service`
+In this recipe we will build a simple microservice using the `restify` module. Restify is an easy to use web framework that helps us to rapidly build services that can be consumed over HTTP. We will test our service using the `curl` command. To get started open a command prompt and create a fresh empty directory, lets call it `micro` and also a subdirectory called `adderservice`
 
 ```sh
 $ mkdir micro
 $ cd micro
-$ mkdir adder-service
-$ cd adder-service
+$ mkdir adderservice
+$ cd adderservice
 ```
 
 ### How to do it
-Our microservice will add two numbers together. The service is simply a Node module, so let's go ahead and create a fresh module in the `adder-service` directory, run:
+Our microservice will add two numbers together. The service is simply a Node module, so let's go ahead and create a fresh module in the `adderservice` directory, run:
 
 ```sh
 $ npm init -y
@@ -82,7 +82,7 @@ This will install the `restify` module and also add the dependency to `package.j
 > #### --no-optional.. ![](../info.png)
 > By default `restify` installs DTrace probes, this can be disabled during install with the --no-optional flag. Whilst DTrace is great not all systems support it which is why we have chosen to disable it in this example. You can find out more about dtrace here: http://dtrace.org/blogs/about/
 
-Now it's time to actually write our service. Using your favorite editor create a file `service.js` in the `adder-service` folder. Add the following code:
+Now it's time to actually write our service. Using your favorite editor create a file `service.js` in the `adderservice` folder. Add the following code:
 
 ```javascript
 var restify = require('restify')
@@ -104,7 +104,7 @@ server.listen(8080, function () {
 Once you have added the code and saved the file we can run and test our service. In the command prompt `cd` to the service folder and run the service as follows:
 
 ```sh
-$ cd micro/adder-service
+$ cd micro/adderservice
 $ node service.js
 ```
 
@@ -267,7 +267,7 @@ $ npm install --save restify --no-opional
 Now that we have the code changes done, it's time to test our application and service together. to do this open a command prompt and start up the service:
 
 ```sh
-$ cd micro/adder-service
+$ cd micro/adderservice
 $ node service.js
 ```
 
@@ -356,9 +356,9 @@ fuge_global:
     - '**/node_modules/**'
     - '**/.git/**'
     - '**/*.log'
-adder_service:
+adderservice:
   type: process
-  path: ../adder-service
+  path: ../adderservice
   run: 'node service.js'
   ports:
     - main=8080
@@ -390,7 +390,7 @@ If we now give `fuge` the ps command it will show us the list of managed process
 
 ![image](./images/fuge-ps.png)
 
-We can see from this that `fuge` understands that it is managing our webapp and our adder-service. Lets start these up using the `fuge` shell by issuing the `start all` command:
+We can see from this that `fuge` understands that it is managing our webapp and our adderservice. Lets start these up using the `fuge` shell by issuing the `start all` command:
 
 ![image](./images/fuge-run1.png)
 
@@ -467,7 +467,7 @@ The other advantage of Fuge is of course that it is fully open sourced and imple
 In this recipe we are going to improve our service and calling code by removing hard coded urls and port numbers and also switch to the `restify` JSON client as a more natural way to invoke and recieve data from our services. We already have everything we need in our codebase so lets dive in and fix the code!
 
 ### How to do it
-Firstly lets update our `adder-service`. This code is a little tangled at the moment in that the service logic is wrapped up with the `restify` framework code. In addition the port number that this service listens on is hardcoded. To fix this, firstly create a file `wiring.js` in the directory `micro/adder-service` and add the following code to it:
+Firstly lets update our `adderservice`. This code is a little tangled at the moment in that the service logic is wrapped up with the `restify` framework code. In addition the port number that this service listens on is hardcoded. To fix this, firstly create a file `wiring.js` in the directory `micro/adderservice` and add the following code to it:
 
 ```javascript
 var restify = require('restify')
@@ -483,7 +483,7 @@ module.exports = function (service) {
     })
   })
 
-  server.listen(process.env.ADDER_SERVICE_SERVICE_PORT, '0.0.0.0', function () {
+  server.listen(process.env.ADDERSERVICE_SERVICE_PORT, '0.0.0.0', function () {
     console.log('%s listening at %s', server.name, server.url)
   })
 }
@@ -525,7 +525,7 @@ router.get('/', function (req, res, next) {
 })
 
 router.post('/calculate', function (req, res, next) {
-  var addClient = restify.createJsonClient({url: 'http://' + process.env.ADDER_SERVICE_SERVICE_HOST + ':' + process.env.ADDER_SERVICE_SERVICE_PORT})
+  var addClient = restify.createJsonClient({url: 'http://' + process.env.ADDERSERVICE_SERVICE_HOST + ':' + process.env.ADDERSERVICE_SERVICE_PORT})
 
   addClient.get('/add/' + req.body.first + '/' + req.body.second, function (err, serviceReq, serviceRes, resultObj) {
     if (err) { console.log(err) }
@@ -536,12 +536,12 @@ router.post('/calculate', function (req, res, next) {
 module.exports = router
 ```
 
-Finally we need to update our Fuge configuration. Edit the file `micro/fuge/fuge.yml` and update the section for the `adder_service` so that it now starts by running `index.js` as below:
+Finally we need to update our Fuge configuration. Edit the file `micro/fuge/fuge.yml` and update the section for the `adderservice` so that it now starts by running `index.js` as below:
 
 ```
-adder_service:
+adderservice:
   type: process
-  path: ../adder-service
+  path: ../adderservice
   run: 'node index.js'
   ports:
     - main=8080
@@ -558,38 +558,38 @@ fuge> start all
 The system should start up as before. If we open up a browser and point it to `http://localhost:3000` we should be able to add numbers in exactly the same way as before.
 
 ### How it works
-Whilst we have only made minor code changes to the system, organizationally these changes are important. Our first change was to remove any hard coded service configuration information from the code. In the file `micro/adder-service/wiring.js`, we changed the listen code to:
+Whilst we have only made minor code changes to the system, organizationally these changes are important. Our first change was to remove any hard coded service configuration information from the code. In the file `micro/adderservice/wiring.js`, we changed the listen code to:
 
 ```javascript
 .
-  server.listen(process.env.ADDER_SERVICE_SERVICE_PORT, '0.0.0.0', function () {
+  server.listen(process.env.ADDERSERVICE_SERVICE_PORT, '0.0.0.0', function () {
     console.log('%s listening at %s', server.name, server.url)
   })
 .
 ```
 
-This means that the port that the service is listening on is now supplied by the environment. Whilst it might be fine to hard code this information for a small system, it quickly becomes unmanageable in a larger system so this approach to service configuration is important. Of course when we start the `adder-service` the environment needs to be set up correctly otherwise our process will fail to start. The Fuge shell provides this environment variable for us. To see this start the fuge shell as before and run the `info` command:
+This means that the port that the service is listening on is now supplied by the environment. Whilst it might be fine to hard code this information for a small system, it quickly becomes unmanageable in a larger system so this approach to service configuration is important. Of course when we start the `adderservice` the environment needs to be set up correctly otherwise our process will fail to start. The Fuge shell provides this environment variable for us. To see this start the fuge shell as before and run the `info` command:
 
 ```sh
-fuge> info adder-service full
+fuge> info adderservice full
 .
 .
-ADDER_SERVICE_SERVICE_HOST=127.0.0.1
-ADDER_SERVICE_SERVICE_PORT=8080
-ADDER_SERVICE_PORT=tcp://127.0.0.1:8080
-ADDER_SERVICE_PORT_8080_TCP=tcp://127.0.0.1:8080
-ADDER_SERVICE_PORT_8080_TCP_PROTO=tcp
-ADDER_SERVICE_PORT_8080_TCP_PORT=8080
-ADDER_SERVICE_PORT_8080_TCP_ADDR=127.0.0.1
+ADDERSERVICE_SERVICE_HOST=127.0.0.1
+ADDERSERVICE_SERVICE_PORT=8080
+ADDERSERVICE_PORT=tcp://127.0.0.1:8080
+ADDERSERVICE_PORT_8080_TCP=tcp://127.0.0.1:8080
+ADDERSERVICE_PORT_8080_TCP_PROTO=tcp
+ADDERSERVICE_PORT_8080_TCP_PORT=8080
+ADDERSERVICE_PORT_8080_TCP_ADDR=127.0.0.1
 .
 ```
 
-We can see that the port setting is provided by Fuge to the `adder-service` process along with a number of other environment variables. It should be noted that Fuge uses a specific format for the environment variables that it injects into a process, following the same format as deployment tools like Kubernetes and Docker Swarm. We will explore this more in the chapter on deployment but for now it is important to realize that there is a specific non-random naming convention in play!
+We can see that the port setting is provided by Fuge to the `adderservice` process along with a number of other environment variables. It should be noted that Fuge uses a specific format for the environment variables that it injects into a process, following the same format as deployment tools like Kubernetes and Docker Swarm. We will explore this more in the chapter on deployment but for now it is important to realize that there is a specific non-random naming convention in play!
 
 > #### Environment Configuration ![](../tip.png)
 > Microservices should pick up any required configuration information from their environment. This should never be hardcoded.
 
-Our second change was to separate the service logic from the framework logic in the `adder-service`. If we look again at the file `micro/adder-service/service.js` we can see that it has no external dependencies and is therefore independent of the calling context. By this we mean that it would be perfectly possible to replace our `wiring.js` file with a similar one that used `express` instead of `restify` and our service logic would remain unchanged. This is an important principle to observe when building microservice systems, namely that a service should run independently of the context that it is called in.
+Our second change was to separate the service logic from the framework logic in the `adderservice`. If we look again at the file `micro/adderservice/service.js` we can see that it has no external dependencies and is therefore independent of the calling context. By this we mean that it would be perfectly possible to replace our `wiring.js` file with a similar one that used `express` instead of `restify` and our service logic would remain unchanged. This is an important principle to observe when building microservice systems, namely that a service should run independently of the context that it is called in.
 
 > #### Transport Independent ![](../tip.png)
 > Microservice business logic should execute independent of the context in which it is called. Put another way a microservice should not know anything about the context that it is executing in.
@@ -694,13 +694,13 @@ Now that we have our mongo container ready to go it's time to add a service to u
 
 ```sh
 $ cd micro
-$ mkdir audit-service
+$ mkdir auditservice
 ```
 
-Next let's add a package.json for our `audit-service`:
+Next let's add a package.json for our `auditservice`:
 
 ```sh
-$ cd audit-service
+$ cd auditservice
 $ npm init -y
 ```
 
@@ -747,7 +747,7 @@ module.exports = function (service) {
   })
 
 
-  server.listen(process.env.AUDIT_SERVICE_SERVICE_PORT, '0.0.0.0', function () {
+  server.listen(process.env.AUDITSERVICE_SERVICE_PORT, '0.0.0.0', function () {
     console.log('%s listening at %s', server.name, server.url)
   })
 }
@@ -826,7 +826,7 @@ var router = express.Router()
 var restify = require('restify')
 
 router.get('/', function (req, res, next) {
-  var client = restify.createJsonClient({url: 'http://' + process.env.AUDIT_SERVICE_SERVICE_HOST + ':' + process.env.AUDIT_SERVICE_SERVICE_PORT})
+  var client = restify.createJsonClient({url: 'http://' + process.env.AUDITSERVICE_SERVICE_HOST + ':' + process.env.AUDITSERVICE_SERVICE_PORT})
   client.get('/list', function (err, serviceReq, serviceRes, obj) {
     if (err) { console.log(err) }
     res.render('audit', obj)
@@ -859,8 +859,8 @@ router.get('/', function (req, res, next) {
 })
 
 router.post('/calculate', function (req, res, next) {
-  var addClient = restify.createJsonClient({url: 'http://' + process.env.ADDER_SERVICE_SERVICE_HOST + ':' + process.env.ADDER_SERVICE_SERVICE_PORT})
-  var auditClient = restify.createJsonClient({url: 'http://' + process.env.AUDIT_SERVICE_SERVICE_HOST + ':' + process.env.AUDIT_SERVICE_SERVICE_PORT})
+  var addClient = restify.createJsonClient({url: 'http://' + process.env.ADDERSERVICE_SERVICE_HOST + ':' + process.env.ADDERSERVICE_SERVICE_PORT})
+  var auditClient = restify.createJsonClient({url: 'http://' + process.env.AUDITSERVICE_SERVICE_HOST + ':' + process.env.AUDITSERVICE_SERVICE_PORT})
 
   addClient.get('/add/' + req.body.first + '/' + req.body.second, function (err, serviceReq, serviceRes, resultObj) {
     if (err) { console.log(err) }
@@ -880,9 +880,9 @@ module.exports = router
 Excellent! thats all of our code changes, the final thing we need to do is to tell Fuge about our new service. To do this open the Fuge config file `fuge/fuge.yml` and add the following section:
 
 ```
-audit_service:
+auditservice:
   type: process
-  path: ../audit-service
+  path: ../auditservice
   run: 'node index.js'
   ports:
     - main=8081
@@ -901,7 +901,7 @@ $ ps
 > repositories. A container is the running instantiation of an image. We will be applying
 > this terminology consistently.
 
-You should now see `audit_service` listed as type process along with `adder_service`, `webapp` and `mongo`. Issue the `start all` command to Fuge to spin the system up. As before we can now see that Fuge has started our mongo container, both services and our front end:
+You should now see `auditservice` listed as type process along with `adderservice`, `webapp` and `mongo`. Issue the `start all` command to Fuge to spin the system up. As before we can now see that Fuge has started our mongo container, both services and our front end:
 
 ![image](./images/auditservicerun.png)
 
@@ -955,7 +955,7 @@ Once a microservice system begins to grow past a few services we typically run i
 So far in this chapter we have been using environment variables to connect our services together, these variables have been generated for us by the Fuge tool. The astute reader may have wondered as to the format of the variables, for instance in the last recipe we used variables of the form:
 
 ```javascript
-var addClient = restify.createJsonClient({url: 'http://' + process.env.ADDER_SERVICE_SERVICE_HOST + ':' + process.env.ADDER_SERVICE_SERVICE_PORT})
+var addClient = restify.createJsonClient({url: 'http://' + process.env.ADDERSERVICE_SERVICE_HOST + ':' + process.env.ADDERSERVICE_SERVICE_PORT})
 ```
 
 There is a reason for this format and that is that it is the same format that is used by both Kubernetes and Docker Swarm, two of the current leading container deployment technologies. Kubernetes is a container deployment and orchestration system that was developed at Google, Swarm is developed by Docker. Whilst there are alternative container deployment technologies, Kubernetes is currently gaining the most adoption across the industry.
@@ -1001,8 +1001,8 @@ module.exports = function () {
 Next open the file `webapp/routes/add.js`. We need to edit the following lines:
 
 ```javascript
-var addClient = restify.createJsonClient({url: 'http://' + process.env.ADDER_SERVICE_SERVICE_HOST + ':' + process.env.ADDER_SERVICE_SERVICE_PORT})
-var auditClient = restify.createJsonClient({url: 'http://' + process.env.AUDIT_SERVICE_SERVICE_HOST + ':' + process.env.AUDIT_SERVICE_SERVICE_PORT})
+var addClient = restify.createJsonClient({url: 'http://' + process.env.ADDERSERVICE_SERVICE_HOST + ':' + process.env.ADDERSERVICE_SERVICE_PORT})
+var auditClient = restify.createJsonClient({url: 'http://' + process.env.AUDITSERVICE_SERVICE_HOST + ':' + process.env.AUDITSERVICE_SERVICE_PORT})
 ```
 
 We also need to require our `helper.js` module, edit the file so that it looks like the code below:
@@ -1019,7 +1019,7 @@ router.get('/', function (req, res, next) {
 
 
 router.post('/calculate', function (req, res, next) {
-  helper.createClient('adder_service', function (err, addClient) {
+  helper.createClient('adderservice', function (err, addClient) {
     if (err) { console.log(err) }
 
     addClient.get('/add/' + req.body.first + '/' + req.body.second, function (err, serviceReq, serviceRes, resultObj) {
@@ -1027,7 +1027,7 @@ router.post('/calculate', function (req, res, next) {
 
       res.render('add', {first: req.body.first, second: req.body.second, result: resultObj.result})
       var calcString = '' + req.body.first + ' + ' + req.body.second
-      helper.createClient('audit_service', function (err, auditClient) {
+      helper.createClient('auditservice', function (err, auditClient) {
         if (err) { console.log(err) }
         auditClient.post('/append', {calc: calcString, calcResult: resultObj.result}, function (err, req, res, obj) {
           if (err) { console.log(err) }
@@ -1048,7 +1048,7 @@ var router = express.Router()
 var helper = require('../helper')()
 
 router.get('/', function (req, res, next) {
-  helper.createClient('audit_service', function (err, client) {
+  helper.createClient('auditservice', function (err, client) {
     if (err) { console.log(err) }
 
     client.get('/list', function (err, serviceReq, serviceRes, obj) {
@@ -1064,11 +1064,11 @@ module.exports = router
 Finally lets modify our audit service so that it can discover the Mongodb database through dns. To do this firstly lets install the Concordant module to the project:
 
 ```sh
-$ cd micro/audit-service
+$ cd micro/auditservice
 $ npm install --save concordant
 ```
 
-Then edit the file `micro/audit-service/service.js` to discover our MongoSB container using DNS:
+Then edit the file `micro/auditservice/service.js` to discover our MongoSB container using DNS:
 
 ```javascript
 var MongoClient = require('mongodb').MongoClient
@@ -1184,10 +1184,10 @@ Fuge exposes information on both environment variables and DNS for us through th
 
 ```sh
 $ fuge shell fuge/fuge.yml
-fuge> info audit_service full
+fuge> info auditservice full
 ```
 
-Fuge will display the environment that is passed into the `audit_service` which should look like the following:
+Fuge will display the environment that is passed into the `auditservice` which should look like the following:
 
 ```
 command: node index.js
@@ -1197,13 +1197,13 @@ environment:
   DNS_PORT=53053
   DNS_NAMESPACE=micro
   DNS_SUFFIX=svc.cluster.local
-  AUDIT_SERVICE_SERVICE_HOST=127.0.0.1
-  AUDIT_SERVICE_SERVICE_PORT=8081
-  AUDIT_SERVICE_PORT=tcp://127.0.0.1:8081
-  AUDIT_SERVICE_PORT_8081_TCP=tcp://127.0.0.1:8081
-  AUDIT_SERVICE_PORT_8081_TCP_PROTO=tcp
-  AUDIT_SERVICE_PORT_8081_TCP_PORT=8081
-  AUDIT_SERVICE_PORT_8081_TCP_ADDR=127.0.0.1
+  AUDITSERVICE_SERVICE_HOST=127.0.0.1
+  AUDITSERVICE_SERVICE_PORT=8081
+  AUDITSERVICE_PORT=tcp://127.0.0.1:8081
+  AUDITSERVICE_PORT_8081_TCP=tcp://127.0.0.1:8081
+  AUDITSERVICE_PORT_8081_TCP_PROTO=tcp
+  AUDITSERVICE_PORT_8081_TCP_PORT=8081
+  AUDITSERVICE_PORT_8081_TCP_ADDR=127.0.0.1
   WEBAPP_SERVICE_HOST=127.0.0.1
   WEBAPP_SERVICE_PORT=3000
   .
@@ -1216,12 +1216,12 @@ Let's now run the `zone` command, this should provide us with out put similar to
 
 ```
 type      domain                                                address                                  port
-A         adder_service.micro.srv.cluster.local                 127.0.0.1                                -
-A         audit_service.micro.srv.cluster.local                 127.0.0.1                                -
+A         adderservice.micro.srv.cluster.local                  127.0.0.1                                -
+A         auditservice.micro.srv.cluster.local                  127.0.0.1                                -
 A         webapp.micro.srv.cluster.local                        127.0.0.1                                -
 A         mongo.micro.srv.cluster.local                         127.0.0.1                                -
-SRV       _main._tcp.adder_service.micro.srv.cluster.local      adder_service.micro.srv.cluster.local    8080
-SRV       _main._tcp.audit_service.micro.srv.cluster.local      audit_service.micro.srv.cluster.local    8081
+SRV       _main._tcp.adderservice.micro.srv.cluster.local       adderservice.micro.srv.cluster.local     8080
+SRV       _main._tcp.auditservice.micro.srv.cluster.local       auditservice.micro.srv.cluster.local     8081
 SRV       _http._tcp.webapp.micro.srv.cluster.local             webapp.micro.srv.cluster.local           3000
 SRV       _main._tcp.mongo.micro.srv.cluster.local              mongo.micro.srv.cluster.local            27017
 ```
@@ -1261,8 +1261,8 @@ Our service is going to record events of interest in the system such as page loa
 
 ```sh
 $ cd micro
-$ mkdir event-service
-$ cd event-service
+$ mkdir eventservice
+$ cd eventservice
 $ npm init -y
 $ npm install --save redis
 $ npm install --save mongo
@@ -1282,7 +1282,7 @@ Next let's add our wiring, create a file `wiring.js` and add the following:
 ```javascript
 var conc = require('concordant')()
 var Redis = require('redis')
-var QNAME = 'event_service'
+var QNAME = 'eventservice'
 
 module.exports = function (service) {
   var redis
@@ -1399,7 +1399,7 @@ That takes care of our events service, which is exposed over a Redis queue. Next
 ```javascript
 var conc = require('concordant')()
 var Redis = require('redis')
-var QNAME = 'event_service'
+var QNAME = 'eventservice'
 
 module.exports = function () {
   var redis
@@ -1441,7 +1441,7 @@ var evt = require('./eventLogger')()
 
 This will send an event message to the Redis queue for each page load event in the system.
 
-Finally we need something to read our recorded events for us. We implemented a `summary` method in the `event-service` so we need something to call this. We would not normally expose this type of information to our `webapp` so let's just write a small command line application to expose this summary information for us in lieu of a full analytics system!
+Finally we need something to read our recorded events for us. We implemented a `summary` method in the `eventservice` so we need something to call this. We would not normally expose this type of information to our `webapp` so let's just write a small command line application to expose this summary information for us in lieu of a full analytics system!
 
 To do this create a new directory called `report` and initialize it with a `package.json`:
 
@@ -1461,7 +1461,7 @@ Next create a file `index.js` and add the following code:
 var conc = require('concordant')()
 var Redis = require('redis')
 var CliTable = require('cli-table')
-var QNAME = 'event_service'
+var QNAME = 'eventservice'
 var RESPONSE_QUEUE = 'sumary'
 
 conc.dns.resolve('_main._tcp.redis.micro.svc.cluster.local', function (err, result) {
@@ -1500,12 +1500,12 @@ node index.js
 
 Lastly for our report utility we need to install dependencies:
 
-Finally we need to add the Redis container and our new `event-service` to our Fuge configuration. Edit the file `fuge/fuge.yml` and add the following two entries:
+Finally we need to add the Redis container and our new `eventservice` to our Fuge configuration. Edit the file `fuge/fuge.yml` and add the following two entries:
 
 ```
-event_service:
+eventservice:
   type: process
-  path: ../event-service
+  path: ../eventservice
   run: 'node index.js'
 .
 .
@@ -1523,7 +1523,7 @@ $ fuge shell fuge/fuge.yml
 fuge> start all
 ```
 
-We can now see that along with the rest of our system the Redis container and `event-service` have also started up. As before we can browse the application add some numbers and look at the audit log. However this time every page load is being recorded. Lets confirm this by running a report. Open up another shell - leaving Fuge running and execute the following:
+We can now see that along with the rest of our system the Redis container and `eventservice` have also started up. As before we can browse the application add some numbers and look at the audit log. However this time every page load is being recorded. Lets confirm this by running a report. Open up another shell - leaving Fuge running and execute the following:
 
 ```sh
 $ cd micro/report
@@ -1537,9 +1537,9 @@ Output similar to the following should be displayed:
 ### How it works
 In this recipe we created a queue based microservice that used Redis as a lightweight queueing mechanism. We used a Redis container and discovered this container using DNS. It is interesting to note that in this case, neither the service or consumer end had direct knowledge of each other, rather each simply placed messages onto an intermediary queue.
 
-Our event service again used concordant DNS to discover the Redis service as before, supplying the portName and service name for discovery. We are also supplying the name of the internal list structure that Redis should use for these messages, in this case the queue is called `event_service`.
+Our event service again used concordant DNS to discover the Redis service as before, supplying the portName and service name for discovery. We are also supplying the name of the internal list structure that Redis should use for these messages, in this case the queue is called `eventservice`.
 
-The `event-service` simply records each event into a MongoDB database and provides a simple report function on this database when requested.
+The `eventservice` simply records each event into a MongoDB database and provides a simple report function on this database when requested.
 
 Now that we have constructed a system with several services, a front end and an offline reporting tool lets take a look at the overall architecture:
 
@@ -1548,13 +1548,13 @@ Now that we have constructed a system with several services, a front end and an 
 As can be seen, this corresponds very closely to the idealized system architecture that we reviewed at the start of this chapter. We should also note that the system adheres to some key microservice principals:
 
 #### Single Responsibility
-Each service in our system is tasked with a single area. The `adder_service` adds numbers, the event service records and reports on events. It is important to keep this principal in mind as a system grows as it helps to naturally decide the boundaries between services.
+Each service in our system is tasked with a single area. The `adderservice` adds numbers, the event service records and reports on events. It is important to keep this principal in mind as a system grows as it helps to naturally decide the boundaries between services.
 
 #### Low Coupling
-Each of our point to point services (`adder_service` and `audit_service`) must be accessed using a clearly defined message structure. As capability is added to a service, additional messages may be added but the code in the service is never directly accessible by the consumer. For our bus based service (`event_service`) the consumer is not even directly connected, it simply passes a message and forgets.
+Each of our point to point services (`adderservice` and `auditservice`) must be accessed using a clearly defined message structure. As capability is added to a service, additional messages may be added but the code in the service is never directly accessible by the consumer. For our bus based service (`eventservice`) the consumer is not even directly connected, it simply passes a message and forgets.
 
 #### Vertical separation
-Our services are clearly separated right into the data layer. This is an important concept. Notice that whilst the same MongoDB container is being used the `audit_service` and the `event_service` use completely separate databases. Also notice that the reporting service does not connect to MongoDB to extract data, rather it asks the `event_service` to perform this task. As a system grows in functionality it is important that this vertical separation always be maintained, otherwise we end up with a distributed monolith which is not a good place to be!
+Our services are clearly separated right into the data layer. This is an important concept. Notice that whilst the same MongoDB container is being used the `auditservice` and the `eventservice` use completely separate databases. Also notice that the reporting service does not connect to MongoDB to extract data, rather it asks the `eventservice` to perform this task. As a system grows in functionality it is important that this vertical separation always be maintained, otherwise we end up with a distributed monolith which is not a good place to be!
 
 #### Stateless
 Notice that all of our services are stateless. Whist this is a simple example system, we should always strive to make our services stateless. Practically this usually means loading user context on demand or passing user state information through from the client. Keeping our services stateless means that we can scale each service horizontally as demand requires.
