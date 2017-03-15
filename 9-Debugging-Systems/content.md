@@ -5,10 +5,9 @@ This chapter covers the following topics
 * Using Chrome Devtools to debug Node
 * Turning on internal debug flags
 * Instrumenting code with debug logs
-* Debugging Core Node libraries
 * Enhancing stack traces
-* Tracing asynchronous operations
-* Postmortems
+* Debugging Core Node libraries
+
 
 ## Introduction
 
@@ -43,7 +42,6 @@ In this recipe we're going to diagnose and solve a problem in a simple
 Express application.
 
 ### Getting Ready
-
 
 We're going to debug a small web server, 
 so let's create that real quick.
@@ -556,26 +554,356 @@ It's now (again) obvious where the mistake lies, there is no
 
 ### See also
 
+* TBD
 
-## Enhancing Stack Trace Output
+## Enhancing Stack Trace output
 
-[cute stack]
+When a Node process experiences an error, the function where the error
+occurred, and the function that called that function (and so on)
+is written to STDERR as the final output of the application.
+
+This is called a stack trace. By default Node's JavaScript
+engine (v8) retains a total of ten frames (references to functions
+in a stack). 
+
+However, in many cases we need far more than ten frames to understand
+the context from a stack for trace when performing root-cause analysis
+on a faulty process. On the other hand, the larger the stack trace,
+the more memory and CPU a process has to use to keep track of the stack. 
+
+In this recipe we're going to increase the size of 
+the stack trace, but only in a development environment.
 
 ### Getting Ready
 
+Let's prepare for the recipe by making a small application, that 
+causes an error creating a long stack trace.
+
+We'll create a folder called app, initialize it as a package,
+ install express and create three files, `index.js`, `routes.js` and `content.js`:
+
+```sh
+$ mkdir app
+$ cd app 
+$ npm init -y 
+$ npm install express
+$ touch index.js routes.js content.js
+```
+
+Our `index.js` file should look like this:
+
+```js
+const express = require('express')
+const routes = require('./routes')
+const app = express()
+
+app.use(routes)
+
+app.listen(3000)
+```
+
+The `routes.js` file like the following:
+
+```js
+const content = require('./content')
+const {Router} = require('express')
+const router = new Router()
+
+router.get('/', (req, res) => {
+  res.send(content())
+})
+
+module.exports = router
+```
+
+And the `content.js` file like so:
+
+```js
+function content (opts, c = 20) {
+  return --c ? content(opts, c) : opts.ohoh
+}
+
+module.exports = content
+```
+
 ### How to do it
+
+Let's begin by starting our server:
+
+```sh
+$ node index.js
+```
+
+All good so far, ok let's send a request to the server, 
+we can navigate a browser to `http://localhost:8080` or
+we can use `curl` (if installed) like so:
+
+```sh
+$ curl http://localhost:3000/
+```
+
+That should spit out some error HTML output, containing a stack trace.
+
+Even though an error has been thrown, the process hasn't crashed because
+`express` catches errors in routes to keep the server alive. 
+
+The terminal window that's running our server will also have a stack trace.
+
+![](images/stack-trace-1.png)
+
+We can see (in this case) that the `content` function is being calling 
+itself recursively (but not too many times otherwise there would be 
+a Maximum Call Stack size exceed error). 
+
+The content function looks like this:
+
+```js
+function content (opts, c = 20) {
+  return --c ? content(opts, c) : opts.ohoh
+}
+```
+
+The error message is "Cannot read property 'ohoh' of undefined". 
+
+It should be fairly clear, that for whatever reason the `opts`
+argument is being input as `undefined` by a function calling the `content`
+function. 
+
+But, because our stack is limited at ten frames, 
+we can't see what originally called the first iteration of the `content` function.
+
+One way to address this is to use the `--stack-trace-limit` flag.
+
+We can see that `c` defaults to `20`, so if we set the limit to 
+21, maybe we'll see what originally called the `c` function:
+
+```sh
+$ node --stack-trace-limit=21 index.js
+```
+
+This should result in something like the figure below:
+
+![](images/stack-trace-2.png)
+
+Now we can see that the original call is made from `router.get` in 
+the `routes.js` file, line 6, column 12. 
+
+Line 6 is: 
+
+```js
+  res.send(content())
+```
+
+Ah it looks like we're calling `content` without any inputs, 
+of course that means the arguments default to `undefined`. 
 
 ### How it works
 
+The `--stack-trace-limit` flag instructs the V8 JavaScript engine
+to retain more stacks on each tick of (each time round) the event loop.
+
+When an error occurs, a stack trace is generated that traces back
+through the antecedent function calls as far as the defined limit allows.   
+
 ### There's more
 
-#### Increasing Stacksize
+Can we set the stack limit in process? What if we want a different
+stack trace limit in production versus development environments? 
+We can track and trace asynchronous function calls? Is it possible
+to have nicer looking stack traces? We'll answer all these questions,
+right now.
+
+#### Infinite Stack Trace Limit in Development
+A lot of the time, in development we want as much context as we can get,
+but we don't want to have to type out a long flag every time we run a 
+process.
+
+But in production, we want to save precious resources.
+
+Let's copy the `app` folder to `infinite-stack-in-dev-app`
+
+```sh
+$ cp -fr app infinite-stack-in-dev-app
+```
+
+Now at very the top of `index.js` we simply write:
+
+```js
+if (process.env.NODE_ENV !== 'production') {
+  Error.stackTraceLimit = Infinity
+}
+```
+
+Now if we run our server:
+
+```sh
+$ node index.js
+```
+
+Then make a request with `curl` (or, optionally, some other method like a browser):
+
+```sh
+$ curl http://localhost:3000/
+```
+
+![](images/limitless-stack.png)
+
+Our stack trace will be limitless.
+
+#### Stack Trace Layout
+
+The default stack trace could definitely stand to be more
+human friendly. 
+
+Enter [`cute-stack`](http://npm.im/cute-stack), a tool for 
+creating prettified stack traces. 
+
+Let's copy our `app` folder to `pretty-stack-app`,
+and install `cute-stack`:
+
+```sh
+$ cp -fr app pretty-stack-app
+$ cd app 
+$ npm install --save cute-stack
+```
+
+Now let's place the following at the very top of the `index.js` file:
+
+```js
+require('cute-stack')()
+```
+
+Now let's run our process, with a larger stack trace limit (as in the main recipe),
+
+```sh
+$ node --stack-trace-limit=21 index.js
+```
+
+Make a request, either with a browser, or if installed, `curl`:
+
+```sh
+$ curl http://localhost:3000/
+```
+
+As a result we should see a beautified stack trace, similar to the 
+following figure:
+
+![](images/cute-stack.png)
+
+> ##### Alternative Layouts ![](../tip.png)
+> `cute-stack` has additional layouts, such as table, tree, and json
+> as well as plugin system for creating your own layouts
+> see the [`cute-stack` readme](http://npm.im/cute-stack) for more.
+
+The `cute-stack` tool takes advantage of a proprietary V8 API,
+`Error.prepareStackTrace` which can be assigned a function, 
+that receives `error` and `stack` inputs. This function can
+then process the `stack` and return a string which becomes 
+the stack trace output.
+
+> ##### Error.prepareStackTrace ![](../info.png)
+> See https://github.com/v8/v8/wiki/Stack-Trace-API 
+> for more on `Error.prepareStackTrace`
 
 #### Asynchronous Stack Traces
 
-#### Error.prepareStackTrace
+The asynchronous nature of JavaScript effects the way a stack trace works. 
+In JavaScript, each "tick" (each time the JavaScript event-loop iterates) 
+has a new stack.
+
+Let's copy our `app` folder to `async-stack-app`:
+
+```sh
+$ cp -fr app async-stack-app
+```
+
+Now let's alter `content.js` to like so:
+
+```js
+function content (opts, c = 20) {
+  function produce (cb) {
+    if (--c) setTimeout(produce, 10, cb)
+    cb(null, opts.ohoh)
+  }
+  return produce
+}
+
+module.exports = content
+```
+
+Then let's alter `routes.js` in the following way:
+
+```js
+const content = require('./content')
+const {Router} = require('express')
+const router = new Router()
+
+router.get('/', (req, res) => {
+  content()((err, html) => { 
+    if (err) {
+      res.send(500)
+      return
+    } 
+    res.send(html)
+  })
+})
+
+module.exports = router
+```
+
+Now if we start our server
+
+```sh
+$ node index.js
+```
+
+And make a request :
+
+```sh
+$ curl http://localhost:3000/
+```
+
+We'll see only a small stack trace, descending from timeout specific 
+internal code, as in the following figure:
+
+![](images/async-stack-1.png)
+
+We can obtain asynchronous stack traces with the `longjohn` module,
+let's install is as a development dependency:
+
+```sh
+$ npm install --save-dev longjohn
+```
+
+Now we can add the following the very top of the `index.js` file:
+
+```js
+if (process.env.NODE_ENV !== 'production') {
+  require('longjohn')
+}
+```
+
+Let's run our server again:
+
+```sh
+$ node index.js
+```
+
+And make a request:
+
+```sh
+$ curl http://localhost:3000/
+```
+
+Now we should see the original stack, followed by a line of dashes,
+followed by the previous stack, which furnishes with additional
+stack context (like `produce` and `router.get` function.
+
+![](images/async-stack-2.png)
 
 ### See also
+
+* TBD
 
 ## Enabling Debug Logs
 
@@ -726,20 +1054,146 @@ If there is a match, the returned logging function will accept input,
 decorate it with ANSI codes (for terminal coloring), and create a time
 stamp on each call to the logger.
 
-> #### A development tool ![](../tip.png)
-> The `debug` module is primarily a development tool,
-> it's output is not really suited to production log messages
-> and performance could be better. However,
-> see **Converting debug logs into high-performance production logs**
-> in the *There's More* section to learn how to avail of the 
-> in depth and highly useful information that percolates through
-> the `debug` module in a production situation.
-
 ### There's more
+
+Let's find out how to use `debug` in our own code, 
+and some best practices around enabling debug logs in production
+scenarios.
 
 #### Instrumenting code with `debug`
 
-#### Converting debug logs into high-performance production logs
+We can use the `debug` module in our own code, to create logs 
+that relate to the context of our application or module.
+
+Let's copy our `app` folder from the main recipe, and call
+it `instrumented-app`, and install the `debug` module: 
+
+```sh
+$ cp -fr app instrumented-app
+$ cd instrumented-app
+$ npm install --save debug
+```
+
+Next, we'll make `index.js` look like so:
+
+```js
+const express = require('express')
+const app = express()
+const stylus = require('stylus')
+const debug = require('debug')('my-app')
+
+app.get('/some.css', (req, res) => {
+  debug('css requested')
+  const css = stylus(`
+    body
+      color:black
+  `).render()
+  res.send(css)
+})
+
+app.listen(3000)
+```
+
+We've required `debug`, created a logging function (called `debug`)
+with the namespace `my-app` and then used it in our route handler.
+
+Now let's start our app, and just turn on logs for the `my-app` namespace:
+
+```sh
+$ DEBUG=my-app node index.js
+```
+
+Now let's make a request to http://localhost:3000/some.css,
+either in browser, or with `curl` we could do:
+
+```sh
+$ curl http://localhost:3000/some.css
+```
+
+This should create the following log message:
+
+```sh
+  my-app css requested +0ms
+```
+
+#### Using Debug in production
+
+The default `debug` logs are not suited to production logging. The logging 
+output is human readable rather than machine readable output, it 
+uses colors which are enabled with terminal ANSI codes (which will
+essentially pollute the output when saved to file or database).
+
+In production, if we wanted to turn on debug logs we can produce more
+standard logging output with the following
+
+```
+$ DEBUG_COLORS=no DEBUG=* node index.js
+```
+
+#### JSON Logging with `pino-debug` 
+
+The `pino-debug` module passes `debug` messages through [`pino`](http://npm.im/pino) 
+so that log output is in newline delimited JSON (a great compromise between machine and human readability and common log format).
+
+> #### About `pino` ![](../tip.png)
+> [`pino`](http://npm.im/pino) is a high performance logger, that's 
+> up to 8-9 times faster than other popular loggers (see the [benchmarks](https://github.com/pinojs/pino#benchmarks) for more information.) 
+
+Due to the performant techniques used by `pino` using
+`pino-debug` leads to a performance increase in
+log writing (and therefore leaves more room for other activities in process,
+like serving requests) even though there's more output per log message! 
+
+Let's copy our `app` folder to `logging-app`, and install `pino-debug`:
+
+```sh
+$ cp -fr app logging-app
+$ npm install --save pino-debug
+```
+
+We'll add two npm scripts, one for development and one for production, 
+let's edit `package.json` like so:
+
+```json
+{
+  "name": "app",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "node index.js",
+    "prod": "node -r pino-debug index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.15.0",
+    "pino-debug": "^1.0.3",
+    "stylus": "^0.54.5"
+  }
+}
+```
+
+Now if we run the following:
+
+```sh
+$ DEBUG=* npm run --silent prod
+```
+
+We'll should see the express logs in JSON form, 
+where the `msg` field contains the log contents and the `ns` field 
+contains the relevant debug message. Additionally `pino` adds 
+a few other useful fields, like `time`, `pid`, `hostname`, `level`
+(the log level, defaults to 20 which is debug level)
+and `v` (this log format version).
+
+![](images/pino-debug.png)
+
+> #### Debug Namespace to Log Level Mapping ![](../tip.png)
+>See the [`pino-debug`](http://npm.im/pino-debug) readme for 
+mapping namespaces to custom log levels.
 
 
 ### See also
@@ -1115,28 +1569,3 @@ And that's the sort of things we can learn by debugging core.
 
 * TBD
 
-
-## Tracing Asynchronous Operations
-
-### Getting Ready
-
-### How to do it
-
-### How it works
-
-### There's more
-
-### See also
-
-
-## Postmortem Debugging
-
-### Getting Ready
-
-### How to do it
-
-### How it works
-
-### There's more
-
-### See also
