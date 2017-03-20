@@ -1,0 +1,24 @@
+{
+  "name": "hapi-starter-kit",
+  "version": "1.0.2",
+  "description": "Starter kit for Hapi",
+  "main": "lib/index.js",
+  "repository": "git@github.com:azaritech/hapi-starter-kit.git",
+  "author": "Nicolas Azari",
+  "license": "MIT",
+  "scripts": {
+    "start": "node lib/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "getconfig": "^3.0.0",
+    "good": "^7.1.0",
+    "good-console": "^6.4.0",
+    "handlebars": "^4.0.6",
+    "hapi": "^16.1.0",
+    "inert": "^4.1.0",
+    "nes": "^6.4.0",
+    "vision": "^4.1.1"
+  },
+  "devDependencies": {}
+}
