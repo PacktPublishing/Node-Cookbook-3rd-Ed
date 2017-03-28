@@ -143,7 +143,15 @@ Whilst this is a trivial service it should serve to illustrate the fact that a m
 In the following recipes we will look at how microservices operate in the context of an example system, how to set up an effective development environment for this style of coding and also introduce other messaging and communication protocols
 
 ### See also
-Whilst we have used `restify` to create this simple service, we could also have just used the Node core `http` module to create our service or one of the other popular web frameworks such as `Express` [http://expressjs.com/](http://expressjs.com/) or `HAPI` [https://hapijs.com/](https://hapijs.com/). We will be using the Express framework to build a front end to our services in the following recipes but bear in mind that it can also be used for service creation.
+Whilst we have used `restify` to create this simple service, there are several alternative approaches that we could have used such as:
+
+* The Node core `http` module
+
+* The `Express` framework [http://expressjs.com/](http://expressjs.com/)
+
+* The `HAPI` framework [https://hapijs.com/](https://hapijs.com/)
+
+We will be using the Express framework to build a front end to our services in the following recipes but bear in mind that it can also be used for service creation.
 
 ## Consuming a Service
 In this recipe we are going to create a web application that will consume our microservice. This is the API and client tier in our reference architecture depicted in the figure in the introduction to the chapter. We will be using the Express web framework to do this and also the Express Generator to create an application skeleton.
