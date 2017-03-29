@@ -52,6 +52,8 @@ Based on this logical architecture we will use the following definition for a mi
 
 *A microservice is a small, highly cohesive unit of code that has responsibility for a small functional area of a system. It should be independently deployable and should be of a size that it could be rewritten by a single developer in two weeks at maximum.*
 
+In the following recipes we will look at how microservices operate in the context of an example system, how to set up an effective development environment for this style of coding and also look microservice messaging and communication protocols.
+
 ## Creating a simple RESTful microservice
 In this recipe we will build a simple microservice using the `restify` module. Restify is an easy to use framework that is designed to help us rapidly build services that can be consumed over HTTP. Once we have built our first service we will test our service using the `curl` command.
 
@@ -140,7 +142,8 @@ Finally our service sent a response using the `res.send` function.
 ### There's more
 Whilst this is a trivial service it should serve to illustrate the fact that a microservice is really nothing more than a Node module that runs as an independent process. A microservice system is a collection of these co-operating processes. Of course it gets more complicated in a real system where you have lots of services and have to manage problems such as service discovery and deployment, however keep in mind that the core concept is really very simple.
 
-In the following recipes we will look at how microservices operate in the context of an example system, how to set up an effective development environment for this style of coding and also introduce other messaging and communication protocols
+#### Testing in a browser
+We don't necessarily need to use the curl command to test our microservices, We can test out HTTP get requests just using a web browser. For example we could open the default browser on our system and type the url into the address bar. Our service will return a response and the browser should render it as text for us. Bear in mind that some browsers will treat the response as a file download depending on how they have been configured.
 
 ### See also
 Whilst we have used `restify` to create this simple service, there are several alternative approaches that we could have used such as:
