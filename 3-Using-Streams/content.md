@@ -9,7 +9,7 @@ This chapter covers the following topics
 
 ## Introduction
 
-Streams are one of the best features in Node. They have been a big part of the ecosystem since the early days of Node and today thousdans of modules exists on npm that help us compose all kinds of great stream based apps. They allow us to work with large volumes of data in environments with limited resources. In addition to that they help us decouple our applications by supplying a generic abstraction that most I/O patterns work with.
+Streams are one of the best features in Node. They have been a big part of the ecosystem since the early days of Node and today thousands of modules exists on npm that help us compose all kinds of great stream based apps. They allow us to work with large volumes of data in environments with limited resources. In addition to that they help us decouple our applications by supplying a generic abstraction that most I/O patterns work with.
 
 ## Processing big data
 
@@ -174,15 +174,179 @@ All streams inherit from EventEmitter and emit a series of different events. Whe
 
 ## Using the `pipe` method
 
+A pipe is used to connect streams together. DOS and Unix-like shells use the vertical bar (|) to pipe the output of one program to another; we can chain several pipes together to process and massage data in number of ways. 
+
+Likewise, the Streams API affords us the `pipe` method to channel data through multiple streams. Every readable stream has a pipe method that expects a writable stream (the destination) as its first parameter.
+
+In this recipe we're going to pipe several streams together.
+
 // request.pipe(decrompress).pipe(parse).pipe(analyse)
 
 ### Getting Ready
 
+Let's create a folder called `piper`, initialize it as a package,
+and install `tar-map-stream`, and create an `index.js` file: 
+
+```sh
+$ mkdir piper
+$ cd piper
+$ npm init -y
+$ npm install tar-map-stream
+$ touch index.js
+```
+
 ### How to do it
+
+In our `index.js` file let's begin by requiring 
+the dependencies we'll be using to create various streams:
+
+```js
+const zlib = require('zlib')
+const map = require('tar-map-stream')
+```
+
+Let's imagine we want to take the gzipped tarball of the very first available
+version of Node, and change all the file paths in that tarball, as well 
+as altering the `uname` (owner user) and `mtime` (modified time) fields
+of each file.
+
+Let's create some streams we'll be using to do that:
+
+
+```js
+const decompress = zlib.createGunzip()
+const whoami = process.env.USER || process.env.USERNAME
+const rename = map((header) => {
+  header.uname = whoami
+  header.mtime = new Date()
+  header.name = header.name.replace('node-v0.1.100', 'edon-v0.0.0')
+  return header
+})
+const compress = zlib.createGzip()
+```
+
+Finally we'll set up the pipeline:
+
+```js
+process.stdin
+  .pipe(decompress)
+  .pipe(rename)
+  .pipe(compress)
+  .pipe(process.stdout)
+```
+
+> #### Don't use `pipe` in production! ![](../tip.png)
+> For most cases, `pipe` should be avoided in a production
+> server context. Instead we recommend `pump`, see the next
+> recipe in this chapter for more. 
+
+We can use our program like so:
+
+```sh
+$ curl https://nodejs.org/dist/v0.1.100/node-v0.1.100.tar.gz | node index.js > edon.tar.gz
+```
+
+We can list the contents of the tar archive to ensure the paths 
+and stats are updated like so:
+
+```sh
+$ tar -tvf edon.tar.gz
+```
 
 ### How it works
 
+
+
 ### There's more
+
+Let's take a look at the one option which can be passed to the 
+`pipe` method. 
+
+#### Keeping Piped Streams Alive
+
+By default, when one stream is piped to another, the 
+stream being piped to (the destination), is ended 
+when the stream being piped from (the source) has ended.
+
+Sometimes, we may want to make additional writes to a stream
+when a source stream is complete. 
+
+Let's create a folder called `pipe-without-end`, with two files,
+`broken.js` and `index.js`:
+
+```sh
+$ mkdir pipe-without-end
+$ cd pipe-without-end
+$ touch broken.js
+$ touch index.js
+```
+
+Let's put the following in `broken.js`:
+
+```js
+const net = require('net')
+const fs = require('fs')
+
+net.createServer((socket) => {
+  const content = fs.createReadStream(__filename)
+  content.pipe(socket)
+  content.on('end', () => {
+    socket.end('\n======= Footer =======\n')
+  })
+}).listen(3000)
+```
+
+Now let's start our broken server:
+
+```sh
+$ node broken.js
+```
+
+We can try out the TCP server in several ways, such as `telnet localhost 3000`
+or with netcat `nc localhost 3000`, but even navigating a browser to
+`http://localhost:3000`, or using curl will work. Let's use `curl`:
+
+```sh
+$ curl http://localhost:3000
+```
+
+This will cause our `broken.js` server to crash, with the error 
+"Error: write after end". This is because when the `content` stream
+ended, it also ended the `socket` stream. But we want to append a footer 
+to the content when the `content` stream is ended.
+
+Let's make our `index.js` look like this:
+
+```js
+const net = require('net')
+const fs = require('fs')
+
+net.createServer((socket) => {
+  const content = fs.createReadStream(__filename)
+  content.pipe(socket, {end: false})
+  content.on('end', () => {
+    socket.end('\n======= Footer =======\n')
+  })
+}).listen(3000)
+```
+
+Notice the second argument passed to pipe is an object with
+`end` set to `false`. This instructs the `pipe` method to avoid 
+ending the destination stream when a source stream ends. 
+
+If we start our fixed server:
+
+```sh
+$ node index.js
+```
+
+And hit it with `curl`:
+
+```sh
+$ curl http://localhost:3000
+```
+
+We'll see our content, along with the footer, and the server stays alive.
 
 ### See also
 
@@ -190,14 +354,17 @@ All streams inherit from EventEmitter and emit a series of different events. Whe
 
 ## Piping streams in production
 
-The `pipe` method is one of the most well known features of streams, it allows us to compose advanced streaming pipelines as a single line of code. Since it's part of Node core we discuss in the previous recipe. 
+The `pipe` method is one of the most well known features of streams, it allows us to compose advanced streaming pipelines as a single line of code. 
+
+As a part of Node core, we discussed the `pipe` method in the previous
+recipe, and it can be useful for cases where process uptime isn't 
+important (such as CLI tools).
 
 Unfortunately, however, it lacks a very important feature: error handling. 
 
-If one of the streams in a pipeline composed with `pipe` fails, the pipeline is simply "unpiped". It is up to us to detect the error and then afterwards destroy the remaining streams so they do not leak any resources. This can easily lead
-to memory leaks.  
+If one of the streams in a pipeline composed with `pipe` fails, the pipeline is simply "unpiped". It is up to us to detect the error and then afterwards destroy the remaining streams so they do not leak any resources. This can easily lead to memory leaks.
 
-Consider the following example:
+Let's consider the following example:
 
 ``` js
 const http = require('http')
@@ -473,7 +640,7 @@ rs.pipe(ws)
 
 Now we can run our program:
 
-```js
+```sh
 $ node index.js 
 ```
 
