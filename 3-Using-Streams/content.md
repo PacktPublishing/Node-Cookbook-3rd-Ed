@@ -1152,7 +1152,7 @@ Let's create a folder called `stream-destruction`, initialize it as a package, i
 $ mkdir stream-destruction
 $ cd stream-destruction
 $ npm init -y
-$ npm install from2
+$ npm install --save from2
 $ touch index.js
 ```
 
@@ -1164,7 +1164,7 @@ const from = require('from2')
 function createInfiniteTickStream () {
   var tick = 0
   return from.obj((size, cb) => {
-    cb(null, {tick: tick++})
+    setImmediate(() => cb(null, {tick: tick++}))
   })
 }
 ```
@@ -1202,17 +1202,65 @@ setTimeout(() => {
 }, 2000)
 ```
 
-Running the above code will make the tick stream flood the console for about 2s and then stop since we destroy it.
-The destroy method is extremely useful in many applications and more or less essential when doing any kind of stream error handling.
+Running the above code will make the tick stream flood the console for about 2s and then stop, while a final message "(stream destroyed)" is printed
+to the console before the program exits. 
 
-For this reason using from2 (and other stream modules described in this book) is highly recommended over using the core stream module unless you know what you are doing.
+The `destroy` method is extremely useful in many applications and more or less essential when doing any kind of stream error handling.
 
+For this reason using `from2` (and other stream modules described in this book) is highly recommended over using the core stream module.
 
 #### Composing duplex streams
 
-* duplexify
+A duplex stream is a stream with a readable and writable 
+interface. We can take a readable stream and a writeable
+stream and join them as a duplex stream using the `duplexify` 
+module. 
+
+Let's create a folder called `composing-duplex-streams`,
+initialize as a package, install `from2`, `to2` and `duplexify`
+and create an  an `index.js` file:
+
+```sh
+$ mkdir composing-duplex-streams
+$ cd composing-duplex-streams
+$ npm init -y
+$ npm install --save from2 to2 duplexify
+$ touch index.js
+```
+
+Then in our `index.js` file we'll write:
+
+```js
+const from = require('from2')
+const to = require('to2')
+const duplexify = require('duplexify')
+
+const rs = from(() => {
+  rs.push(Buffer('Hello, World!'))
+  rs.push(null)
+})
+
+const ws = to((data, enc, cb) => {
+  console.log(`Data written: ${data.toString()}`)
+  cb()
+})
+
+const stream = duplexify(ws, rs)
+
+stream.pipe(stream)
+```
+
+We're using the same readable and writable streams
+from the main recipe (`rs` and `ws`), however we create
+the `stream` assignment by passing `ws` and `rs` to `duplexify`. 
+Now instead of piping `rs` to `ws` we can pipe `stream` to itself.
+
+This can be a very useful API pattern, when we want to return or export
+two streams that are interrelated in some way. 
 
 ### See also
+
+* TBD
 
 ## Decoupling I/O
 
