@@ -1,21 +1,20 @@
-const stream = require('stream')
+'use strict'
 
-const rs = new stream.Readable()
+const from = require('from2')
+const to = require('to2')
 
-rs._read = function () {
+const rs = from(() => {
   rs.push(Buffer('Hello, World!'))
   rs.push(null) 
-}
+})
 
 // rs.on('data', (data) => {
 //   console.log(data.toString()) 
 // })
 
-const ws = new stream.Writable()
-
-ws._write = function (data, enc, cb) {
+const ws = to((data, enc, cb) => {
   console.log(`Data written: ${data.toString()}`)
   cb()
-}
+})
 
 rs.pipe(ws)

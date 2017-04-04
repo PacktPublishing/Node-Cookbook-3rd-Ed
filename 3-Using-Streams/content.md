@@ -11,6 +11,9 @@ This chapter covers the following topics
 
 Streams are one of the best features in Node. They have been a big part of the ecosystem since the early days of Node and today thousands of modules exists on npm that help us compose all kinds of great stream based apps. They allow us to work with large volumes of data in environments with limited resources. In addition to that they help us decouple our applications by supplying a generic abstraction that most I/O patterns work with.
 
+In this chapter we're going to explore why streams are such a valuable
+abstraction, how to safely compose streams together in a production environment, and convenient utilities to stream creation and management.
+
 ## Processing big data
 
 Let's dive right into it by looking at a classic Node problem, counting all Node modules available on npm. The npm registry exposes an HTTP endpoint where we can get the entire contents of the npm registry content as JSON. 
@@ -115,6 +118,9 @@ For more information about the different stream base classes checkout the Node s
 If we want to make a stream that provides data for other users to read we need to make a *Readable stream*. An example of a readable stream could be a stream that reads data from a file stored on disk.
 
 If we want to make a stream others users can write data to, we need to make a *Writable stream*. An example of a writable stream could be a stream that writes data to a file stored on disk.
+
+> ##### Inspecting all core stream interfaces ![](../tip.png)
+> Node core provides base implementations of all these variations of streams that we can extend to support various use cases. We can use the `node -p "require('stream')"` as a convenient way to take look at available stream implementations
 
 Sometimes you want to make a stream that is both readable and writable at the same time. We call these *Duplex streams*. An example of a duplex stream could be a TCP network stream that both allows us to read data from the network and write data back at the same time.
 
@@ -574,67 +580,333 @@ function pipeline () {
 
 ### See also
 
-## Creating streams
+* TBD
 
-// through2, from2
+## Creating transform streams
+
+Streams allow for asynchronous functional programming, 
+The most common stream is the transform stream,
+it's a black box that takes input and
+produce output asynchronously.
+
+In this recipe, we'll look at creating a transform 
+stream with the `through2` module, in the **There's More**
+section we'll look at how to create streams with the core
+`streams` module.
 
 ### Getting Ready
 
+Let's create a folder called `through-streams`
+with an `index.js`, initialize the folder as a package
+and install `through2`:
+
+```sh
+$ mkdir through-streams
+$ cd through-streams
+$ npm init -y
+$ npm install through2
+$ touch index.js
+```
+
+> #### Why the 2? ![](../info.png)
+> The `through2` module is a successor to the `through` module.
+> The `through` module was built against an earlier Node core
+> streams API (retrospectively called Streams 1 API). Later versions
+> of Node introduced Streams 2 (and indeed 3). The `through2` module
+> was written to use the superior Streams 2 API (and is still relevant
+> for the Streams 3 API, there's no need for a `through3`!). In fact,
+> any streams utility module on npm suffixed with the number 2 is named
+> as such for the same reasons (such as `from2`, `to2`, `split2` and so forth)  
+
 ### How to do it
 
+First we'll require `through2`:
 
+```js
+const through = require('through2')
+```
 
+Next we'll use it to create a stream that upper cases incoming data:
+
+```js
+const upper = through((chunk, enc, cb) => {
+  cb(null, chunk.toString().toUpperCase())
+})
+```
+
+Finally we'll create a pipeline from the terminals
+STDIN through our `upper` stream to the terminals STDOUT:
+
+```js
+process.stdin.pipe(upper).pipe(process.stdout)
+```
+
+Now if we start our program:
+
+```js
+$ node index.js
+```
+
+Each line we type into the terminal will be uppercased, 
+as demonstrated in the following image:
+
+![](images/through2.png) 
 
 ### How it works
 
+The `through2` module provides a thin layer over the 
+core streams `Transform` constructor. It ultimately
+attaches the function we provide to as the 
+`_transform` method of a stream instance which inherits 
+from the `Transform` constructor.
+
+When we create our `upper` stream, we call `through` and
+pass it a function. This is called the transform function.
+Each piece of data that the stream recieves will be passed
+to this function. The first `chunk` is the data being received,
+the `enc` parameter indicates the encoding of the data, and the `cb`
+parameter is a callback function which we call to indicate we've
+finished processing the data, and pass our transformed data through.
+
+There are a couple of benefits of using the `through2` module
+over core primitives. Primarily, it's typically less noisy,
+easier for human reading and uses the `readable-stream` module.
+The `readable-stream` module is the core stream module, but published
+to npm as the latest streams implementation. This keeps behavior 
+consistent across Node versions, using `through2` implicitly grants
+this advantage and we don't have to think about it.  
+
 ### There's more
 
-#### Creating streams with Node's core `stream` module
+How would we go about creating core transform streams,
+also let's explore object streams.
 
-Node core provides base implementations of all these variations of streams that we can extend to support various use cases.
+#### Transform streams with Node's core `stream` module
 
-We can access the core base implementations by requiring the stream module in node.
-
-We can easily take a look at these with the following command
+Let's create a folder called `core-transform-streams`
+with a `prototypal.js`, `classical`, `modern.js` and `index.js` files:
 
 ```sh
-$ node -p "require('stream')"
+$ mkdir core-transform-streams
+$ touch prototypal.js classical.js modern.js index.js
 ```
 
-This will print the various base interfaces supplied by the `stream` module.
+We'll use these files to explore the evolution of stream creation.
 
-If we wanted to our own readable stream we would need the `stream.Readable` base class.
+Let's write the following in `prototypal.js`:
 
-This base class will call a special method called `_read`. It's up to us to implement the `_read` method. Whenever this method is called the stream expects us to provide more data available that can be consumed by the stream. We can add data to the stream by calling the `push` method with a new chunk of data.
-
-> #### Using `readable-stream` instead of `stream` ![](../tip.png)
-> To allow universal behavior across Node modules, if we ever use the 
-> core `stream` module to create streams, we should actually use the 
-> `readable-stream` module available on npm. This an up to date
-> and multi-version compatible representation of the core streams module
-> and ensures consistency.
-
-Let's create a folder called `core-streams` and create an `readable.js`
-file inside.
-
-At the top of `readable.js` we write: 
-
-``` js
+```js
 const stream = require('stream')
-const rs = new stream.Readable()
+const util = require('util')
 
-rs._read = function () {
+function MyTransform(opts) {
+  stream.Transform.call(this, opts)
+}
+
+util.inherits(MyTransform, stream.Transform)
+
+MyTransform.prototype._transform = function (chunk, enc, cb) {
+  cb(null, chunk.toString().toUpperCase())
+}
+
+const upper = new MyTransform()
+
+process.stdin.pipe(upper).pipe(process.stdout)
+```
+
+In earlier version of Node this was the canonical way to create streams,
+with the advent of EcmaScript 2015 (ES6) classes, there's a slightly
+less noisy approach. 
+
+Let's make the `classical.js` file look as follows:
+
+```js
+const {Transform} = require('stream')
+
+class MyTransform extends Transform {
+  _transform (chunk, enc, cb) {
+    cb(null, chunk.toString().toUpperCase())
+  }
+}
+
+const upper = new MyTransform()
+
+process.stdin.pipe(upper).pipe(process.stdout)
+```  
+
+Still applying the abstract method paradigm with an underscored
+namespace is esoteric for JavaScript, and the use of classes 
+is generally discouraged by the authors since, to be clear,
+ES6 classes are not classes - which leads to confusion.
+
+In Node 4, support for the `transform` option was added, 
+this allows for a more functional approach (similar to `through2`),
+let's make `modern.js` look as follows:
+
+```js
+const {Transform} = require('stream')
+
+const upper = Transform({
+  transform: (chunk, enc, cb) => {
+    cb(null, chunk.toString().toUpperCase())
+  }
+})
+
+process.stdin.pipe(upper).pipe(process.stdout)
+```
+
+The `Transform` constructor doesn't require `new` invocation, 
+so we can call it as a function. We can pass our transform function
+as the `transform` property on the options object passed to the
+`Transform` function.
+
+For our final mutation, let's initialize the folder as a package
+and install `readable-stream`:
+
+```sh
+$ npm init -y
+$ npm install readable-stream
+```
+
+To have complete parity with the `through2` module, we need to 
+use `readable-stream` instead of the core `stream` module.
+
+Let's make `index.js` look as follows:
+
+```js
+const {Transform} = require('readable-stream')
+
+const upper = Transform({
+  transform: (chunk, enc, cb) => {
+    cb(null, chunk.toString().toUpperCase())
+  }
+})
+
+process.stdin.pipe(upper).pipe(process.stdout)
+```
+
+This of course limits us to using Node 4 or above, so isn't
+a recommended pattern for public modules, the prototypal approach
+is still most appropriate for modules we intend to publish to npm.
+
+#### Creating Object mode transform streams
+
+If our stream is not returning serializable data (a Buffer or a string) we need to make it use "object mode". Object mode just means that the values returned are generic objects and the only different is how much data is buffered. Per default when not using object mode the stream will buffer around 16kb of data before pausing. When using object mode it will start pausing when 16 objects have been buffered.
+
+Let's create folder called `object-streams`, initialize it
+as a package, install `through2` and `ndjson`
+and create an `index.js` file:
+
+```sh
+$ mkdir object-streams
+$ cd object-streams
+$ npm init -y 
+$ npm install through2 ndjson
+$ touch index.js
+```
+
+Let's make `index.js` look like this:
+
+```js
+const through = require('through2')
+const {serialize} = require('ndjson')
+
+const xyz = through.obj(({x, y}, enc, cb) => {
+  cb(null, {z: x + y})
+})
+
+xyz.pipe(serialize()).pipe(process.stdout)
+
+xyz.write({x: 199, y: 3})
+
+xyz.write({x: 10, y: 12})
+```
+
+We can create an object stream with `through2` using the 
+`obj` method. The behavior of `through.obj` is the same as `through`,
+except instead of data chunks our transform function receives 
+and responds with objects.
+
+We use the `ndjson` module's `serialize` function to create a 
+serializer stream which converts streamed objects into newline delimited JSON. The serializer stream is a hybrid stream where the writable
+side is in object mode, but the readable side isn't. Objects 
+go in, buffers come out.
+
+With core streams we pass an `objectMode` option to create an 
+object stream instead. Let's create a `core.js` file in the same folder, 
+
+```sh
+$ touch core.js
+```
+
+Now we'll fill it with the following code:
+
+```js
+const {Transform} = require('stream')
+const {serialize} = require('ndjson')
+
+const xyz = Transform({
+  objectMode: true,
+  transform: ({x, y}, enc, cb) => { cb(null, {z: x + y}) } 
+})
+
+xyz.pipe(serialize()).pipe(process.stdout)
+
+xyz.write({x: 199, y: 3})
+
+xyz.write({x: 10, y: 12})
+```
+
+### See also
+
+* TBD
+
+## Creating Readable and Writable Streams
+
+Readable streams allow us to do things like representing infinite data series and reading out data that does not necessarily fit in memory, and much more. Writable streams can be created to connect with outputs that 
+operate at the C level to control hardware (such as sockets), to wrap 
+around other objects that aren't streams but nevertheless have a some
+form of API to where data is pushed to them, or to collect chunks together
+and potentially process them in batch.
+
+In this recipe we're going create Readable and Writable streams
+using the `from2` and `to2` modules, in the **There's More** section
+we'll discover how to do the equivalent with Node's core streams module.
+
+### Getting Ready
+
+Let's create a folder called `from2-to2-streams`, initialize it as a
+package, install the `from2` and `to2` modules and create an `index.js` file:
+
+```sh
+$ mkdir from2-to2-streams
+$ cd from2-to2-streams
+$ npm init -y
+$ npm install --save from2 to2
+$ touch index.js
+```
+
+### How to do it
+
+We'll start of by requiring `from2` and `to2`:
+
+```js
+const from = require('from2')
+const to = require('to2')
+```
+
+Next let's create our read stream:
+
+```js
+const rs = from(() => {
   rs.push(Buffer('Hello, World!'))
   rs.push(null) 
-}
+})
 ```
-
-Each call to `push` sends data through the stream. When we pass `null` to 
-`push` we're informing the `stream.Readable` interface that there is no more data available.  
 
 To consume data from the stream we either need to attach a `data` listener or pipe the stream to a writable stream.
 
-Let's add this to our `readable.js` file:
+As an intermediate step to check our stream, we can add a data listener like so:
 
 ``` js
 rs.on('data', (data) => {
@@ -645,16 +917,13 @@ rs.on('data', (data) => {
 Now let's try running our program:
 
 ```sh
-$ node readable.js
+$ node index.js
 ```
 
-We should see the readable stream print out the `Hello, World!` message.
+We should see the readable stream print out the `Hello, World!` message, 
+via the data event listener. 
 
-To create a writable stream we need the `stream.Writable` base class. When data is written to the stream the writable base class will buffer the data internally and call the `._write` method that it expects us to implement.
-
-Let's copy our `readable.js` file and call it `index.js`. 
-
-We need to remove the `data` handler, let's comment it out like so: 
+But we're not done! Let's comment out the `data` handler, like so: 
 
 ```js
 // rs.on('data', (data) => {
@@ -662,15 +931,116 @@ We need to remove the `data` handler, let's comment it out like so:
 // })
 ```
 
+We're going to create a writable stream that can we can pipe our 
+read stream to.
+
+```js
+const ws = to((data, enc, cb) => {
+  console.log(`Data written: ${data.toString()}`)
+  cb()
+})
+```
+
+Finally we add the following line to our `index.js` file:
+
+``` js
+rs.pipe(ws)
+```
+
+Now if we run our program, again:
+
+```sh
+$ node index.js
+```
+
+We should see "Data written: Hello, World!"
+
+### How it works
+
+The `from2` module wraps the `stream.Readable` base constructor
+and creates the stream for us. It also adds some extra benefits,
+such as a `destroy` function to cleanly free up stream resources
+and the ability to perform asynchronous pushing (see the **There's More** 
+section for more).
+
+> #### Object Mode 
+> Like `through2`, both the `from2` and `to2` modules have `obj` methods which allow for convenient creation of object streams. See the **There's More** section of the **Creating transform streams** recipe for more.
+
+The `to2` module is actually an alias for the `flush-write-stream` 
+module, which similarly supplies a `destroy` function, and the
+ability to supply a function (the flush function) which supplies
+final writes to the stream before it finishes.
+
+When we `pipe` the `rs` stream to the `ws` stream, the "Hello World"
+string pushed (with `rs.push`) inside the read function passed to `from2`
+is emitted as a `data` event which the `pipe` method has hooked into
+so that the event causes a write to our `ws` stream. The write function
+(as supplied to the `to` call), dutifully logs out the 
+"Data written: Hello World" message, and then calls `cb` to indicate it's
+ready for the next piece of data.  The `null` primitive is supplied to the second call to `rs.push` inside the function supplied to the `from` invocation. This indicates that the stream has finished, and it triggers
+it's own `end` event. Internally, an `end` event listener calls the `end` method on the destination stream (the stream passed to `pipe`, in our case `ws`). 
+
+At this point our process has nothing left to do, and the program finishes. 
+
+
+### There's more
+
+How do we achieve with just the core stream module? Does using
+core have any drawbacks (other than the additional syntax?)
+
+#### Readable and Writable streams with Node's core `stream` module
+
+If we wanted our own readable stream we would need the `stream.Readable` base constructor.
+
+This base class will call a special method called `_read`. It's up to us to implement the `_read` method. Since Node 4, we can also supply a `read`
+property to an options object which will the supplied function to be added as the `_read` method of the returned instance.
+
+Whenever this method is called the stream expects us to provide more data available that can be consumed by the stream. We can add data to the stream by calling the `push` method with a new chunk of data.
+
+> #### Using `readable-stream` instead of `stream` ![](../tip.png)
+> To allow universal behavior across Node modules, if we ever use the 
+> core `stream` module to create streams, we should actually use the 
+> `readable-stream` module available on npm. This an up to date
+> and multi-version compatible representation of the core streams module
+> and ensures consistency.
+
+Let's create a folder called `core-streams` and create an `index.js`
+file inside.
+
+At the top of `index.js` we write: 
+
+``` js
+const {Readable, Writable} = require('stream')
+
+const rs = Readable({
+  read: () => {
+    rs.push(Buffer('Hello, World!'))
+    rs.push(null) 
+  }
+})
+```
+
+Each call to `push` sends data through the stream. When we pass `null` to 
+`push` we're informing the `stream.Readable` interface that there is no more data available.
+
+The use of the `read` option instead of attaching a `_read` method is
+only appropriate for scenarios where our code is expected to be used
+by Node 4 and above (the same goes for the use of destructing context and
+fat arrow lambda functions).
+
+To create a writable stream we need the `stream.Writable` base class. When data is written to the stream the writable base class will buffer the data internally and call the `_write` method that it expects us to implement. Likewise from Node 4 we can use the `write` option for a nicer syntax.
+Again this approach isn't appropriate for modules which are intended to
+be made publicly available, since it doesn't cater to legacy Node users.
+
 Now to the bottom of our `index.js` file let's add the following:
 
 ``` js
-const ws = new stream.Writable()
-
-ws._write = function (data, enc, cb) {
-  console.log(`Data written: ${data.toString()}`)
-  cb()
-}
+const ws = Writable({
+  write: (data, enc, cb) => {
+    console.log(`Data written: ${data.toString()}`)
+    cb()
+  }
+})
 ```
 
 To write data to the stream we can either do it manually using the `write` method or we can pipe a readable stream to it.
@@ -691,37 +1061,152 @@ $ node index.js
 
 This should print out "Data written: Hello, World!". 
 
-As you may have noticed, creating our own streams is a little bit cumbersome. We need to override methods and there is a lot of ways to implement poorly. For example the `_read` method on readable streams does not accept a callback. Since a stream usually contains more than just a single buffer of data the stream needs to call the `_read` method more than once. The way it does this is by waiting for us to call `push` and then calling `_read` again if the internal buffer of the stream has available space. A problem with this approach is that if we want to call `push` more than once in the same `_read` context things become tricky. 
+#### Core Readable Streams flow control issue
 
-Here is an example:
+The `_read` method on readable streams does not accept a callback. Since a stream usually contains more than just a single buffer of data the stream needs to call the `_read` method more than once. 
 
-``` js
-// THIS EXAMPLE DOES NOT WORK AS EXPECTED
-var rs = new stream.Readable()
+The way it does this is by waiting for us to call `push` and then calling `_read` again if the internal buffer of the stream has available space.
 
-rs._read = function () {
-  setTimeout(function () {
-    rs.push('Data 0')
-    setTimeout(function () {
-      rs.push('Data 1')
-    }, 50)
-  }, 100)
-}
+ A problem with this approach is that if we want to call `push` more than once, in an asynchronous way this becomes problematic.
 
-rs.on('data', function (data) {
+ Let's create a folder called `readable-flow-control`, with a file
+ called `undefined-behavior.js` containing the following:
+
+```js
+// WARNING: DOES NOT WORK AS EXPECTED
+const {Readable} = require('stream')
+const rs = Readable({
+  read: () => {
+    setTimeout(() => {
+      rs.push('Data 0')
+      setTimeout(() => {
+        rs.push('Data 1')
+      }, 50)
+    }, 100)
+  }
+})
+
+rs.on('data', (data) => {
   console.log(data.toString())
 })
 ```
 
-Try running this example. We might expect it to produce a stream of alternating `Data 0`, `Data 1` buffers but in reality it has undefined behavior.
+If we run that:
 
-Luckily as we show in this recipe, there are more user friendly modules available (such as as `through2`) to make all of this easier.
+```sh
+$ node undefined-behavior.js
+```
 
-#### Creating read and write streams 
+We might expect it to produce a stream of alternating `Data 0`, `Data 1` buffers but in reality it has undefined behavior.
 
-* from2
-* to2
-* discussion on on maybe just using through2 
+Luckily as we show in this recipe, there are more user friendly modules available (such as as `from2`) to make all of this easier.
+
+Let's install `from2` into our folder and create a file called `expected-behavior.js`:
+
+```sh
+$ npm init -y
+$ npm install --save from2
+$ touch expected-behavior.js
+```
+
+We make the `expected-behavior.js` contain the following content:
+
+```js
+const from = require('from2')
+const rs = from((size, cb) => {
+  setTimeout(() => {
+    rs.push('Data 0')
+    setTimeout(() => {
+      rs.push('Data 1')
+      cb()
+    }, 50)
+  }, 100)
+})
+
+rs.on('data', (data) => {
+  console.log(data.toString())
+})
+```
+
+Now if we run that
+
+```sh
+$ node expected-behavior.js
+```
+
+We'll see alternating messages, as expected.
+
+#### Stream destruction
+
+As opposed to using the `stream.Readable` constructor in Node core to create your own readable streams `from2` adds another essential feature.
+It adds a way to stop or destroy the stream prematurely.
+
+Core streams in Node actually *do not* document a way to do this in general but most used streams support a `destroy` method that will destroy a stream before it emits all of its data. When using the `destroy` method that `from2` provides the stream will stop emitting data and emit a `close` event to indicate that no more data will be emitted. It won't necessarily emit an `end` in this case.
+
+To showcase the `destroy` method, we'll create an infinite stream (a fun 
+sub-genre of readable streams, that allow for infinite data with finite memory).
+
+Let's create a folder called `stream-destruction`, initialize it as a package, install `from2` and create an `index.js` file:
+
+```sh
+$ mkdir stream-destruction
+$ cd stream-destruction
+$ npm init -y
+$ npm install from2
+$ touch index.js
+```
+
+At the top of `index.js` we write:
+
+```js
+const from = require('from2')
+
+function createInfiniteTickStream () {
+  var tick = 0
+  return from.obj((size, cb) => {
+    cb(null, {tick: tick++})
+  })
+}
+```
+
+Let's create the stream and log each `data` event:
+
+``` js
+const stream = createInfiniteTickStream()
+
+stream.on('data', (data) => {
+  console.log(data)
+})
+```
+
+Let's run our program so far:
+
+```sh
+$ node index.js
+```
+
+We'll notice that it just floods the console as it never ends.
+
+Since an infinite stream won't end by itself we need to have a mechanism for which we can tell it from the outside that it should stop.
+We need this incase we are consuming the stream and one of the downstream dependents experiences an error which makes us wanting to shutdown the pipeline.
+
+Now let's add the following to our `index.js` file:
+
+```js
+stream.on('close', () => {
+  console.log('(stream destroyed)')
+})
+
+setTimeout(() => {
+  stream.destroy()
+}, 2000)
+```
+
+Running the above code will make the tick stream flood the console for about 2s and then stop since we destroy it.
+The destroy method is extremely useful in many applications and more or less essential when doing any kind of stream error handling.
+
+For this reason using from2 (and other stream modules described in this book) is highly recommended over using the core stream module unless you know what you are doing.
+
 
 #### Composing duplex streams
 
