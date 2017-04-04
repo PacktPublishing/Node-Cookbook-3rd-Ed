@@ -4,22 +4,22 @@ var from = require('from2')
 
 function createInfiniteTickStream () {
   var tick = 0
-  return from.obj(function (size, cb) {
+  return from.obj((size, cb) => {
     setImmediate(() => cb(null, {tick: tick++}))
   })
 }
 
 var stream = createInfiniteTickStream()
 
-stream.on('data', function (data)  {
-  console.error(data)
+stream.on('data', (data) => {
+  console.log(data)
 })
 
-stream.on('close', function () {
+stream.on('close', () => {
   console.log('(stream destroyed)')
 })
 
-setTimeout(function () {
+setTimeout(() => {
   stream.destroy()
 }, 1000)
 

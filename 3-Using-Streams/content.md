@@ -1199,7 +1199,7 @@ stream.on('close', () => {
 
 setTimeout(() => {
   stream.destroy()
-}, 2000)
+}, 1000)
 ```
 
 Running the above code will make the tick stream flood the console for about 2s and then stop, while a final message "(stream destroyed)" is printed
