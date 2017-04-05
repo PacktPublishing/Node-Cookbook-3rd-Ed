@@ -47,7 +47,9 @@ First of all this program takes quite a long time to run. Second, depending on t
 
 Why is this happening?
 
-The npm registry stores a very large amount of JSON data, and it takes quite a bit of memory to buffer it all. Let us investigate how we can use streams to improve our program.
+The npm registry stores a very large amount of JSON data, and it takes quite a bit of memory to buffer it all. 
+
+In this recipe, we'll investigate how we can use streams to improve our program.
 
 ### Getting Ready
 
@@ -65,16 +67,17 @@ const rs = fs.createReadStream(__filename)
 ```
 
 The `__filename` variable is provided by Node, it holds the absolute path
-of the file currently being executed (in our case it will point to the `index.js`
-file in the `self-read` folder).
+of the file currently being executed (in our case it will point to the `index.js` file in the `self-read` folder).
 
-The first thing to notice is that this method is synchronous.
+The first thing to notice is that this method appears to be synchronous.
 
 Normally when we work with I/O in Node we have to provide a callback. 
 
-Streams abstract this away by returning an object instance that represents the entire contents of the file. How do we get the file data out of this abstraction?
+Streams abstract this away by returning an object instance that represents the entire contents of the file. 
 
-We can extract data from the stream using the `data` event.
+How do we get the file data out of this abstraction?
+
+One way to extract data from stream is by listening to the `data` event.
  
 Let's attach a data listener that will be called every time a new small chunk of the file has been read.
 
@@ -445,27 +448,30 @@ specifically to solve this problem.
 
 Let's create a folder called `big-file-server`, with an `index.js`. 
 
-We'll need to initialize the folder as a package, and install the `pump`
-module: 
+We'll need to initialize the folder as a package, install the `pump`
+module and create and `index.js` file: 
 
 ```sh
 $ mkdir big-file-server
 $ cd big-file-server
 $ npm init -y 
 $ npm install --save pump
+$ touch index.js
 ```
 
-We'll also need a big file, so let's create that quickly with `dd`: 
-
+We'll also need a big file, so let's create that quickly: 
+  
 ```sh
-$ TODO    > big.file
+$ node -e "process.stdout.write(crypto.randomBytes(1e9))" > big.file
 ```
 
 ### How to do it
 
-We'll begin by requiring the `http` and `pump` modules:
+We'll begin, in our `index.js` file, 
+by requiring the `fs`, `http` and `pump` modules:
 
 ```js
+const fs = require('fs')
 const http = require('http')
 const pump = require('pump')
 ```
@@ -476,15 +482,17 @@ big file stream to our response stream:
 ```js
 const server = http.createServer((req, res) => {
   const stream = fs.createReadStream('big.file')
-  pump(stream, response, (err) => {
-    if (err) {
-      return console.error('File was not fully streamed to the user', err)
-    }
-    console.log('File was fully streamed to the user')
-  })
+  pump(stream, res, done)
 })
 
-server.listen(8080)
+function done (err) {
+  if (err) {
+    return console.error('File was not fully streamed to the user', err)
+  }
+  console.log('File was fully streamed to the user')
+}
+
+server.listen(3000)
 ```
 
 > #### Piping many streams with `pump` ![](../tip.png)
@@ -509,7 +517,7 @@ $ curl http://localhost:8080 # hit Ctrl + C before finish
 
 Every stream we pass into the `pump` function will be piped to the 
 next (as per order of arguments passed into `pump`). If the last 
-argument past to `pump` is a function the `pump` module will call
+argument passed to `pump` is a function the `pump` module will call
 that function when all streams have finished (or one has errored). 
 
 Internally, `pump` attaches `close` and `error` handlers, and also
@@ -523,7 +531,8 @@ It is possible to handle this manually, but the boilerplate overhead
 and potential for missed cases is generally unacceptable for production
 code. 
 
-For instance, here's our specific case from the recipe altered to handle the response closing:
+For instance, here's our specific case from the recipe 
+altered to handle the response closing:
 
 ```js
 const server = http.createServer((req, res) => {
@@ -539,43 +548,75 @@ If we multiply that by every stream in a pipeline, and then multiply it again
 by every possible case (mostly `close` and `error` but also esoteric cases)
 we end up with an extraordinary amount of boilerplate.
 
-There are very few use cases where we want to use `pipe` (sometimes we want to apply manual error handling) instead of `pump` so for production purposes it is a lot safer to always use `pump` instead `pipe`.
+There are very few use cases where we want to use `pipe` 
+(sometimes we want to apply manual error handling) instead 
+of `pump` but generally for production purposes it's a lot safer to 
+use `pump` instead `pipe`.
 
 ### There's more
 
-Here's some other usual things we can do with `pump`. 
+Here's some other common things we can do with `pump`. 
 
 #### Use `pumpify` to expose pipelines
 
-When writing pipelines, especially as part of module, we might want to expose these pipelines to a user.
-So how do we do that? As described above a pipeline consists of a series of transform streams. We write data to the first stream in the pipeline and the data flows through it until it is written to the final stream.
+When writing pipelines, especially as part of module, we might want to expose these pipelines to a user as a single entity.
 
-``` js
+So how do we do that? As described in the main recipe a pipeline consists of a series of transform streams. We write data to the first stream in the pipeline and the data flows through it until it is written to the final stream.
+
+Let's consider the following:
+
+```js
+  pump(stream1, stream2, stream3)
+```
+
+If we were to expose the above pipeline to a user we would need to both return `stream1` and `stream3`. `stream1` is the stream a user should write the pipeline data to and `stream3` is the stream the user should read the pipeline results from. 
+
+Since we only need to write to `stream1` and only read from `stream3` we could just combine to two streams into a new duplex stream that would then represent the entire pipeline.
+
+The npm module `pumpify` does *exactly* this.
+
+Let's create a folder called `pumpified-pipeline`, initialize it as a package,
+install `pumpify`, `base64-encode-stream` and create an `index.js`:
+
+```sh
+$ mkdir pumpified-pipeline
+$ cd pumpified-pipeline
+$ npm init -y
+$ npm install --save pumpify base64-encode-stream
+$ touch index.js
+```
+
+At the top of `index.js` we'll write: 
+
+```js
+const {createGzip} = require('zlib')
+const {createCipher} = require('crypto')
+const pumpify = require('pumpify')
+const base64 = require('base64-encode-stream')
+
 function pipeline () {
-  pump(stream1, stream2, stream3, stream4)
+  const stream1 = createGzip()
+  const stream2 = createCipher('aes192', 'secretz')
+  const stream3 = base64()
+  return pumpify(stream1, stream2, stream3)
 }
 ```
 
-If we were to expose the above pipeline to a user we would need to both return `stream1` and `stream4`. `stream1` is the stream a user should write the pipeline data to and `stream4` is the stream the user should read the pipeline results from. Since we only need to write to `stream1` and only read from `stream4` we could just combine to two streams into a new duplex stream that would then represent the entire pipeline.
+Now we'll use our pipeline, at the end of `index.js` we add:
 
-The npm module pumpify does *exactly* this
 
 ``` js
-var pipe = pipeline()
+const pipe = pipeline()
 
-pipe.write('hello') // written to stream1
+pipe.end('written to stream1')
 
-pipe.on('data', function (data) {
-  console.log(data) // read from stream4
+pipe.on('data', (data) => {
+  console.log('stream3 says: ', data.toString())
 })
 
-pipe.on('finish', function () {
-  // all data was succesfully flushe to stream4
+pipe.on('finish', () => {
+  console.log('all data was succesfully flushed to stream3')
 })
-
-function pipeline () {
-  return pumpify(stream1, stream2, stream3, stream4)
-}
 ```
 
 ### See also
