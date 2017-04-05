@@ -2,7 +2,7 @@
 This chapter covers the following topics
 
 * Building a simple RESTful microservice
-* Creating the context
+* Consuming a Service
 * Setting up a Development Environment
 * Dealing with Configuration
 * Using Containerized Infrastructure
@@ -10,7 +10,6 @@ This chapter covers the following topics
 * Adding a queue based service
 
 ## Introduction
-
 Microservices are very much in vogue at the moment and for good reason. There are many benefits to adopting a microservices architecture such as:
 
 * Focus - Each service should do one thing only and do it well. This means that an individual microservice should contain a small amount of code that is easy for an individual developer to reason about.
@@ -140,19 +139,40 @@ Finally our service sent a response using the `res.send` function.
 ### There's more
 Whilst this is a trivial service it should serve to illustrate the fact that a microservice is really nothing more than a Node module that runs as an independent process. A microservice system is a collection of these co-operating processes. Of course it gets more complicated in a real system where you have lots of services and have to manage problems such as service discovery and deployment, however keep in mind that the core concept is really very simple.
 
-#### Testing in a browser
-We don't necessarily need to use the curl command to test our microservices, We can test out HTTP get requests just using a web browser. For example we could open the default browser on our system and type the url into the address bar. Our service will return a response and the browser should render it as text for us. Bear in mind that some browsers will treat the response as a file download depending on how they have been configured.
-
-### See also
+#### Using the Core HTTP Module
 Whilst we have used `restify` to create this simple service, there are several alternative approaches that we could have used such as:
 
 * The Node core `http` module
-
 * The `Express` framework [http://expressjs.com/](http://expressjs.com/)
-
 * The `HAPI` framework [https://hapijs.com/](https://hapijs.com/)
 
-We will be using the Express framework to build a front end to our services in the following recipes but bear in mind that it can also be used for service creation.
+Let's create an alternative implementation using the Node core HTTP module. Create a file in the `adderservice` directory called `service-core.js` and add the following code:
+
+```javascript
+var http = require('http')
+
+function respond (req, res, next) {
+  var params = req.url.split('/')
+  var result = parseInt(params[2], 10) + parseInt(params[3], 10)
+  res.end('' + result)
+}
+
+var server = http.createServer((req, res) => {
+  respond(req, res)
+})
+
+server.listen(8080, function () {
+  console.log('listening on port 8080')
+})
+```
+
+Use the curl command as before to check that the service returns the same result. Whilst the core implementation works in the same way it is far more brittle than the `restify` implementation in that it lacks the framework support for parameter parsing, error handling and so on.
+
+#### Viewing in a browser
+We don't necessarily need to use the curl command to test our microservices, We can test out HTTP get requests just using a web browser. For example we could open the default browser on our system and type the url into the address bar. Our service will return a response and the browser should render it as text for us. Bear in mind that some browsers will treat the response as a file download depending on how they have been configured.
+
+### See also
+**TOD DMC**
 
 ## Consuming a Service
 In this recipe we are going to create a web application that will consume our microservice. This is the API and client tier in our reference architecture depicted in the figure in the introduction to the chapter. We will be using the Express web framework to do this and also the Express Generator to create an application skeleton.
@@ -182,7 +202,6 @@ $ express --view=ejs ./webapp
 This will create a skeletal web application using `ejs` templates in a new directory called `webapp`.
 
 > #### `ejs`.. ![](../info.png)
->
 > Express supports multiple template engines including Jade, `ejs` and Handlebars. If you would prefer to use a different engine simply supply a different option to the --view switch. More information is available by running ```express --help```
 
 Next we need to install the dependencies for our application:
@@ -307,25 +326,22 @@ As can been seen we have implemented a front end and a single back end service. 
 
 We implemented a route in our API tier that uses `restify` to make a connection to our microservice. This route marshals parameters from the original form `POST` request and sends them onto our microservice via a HTTP `GET` request. Once the service has returned a result, our Express application renders it using our Ejs template.
 
-### There's more
 Of course, for a small system like this it is hardly worth going to the trouble of building a microservice, however this is just for illustrative purposes. As a system grows in functionality the benefits of this type of architectural approach become more apparent.
 
 It is also important to note the reason for the API tier (the Express application). Microservice systems tend to be architected in this manner in order to minimize the public API surface area. It is highly recommended that you never expose microservices directly to the client tier, even on protected networks, preferring instead to use this type of API gateway pattern to minimize the attack surface.
 
 The following recipes will go on to build on more elements of our system however before we do so our next recipe will look at how we can configure an effective local development environment.
 
+### There's more
+
+- integration testing with supertest
+
+-
+
 ### See also
-A full discussion of security as pertaining to microservices is outside the scope of this chapter, however it is important to note that of course all of the usual rules pertaining to online application security apply. In our reference architecture we have applied what is sometimes referred to as the API gateway pattern. Simply put this means do not expose microservices directly to public networks, instead only expose the minimal API surface area required. We suggest at a minimum that the following practices be given consideration when implementing a microservice system:
+**TODO**
 
-* Always use the API gateway pattern and minimize the exposed application surface area
 
-* Never expose internal service details in client code - i.e. front end code that runs in web browsers or on mobile devices. Front end code should communicate via an API only. This means that you should avoid using inherently insecure architectural patterns such as `client side service discovery`.
-
-* Identify and classify services based on the sensitivity of the data that they handle. Consider the deployment and management policy for services based on this classification.
-
-* Ensure that regular and robust security testing is carried out.
-
-* Be familiar with the OWASP top ten security risks [https://www.owasp.org/index.php/Category:OWASP_Top_Ten_Project](https://www.owasp.org/index.php/Category:OWASP_Top_Ten_Project)
 
 ## Setting up a development environment
 Microservice systems have many advantages to traditional monolithic systems, however this style of development does present it's own challenges. One of these has been termed Shell Hell. This occurs when we have many microservices to spin up and down on a local development machine in order to run integration and regression testing against the system, as illustrated in the image below:
@@ -566,20 +582,16 @@ The system should start up as before. If we open up a browser and point it to `h
 Whilst we have only made minor code changes to the system, organizationally these changes are important. Our first change was to remove any hard coded service configuration information from the code. In the file `micro/adderservice/wiring.js`, we changed the listen code to:
 
 ```javascript
-.
   server.listen(process.env.ADDERSERVICE_SERVICE_PORT, '0.0.0.0',
   function () {
     console.log('%s listening at %s', server.name, server.url)
   })
-.
 ```
 
 This means that the port that the service is listening on is now supplied by the environment. Whilst it might be fine to hard code this information for a small system, it quickly becomes unmanageable in a larger system so this approach to service configuration is important. Of course when we start the `adderservice` the environment needs to be set up correctly otherwise our process will fail to start. The Fuge shell provides this environment variable for us. To see this start the Fuge shell as before and run the `info` command:
 
 ```sh
 fuge> info adderservice full
-.
-.
 ADDERSERVICE_SERVICE_HOST=127.0.0.1
 ADDERSERVICE_SERVICE_PORT=8080
 ADDERSERVICE_PORT=tcp://127.0.0.1:8080
@@ -587,7 +599,6 @@ ADDERSERVICE_PORT_8080_TCP=tcp://127.0.0.1:8080
 ADDERSERVICE_PORT_8080_TCP_PROTO=tcp
 ADDERSERVICE_PORT_8080_TCP_PORT=8080
 ADDERSERVICE_PORT_8080_TCP_ADDR=127.0.0.1
-.
 ```
 
 We can see that the port setting is provided by Fuge to the `adderservice` process along with a number of other environment variables. It should be noted that Fuge uses a specific format for the environment variables that it injects into a process, following the same format as deployment tools like Kubernetes and Docker Swarm. We will explore this more in the chapter on deployment but for now it is important to realize that there is a specific non-random naming convention in play!
@@ -599,7 +610,6 @@ Our second change was to separate the service logic from the framework logic in 
 
 > #### Transport Independent ![](../tip.png)
 > Microservice business logic should execute independent of the context in which it is called. Put another way a microservice should not know anything about the context that it is executing in.
-
 
 ### There's more
 Throughout this chapter we are using `restify` as our tool to create `REST` based interfaces to our microservices. However it should be stressed that this is just one approach to creating point to point connections to services, there are of course several other approaches that one might use. It is of course perfectly possible to use other HTTP based frameworks to accomplish the same end, however there are other approaches which are certainly worth considering.
@@ -843,14 +853,10 @@ router.get('/', function (req, res, next) {
 Now that we have our view and a route to exercise it we need to add the route into the `webapp`. To do this open the file `app.js` and hook the audit route in a similar manner to the add route by adding the following two lines at the appropriate point:
 
 ```javascript
-.
-.
 var audit = require('./routes/audit');
 .
 .
 app.use('/audit', audit);
-.
-.
 ```
 
 So we now have an audit route that will display our audit log, the last thing we need to do is to call the audit service to log entries each time a calculation occurs, to do this open the file `routes/add.js` and modify it by adding a call to the audit service as shown below:
@@ -1224,7 +1230,7 @@ fuge> info auditservice full
 Fuge will display the environment that is passed into the `auditservice` which should look like the following:
 
 ```
-  command: node index.js
+command: node index.js
 directory: ...
 environment:
   DNS_HOST=127.0.0.1
@@ -1240,9 +1246,7 @@ environment:
   AUDITSERVICE_PORT_8081_TCP_ADDR=127.0.0.1
   WEBAPP_SERVICE_HOST=127.0.0.1
   WEBAPP_SERVICE_PORT=3000
-  .
-  .
-  ```
+```
 
 All of these environment variables will be available to the service process. Note that Fuge also supplies the DNS_HOST environment variable along with a port, namespace and suffix. The `concordant` module uses these environment variables to form service lookup queries.
 
@@ -1457,15 +1461,12 @@ Next we need to hook this into our application as a piece of middleware, open th
 
 ```javascript
 var evt = require('./eventLogger')()
-  .
-  .
+
   app.use(function (req, res, next) {
     next()
     evt.logEvent({type: 'page', url: req.protocol + '://' +
                   req.get('host') + req.originalUrl})
   })
-  .
-  .
 ```
 
 This will send an event message to the Redis queue for each page load event in the system.
@@ -1540,8 +1541,7 @@ eventservice:
   type: process
   path: ../eventservice
   run: 'node index.js'
-.
-.
+
 redis:
   image: redis
   type: container
@@ -1592,6 +1592,19 @@ Our services are clearly separated right into the data layer. This is an importa
 #### Stateless
 Notice that all of our services are stateless. Whist this is a simple example system, we should always strive to make our services stateless. Practically this usually means loading user context on demand or passing user state information through from the client. Keeping our services stateless means that we can scale each service horizontally as demand requires.
 
+#### A Note on Security
+A full discussion of security as pertaining to microservices is outside the scope of this chapter, however it is important to note that of course all of the usual rules pertaining to online application security apply. In our reference architecture we have applied what is sometimes referred to as the API gateway pattern. Simply put this means do not expose microservices directly to public networks, instead only expose the minimal API surface area required. We suggest at a minimum that the following practices be given consideration when implementing a microservice system:
+
+* Always use the API gateway pattern and minimize the exposed application surface area
+
+* Never expose internal service details in client code - i.e. front end code that runs in web browsers or on mobile devices. Front end code should communicate via an API only. This means that you should avoid using inherently insecure architectural patterns such as `client side service discovery`.
+
+* Identify and classify services based on the sensitivity of the data that they handle. Consider the deployment and management policy for services based on this classification.
+
+* Ensure that regular and robust security and penetration testing is carried out by an expert third party.
+
+* Be familiar and ensure that your team is familiar with the OWASP top ten security risks [https://www.owasp.org/index.php/Category:OWASP_Top_Ten_Project](https://www.owasp.org/index.php/Category:OWASP_Top_Ten_Project)
+
 ### There's more
 During these recipes we have been starting and stopping both processes and Docker containers. Restarting containers is sometimes not the ideal solution, this is because container storage is ephemeral and once a container is stopped any changes are lost, for example the astute reader will have noted that each time the system is restarted all of the data is removed from the MongoDB database. Also stopped containers are still left on disk and will eventually need to be cleaned up. To see this open up a command prompt and run:
 
@@ -1609,11 +1622,8 @@ It is perfectly possible to just leave containers running in the background and 
 
 ```
 fuge_global:
-  .
-  .
+
   run_containers: false
-  .
-  .
 ```
 
 This tells Fuge not to start up any containers. If we open up a shell prompt we can start both of our containers manually by running:
