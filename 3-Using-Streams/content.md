@@ -2,10 +2,12 @@
 
 This chapter covers the following topics
 
+* Extracting data from streams
 * Handling data larger than fits in memory
 * Decoupling I/O from modules
 * Reducing latency in our apps
 * Composing pipelines
+* Creating different kinds of streams
 
 ## Introduction
 
@@ -460,7 +462,7 @@ $ touch index.js
 ```
 
 We'll also need a big file, so let's create that quickly: 
-  
+
 ```sh
 $ node -e "process.stdout.write(crypto.randomBytes(1e9))" > big.file
 ```
@@ -1177,17 +1179,238 @@ $ node expected-behavior.js
 
 We'll see alternating messages, as expected.
 
+#### Composing duplex streams
+
+A duplex stream is a stream with a readable and writable 
+interface. We can take a readable stream and a writeable
+stream and join them as a duplex stream using the `duplexify` 
+module. 
+
+Let's create a folder called `composing-duplex-streams`,
+initialize as a package, install `from2`, `to2` and `duplexify`
+and create an  an `index.js` file:
+
+```sh
+$ mkdir composing-duplex-streams
+$ cd composing-duplex-streams
+$ npm init -y
+$ npm install --save from2 to2 duplexify
+$ touch index.js
+```
+
+Then in our `index.js` file we'll write:
+
+```js
+const from = require('from2')
+const to = require('to2')
+const duplexify = require('duplexify')
+
+const rs = from(() => {
+  rs.push(Buffer('Hello, World!'))
+  rs.push(null)
+})
+
+const ws = to((data, enc, cb) => {
+  console.log(`Data written: ${data.toString()}`)
+  cb()
+})
+
+const stream = duplexify(ws, rs)
+
+stream.pipe(stream)
+```
+
+We're using the same readable and writable streams
+from the main recipe (`rs` and `ws`), however we create
+the `stream` assignment by passing `ws` and `rs` to `duplexify`. 
+Now instead of piping `rs` to `ws` we can pipe `stream` to itself.
+
+This can be a very useful API pattern, when we want to return or export
+two streams that are interrelated in some way. 
+
+### See also
+
+* TBD
+
+## Decoupling I/O
+
+Streams offer two major benefits, the first being fine grained
+control of memory and CPU resources via incremental processing.
+
+The second is a terse yet powerful common interface, that when
+used as a pattern can provide a clean separation between source
+inputs, transformation layers and target outputs.
+
+For instance, imagine we we're implementing a protocol layer,
+that's most likely going to be used with a TCP server.
+
+We could wrap add a layer of abstraction on top of the `net` module's
+TCP server, or we could provide a stream that can be piped
+to it from a `net` socket. 
+
+In the latter case, our protocol implementation is decoupled
+from the source, allowing alternative (potentially unforeseen uses).
+For instance, it may become useful to use with WebSockets, or
+over UDP, perhaps it could be used in a tool that takes input
+from STDIN. 
+
+This recipe rounds off our **Using Streams** chapter by
+demonstrating a way to keep I/O decoupled allowing for more
+flexible re-use when it comes to data processing.
+
+### Getting Ready
+
+We're going to create two folders, one representing a protocol
+parsing library, the other will be a consumer of the library.
+
+First let's create the `tcp-server` folder, and place an `index.js`
+file inside:
+
+```sh
+$ mkdir tcp-server
+$ touch tcp-server/index.js
+```
+
+Next we'll create the `ping-protocol-stream` folder, initialize
+it as a package, install `split2`, `through2`and `pumpify` and add an `index.js` file:
+
+```sh
+$ mkdir ping-protocol-stream
+$ cd ping-protocol-stream
+$ npm init -y
+$ npm install --save split2 through2
+$ touch index.js
+```
+
+### How to do it
+
+Let's begin with the `ping-protocol-stream/index.js` file.
+
+We'll start by requiring our dependencies:
+
+```js
+const through = require('through2')
+const split = require('split2')
+const pumpify = require('pumpify')
+```
+
+Now we'll write the `pingProtocol` function, and export it:
+
+```js
+function pingProtocol() {
+  const ping = /Ping:\s+(.*)/
+  const protocol = through(each)
+
+  function each (line, enc, cb) {
+    if (ping.test(line)) {
+      cb(null, `Pong: ${line.toString().match(ping)[1]}\n`)
+      return
+    }
+    cb(null, 'Not Implemented\n')
+  }
+
+  return pumpify(split(), protocol)
+}
+
+module.exports = pingProtocol
+```
+
+Now we'll write the `tcp-server/index.js` file which
+is going to consume our `ping-protocol-stream` module.
+
+Our `tcp-server/index.js` should look like so:
+
+```js
+const net = require('net')
+const ping = require('../ping-protocol-stream')
+
+const server = net.createServer((socket) => {
+  const protocol = ping()
+  socket.pipe(protocol).pipe(socket)
+})
+
+server.listen(3000)
+```
+
+Now if we start our TCP server (assuming our current working directory on the command line is the parent of the `tcp-server` folder):
+
+```sh
+$ node tcp-server
+```
+
+We can (in another terminal window) connect the server with Netcat or Telnet,
+or even Node. 
+
+Let's connect to our server using a quick `node` command:
+
+```sh
+$ node -e "process.stdin.pipe(net.connect(3000)).pipe(process.stdout)"
+```
+
+This will allow us to interact with our server, for instance
+we can type "Ping: Hi" and our server will reply "Pong: Hi", 
+if we type "Something else" our server will respond "Not Implemented", as shown in the image below:
+
+![](images/decouple-io.png)
+
+
+### How it works
+
+The point of this recipe is to demonstrate input source
+agnositicism and to champion a decoupled approach to 
+I/O handling which ties together nicely with the small
+modules approach.
+
+Decoupling I/O with streams often allows us to avoid
+adding extra layers of abstraction, making it easy
+for consumers to connect pieces together, like
+garden pipe hoses!
+
+Our `ping-protocol-stream` module uses the `through2` module
+to create a stream that expects each data chunks to come 
+through as separate lines. We check the line to see if it
+matches our protocols commands, if it does we respond, 
+if it doesn't we output a generic "Not Implemented" message.
+
+We use the `split2` module to ensure that input data is split
+by line, then using `pumpify` to create a single pipeline 
+duplex stream, combing the line splitting functionality
+with our protocol functionality.
+
+All our `tcp-server` has to do is require the module,
+call it as a function to create a stream and then 
+pipe from an incoming socket, through the protocol stream
+back out to the socket.
+
+This allows for a great deal of flexibility. 
+
+For instance, imagine we wanted I/O to be compressed 
+or encrypted? We can simply add other transform streams 
+into the pipeline. If our protocol implementation had instead wrapped the TCP server, we would have to add functionality to the TCP to allow for encryption, compression, and so forth. 
+
+Additionally, what if we wanted our protocol to work across 
+UDP? We can simply pipe to a UDP socket instead. If we had 
+implemented our protocol on top of a TCP server, we would have
+to create a separate implementation for UDP, or any other
+applicable type of channel.
+
+### There's more
+
+When using Streams to decouple I/O, what is ultimately the best way
+to create streams, core or modules like `through2`? 
+
 #### Stream destruction
 
-As opposed to using the `stream.Readable` constructor in Node core to create your own readable streams `from2` adds another essential feature.
-It adds a way to stop or destroy the stream prematurely.
+When creating stream modules for external consumption, we want to make sure the user of our module can clean up any left over resources our stream has held.
+
+As opposed to using core stream constructors in Node core to create streams, npm modules like `from2`, `through2` and `to2` add an essential feature: a way to stop or destroy the stream prematurely.
 
 Core streams in Node actually *do not* document a way to do this in general but most used streams support a `destroy` method that will destroy a stream before it emits all of its data. When using the `destroy` method that `from2` provides the stream will stop emitting data and emit a `close` event to indicate that no more data will be emitted. It won't necessarily emit an `end` in this case.
 
-To showcase the `destroy` method, we'll create an infinite stream (a fun 
+To showcase the `destroy` method, we'll create an infinite stream (a fun
 sub-genre of readable streams, that allow for infinite data with finite memory).
 
-Let's create a folder called `stream-destruction`, initialize it as a package, install `from2` and create an `index.js` file:
+Let's create a folder called `stream-destruction`, initialize it as a package,install `from2` and create an `index.js` file:
 
 ```sh
 $ mkdir stream-destruction
@@ -1244,73 +1467,10 @@ setTimeout(() => {
 ```
 
 Running the above code will make the tick stream flood the console for about 2s and then stop, while a final message "(stream destroyed)" is printed
-to the console before the program exits. 
+to the console before the program exits.
 
 The `destroy` method is extremely useful in many applications and more or less essential when doing any kind of stream error handling.
 
 For this reason using `from2` (and other stream modules described in this book) is highly recommended over using the core stream module.
-
-#### Composing duplex streams
-
-A duplex stream is a stream with a readable and writable 
-interface. We can take a readable stream and a writeable
-stream and join them as a duplex stream using the `duplexify` 
-module. 
-
-Let's create a folder called `composing-duplex-streams`,
-initialize as a package, install `from2`, `to2` and `duplexify`
-and create an  an `index.js` file:
-
-```sh
-$ mkdir composing-duplex-streams
-$ cd composing-duplex-streams
-$ npm init -y
-$ npm install --save from2 to2 duplexify
-$ touch index.js
-```
-
-Then in our `index.js` file we'll write:
-
-```js
-const from = require('from2')
-const to = require('to2')
-const duplexify = require('duplexify')
-
-const rs = from(() => {
-  rs.push(Buffer('Hello, World!'))
-  rs.push(null)
-})
-
-const ws = to((data, enc, cb) => {
-  console.log(`Data written: ${data.toString()}`)
-  cb()
-})
-
-const stream = duplexify(ws, rs)
-
-stream.pipe(stream)
-```
-
-We're using the same readable and writable streams
-from the main recipe (`rs` and `ws`), however we create
-the `stream` assignment by passing `ws` and `rs` to `duplexify`. 
-Now instead of piping `rs` to `ws` we can pipe `stream` to itself.
-
-This can be a very useful API pattern, when we want to return or export
-two streams that are interrelated in some way. 
-
-### See also
-
-* TBD
-
-## Decoupling I/O
-
-### Getting Ready
-
-### How to do it
-
-### How it works
-
-### There's more
 
 ### See also
