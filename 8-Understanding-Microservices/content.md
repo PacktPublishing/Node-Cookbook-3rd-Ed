@@ -25,12 +25,9 @@ Microservices are very much in vogue at the moment and for good reason. There ar
 
 Of course it is not always appropriate to use microservices, certainly the 'golden hammer' anti-pattern should be avoided at all costs, however it is a powerful approach when applied correctly. In this chapter we will learn how to construct a simple RESTful microservice and also how this might be consumed. We will also look at how to set up a clean local development environment using the Fuge toolkit and then look at how to build services that communicate over protocols other than simple HTTP. Finally we will build in a simple service discovery mechanism to allow us to consume our services without hard coding.
 
-Before diving into code, however, we should take a moment to review what we mean by a microservice and how this concept plays into a reference architectural frame. Figure 7.1 below depicts a typical microservice system.
+Before diving into code, however, we should take a moment to review what we mean by a microservice and how this concept plays into a reference architectural frame. The following figure depicts a typical microservice system.
 
 ![image](./images/logical.png)
-
-
-**Figure 7.1 Microservice reference architecture**
 
 Our reference architecture contains the following elements that are typical to most microservice style systems:
 
@@ -91,7 +88,8 @@ Now it's time to actually write our service. Using your favorite editor create a
 var restify = require('restify')
 
 function respond (req, res, next) {
-  var result = parseInt(req.params.first, 10) + parseInt(req.params.second, 10)
+  var result = parseInt(req.params.first, 10) +
+               parseInt(req.params.second, 10)
   res.send('' + result)
   next()
 }
@@ -200,12 +198,9 @@ Once this has completed we can run the application:
 $ npm start
 ```
 
-If we now point a browser to `http://localhost:3000` we should see a page rendered by our application as in figure 7.2 below:
+If we now point a browser to `http://localhost:3000` we should see a page rendered by our application as in the figure below:
 
 ![image](./images/fig3.2.png)
-
-
-**Figure 7.2 Express application**
 
 Now that we have our web application skeleton its time to wire it up to our microservice. Let's begin by creating a route and a front end to interact with our service. Firstly the route, using your favorite editor create a file `add.js` in the directory `webapp/routes` and add the following code:
 
@@ -222,7 +217,8 @@ router.get('/', function (req, res, next) {
 
 router.post('/calculate', function (req, res, next) {
     var client = restify.createClient({url: 'http://localhost:8080'})
-    client.get('/add/' + req.body.first + '/' + req.body.second, function (err, serviceReq) {
+    client.get('/add/' + req.body.first + '/' + req.body.second,
+    function (err, serviceReq) {
       if (err) { console.log(err) }
 
       serviceReq.on('result', function (err, serviceRes) {
@@ -233,7 +229,9 @@ router.post('/calculate', function (req, res, next) {
           serviceRes.body += chunk
         })
         serviceRes.on('end', function () {
-          res.render('add', { first: req.body.first, second: req.body.second, result: serviceRes.body })
+          res.render('add', { first: req.body.first,
+                              second: req.body.second,
+                              result: serviceRes.body })
         })
       })
     })
@@ -254,10 +252,13 @@ Next we need to create a template to provide users of the app with access to the
   <body>
     <h1>Add it up!</h1>
     <form id='calc-form' action='/add/calculate' method='post'>
-      <input type='text' id='first', name='first' value=<%= first %>></input>
-      <input type='text' id='second', name='second' value=<%= second %>></input>
+      <input type='text' id='first', name='first'
+        value=<%= first %>></input>
+      <input type='text' id='second', name='second'
+        value=<%= second %>></input>
     </form>
-    <button type="submit" form="calc-form" value="Submit">Submit</button>
+    <button type="submit" form="calc-form"
+      value="Submit">Submit</button>
     <h2>result = <%= result %></h2>
   </body>
 </html>
@@ -266,9 +267,6 @@ Next we need to create a template to provide users of the app with access to the
 We then need to update the file `webapp/app.js` to wire in the template and route. We need to make the following changes:
 
 ![image](./images/app.js.png)
-
-
-**Figure 7.3 changes to app.js**
 
 Finally we need to install the `restify` module into our webapp project. To do this run:
 
@@ -294,22 +292,16 @@ $ npm start
 > #### npm start ![](../info.png)
 > the Express Generator adds in a convenience script to `package.json`, in this case a start script. If we open up `package.json` we can see that this simply uses Node to execute the `./bin/www` script under the `webapp` project.
 
-Now that we have our webapp and service running, open a browser and point it to `http://localhost:3000/add`. This will render the template that we created above and should look as depicted as in figure 7.4.
+Now that we have our webapp and service running, open a browser and point it to `http://localhost:3000/add`. This will render the template that we created above and should look as depicted below:
 
 ![image](./images/addscreen.png)
-
-
-**Figure 7.4 addition front end**
 
 Type a number into each of the input fields and hit the calculate button to verify that the service is called and returns the correct result:
 
 ### How it works
-Figure 7.5 depicts the elements of our reference architecture that we have touched on so far.
+The elements of our reference architecture that we have touched on so far are illustrated below:
 
 ![image](./images/recip2diagram.png)
-
-
-**Figure 7.5 our system so far**
 
 As can been seen we have implemented a front end and a single back end service. When our front end page renders the user is presented with a standard web form. When our use hits submit a standard HTTP post request is made to our API tier, which is implemented using the Express framework.
 
@@ -339,8 +331,6 @@ A full discussion of security as pertaining to microservices is outside the scop
 Microservice systems have many advantages to traditional monolithic systems, however this style of development does present it's own challenges. One of these has been termed Shell Hell. This occurs when we have many microservices to spin up and down on a local development machine in order to run integration and regression testing against the system, as illustrated in the image below:
 
 ![image](./images/shellhell.jpg)
-
-**Shell Hell**
 
 ### Getting Ready
 In order to avoid the problems of shell hell we are going to install and configure `fuge` in this recipie. Fuge is a Node module designed specifically to help with local microservice development, to install it run the following command:
@@ -411,7 +401,8 @@ Once we issue the start all command Fuge will spin up an instance of all managed
 var restify = require('restify')
 
 function respond (req, res, next) {
-  var result = parseInt(req.params.first, 10) + parseInt(req.params.second, 10)
+  var result = parseInt(req.params.first, 10) +
+               parseInt(req.params.second, 10)
 
   // add some logging...
   console.log('adding numbers!')
@@ -492,7 +483,8 @@ module.exports = function (service) {
     })
   })
 
-  server.listen(process.env.ADDERSERVICE_SERVICE_PORT, '0.0.0.0', function () {
+  server.listen(process.env.ADDERSERVICE_SERVICE_PORT, '0.0.0.0',
+  function () {
     console.log('%s listening at %s', server.name, server.url)
   })
 }
@@ -534,11 +526,15 @@ router.get('/', function (req, res, next) {
 })
 
 router.post('/calculate', function (req, res, next) {
-  var addClient = restify.createJsonClient({url: 'http://' + process.env.ADDERSERVICE_SERVICE_HOST + ':' + process.env.ADDERSERVICE_SERVICE_PORT})
+  var addClient = restify.createJsonClient({url: 'http://' +
+    process.env.ADDERSERVICE_SERVICE_HOST + ':' +
+    process.env.ADDERSERVICE_SERVICE_PORT})
 
-  addClient.get('/add/' + req.body.first + '/' + req.body.second, function (err, serviceReq, serviceRes, resultObj) {
+  addClient.get('/add/' + req.body.first + '/' + req.body.second,
+  function (err, serviceReq, serviceRes, resultObj) {
     if (err) { console.log(err) }
-    res.render('add', {first: req.body.first, second: req.body.second, result: resultObj.result})
+    res.render('add', {first: req.body.first, second: req.body.second,
+                       result: resultObj.result})
   })
 })
 
@@ -571,7 +567,8 @@ Whilst we have only made minor code changes to the system, organizationally thes
 
 ```javascript
 .
-  server.listen(process.env.ADDERSERVICE_SERVICE_PORT, '0.0.0.0', function () {
+  server.listen(process.env.ADDERSERVICE_SERVICE_PORT, '0.0.0.0',
+  function () {
     console.log('%s listening at %s', server.name, server.url)
   })
 .
@@ -614,11 +611,9 @@ We can think of this operating in much the same way that an IP network functions
 > #### Pattern Routing ![](../tip.png)
 > Seneca  uses pattern routing to build an overlay network for message passing that is independent of the underlying transport mechanisms.
 
-Consider an example system with a consumer process and two services, a user service and a basket service which could occur as part of some larger e-commerce system. As illustrated in Figure 7.7 below the consumer simple dispatches a message asking for a user or basket operation, in this case to create a user or to add something to the basket. The pattern router figures out how to route these messages to the appropriate service based on matching the request - in this case `{role: "user", cmd: "create"` to the appropriate service.
+Consider an example system with a consumer process and two services, a user service and a basket service which could occur as part of some larger e-commerce system. As illustrated below the consumer simple dispatches a message asking for a user or basket operation, in this case to create a user or to add something to the basket. The pattern router figures out how to route these messages to the appropriate service based on matching the request - in this case `{role: "user", cmd: "create"` to the appropriate service.
 
 ![image](./images/overlay.png)
-
-**Figure 7.7 Pattern Routing**
 
 The receiving router within the user service then figures out the appropriate handler to call based again on the message pattern. Once the handler has executed a response message is passed through both routers to end up at the initiating call site within the consumer process. This  approach is sometimes known as an overlay network, because it creates a logical network structure over the lower level network fabric.
 
@@ -753,7 +748,8 @@ module.exports = function (service) {
   })
 
 
-  server.listen(process.env.AUDITSERVICE_SERVICE_PORT, '0.0.0.0', function () {
+  server.listen(process.env.AUDITSERVICE_SERVICE_PORT, '0.0.0.0',
+  function () {
     console.log('%s listening at %s', server.name, server.url)
   })
 }
@@ -765,7 +761,8 @@ Create a file `service.js` and add the following code to it:
 
 ```javascript
 var MongoClient = require('mongodb').MongoClient
-var url = 'mongodb://' + process.env.MONGO_SERVICE_HOST + ':' + process.env.MONGO_SERVICE_PORT + '/audit'
+var url = 'mongodb://' + process.env.MONGO_SERVICE_HOST + ':' +
+          process.env.MONGO_SERVICE_PORT + '/audit'
 
 module.exports = function () {
 
@@ -817,7 +814,8 @@ Now that we have our service, the final thing that we need to do is to add a fro
     <h1>Calculation History</h1>
     <ul>
       <% list.forEach(function (el) { %>
-      <li>at: <%= new Date(el.ts).toLocaleString() %>, calculated: <%= el.calc %>, result: <%= el.result %></li>
+      <li>at: <%= new Date(el.ts).toLocaleString() %>,
+        calculated: <%= el.calc %>, result: <%= el.result %></li>
       <% }) %>
     </ul>
   </body>
@@ -832,7 +830,9 @@ var router = express.Router()
 var restify = require('restify')
 
 router.get('/', function (req, res, next) {
-  var client = restify.createJsonClient({url: 'http://' + process.env.AUDITSERVICE_SERVICE_HOST + ':' + process.env.AUDITSERVICE_SERVICE_PORT})
+  var client = restify.createJsonClient({url: 'http://' +
+               process.env.AUDITSERVICE_SERVICE_HOST + ':' +
+               process.env.AUDITSERVICE_SERVICE_PORT})
   client.get('/list', function (err, serviceReq, serviceRes, obj) {
     if (err) { console.log(err) }
     res.render('audit', obj)
@@ -865,16 +865,24 @@ router.get('/', function (req, res, next) {
 })
 
 router.post('/calculate', function (req, res, next) {
-  var addClient = restify.createJsonClient({url: 'http://' + process.env.ADDERSERVICE_SERVICE_HOST + ':' + process.env.ADDERSERVICE_SERVICE_PORT})
-  var auditClient = restify.createJsonClient({url: 'http://' + process.env.AUDITSERVICE_SERVICE_HOST + ':' + process.env.AUDITSERVICE_SERVICE_PORT})
+  var addClient = restify.createJsonClient({url: 'http://' +
+                  process.env.ADDERSERVICE_SERVICE_HOST + ':' +
+                  process.env.ADDERSERVICE_SERVICE_PORT})
+  var auditClient = restify.createJsonClient({url: 'http://' +
+                    process.env.AUDITSERVICE_SERVICE_HOST + ':' +
+                    process.env.AUDITSERVICE_SERVICE_PORT})
 
-  addClient.get('/add/' + req.body.first + '/' + req.body.second, function (err, serviceReq, serviceRes, resultObj) {
+  addClient.get('/add/' + req.body.first + '/' + req.body.second,
+  function (err, serviceReq, serviceRes, resultObj) {
     if (err) { console.log(err) }
 
-    res.render('add', {first: req.body.first, second: req.body.second, result: resultObj.result})
+    res.render('add', {first: req.body.first, second: req.body.second,
+                       result: resultObj.result})
 
     var calcString = '' + req.body.first + ' + ' + req.body.second
-    auditClient.post('/append', {calc: calcString, calcResult: resultObj.result}, function (err, req, res, obj) {
+    auditClient.post('/append', {calc: calcString,
+                                 calcResult: resultObj.result},
+    function (err, req, res, obj) {
       if (err) { console.log(err) }
     })
   })
@@ -927,7 +935,8 @@ We used Fuge to run both our container and also our system as processes. Whilst 
 We connected to the Mongo container using this url:
 
 ```javascript
-'mongodb://' + process.env.MONGO_SERVICE_HOST + ':' + process.env.MONGO_SERVICE_PORT + '/audit'
+'mongodb://' + process.env.MONGO_SERVICE_HOST + ':' +
+               process.env.MONGO_SERVICE_PORT + '/audit'
 ```
 
 Fuge generated these environment variables from the service definition for us which means that we do not have to have a separate configuration file for our service. We will see in the next recipe on service discovery and in the following chapter on deployment how this is important to ensure a smooth transition for our service from development to a production environment.
@@ -961,7 +970,9 @@ Once a microservice system begins to grow past a few services we typically run i
 So far in this chapter we have been using environment variables to connect our services together, these variables have been generated for us by the Fuge tool. The astute reader may have wondered as to the format of the variables, for instance in the last recipe we used variables of the form:
 
 ```javascript
-var addClient = restify.createJsonClient({url: 'http://' + process.env.ADDERSERVICE_SERVICE_HOST + ':' + process.env.ADDERSERVICE_SERVICE_PORT})
+var addClient = restify.createJsonClient({url: 'http://' +
+                process.env.ADDERSERVICE_SERVICE_HOST + ':' +
+                process.env.ADDERSERVICE_SERVICE_PORT})
 ```
 
 There is a reason for this format and that is that it is the same format that is used by both Kubernetes and Docker Swarm, two of the current leading container deployment technologies. Kubernetes is a container deployment and orchestration system that was developed at Google, Swarm is developed by Docker. Whilst there are alternative container deployment technologies, Kubernetes is currently gaining the most adoption across the industry.
@@ -992,9 +1003,11 @@ var conc = require('concordant')()
 module.exports = function () {
 
   function createClient (name, cb) {
-    conc.dns.resolve('_main._tcp.' + name + '.micro.svc.cluster.local', function (err, result) {
+    conc.dns.resolve('_main._tcp.' + name + '.micro.svc.cluster.local',
+    function (err, result) {
       if (err) { console.log(err) }
-      cb(err, restify.createJsonClient({url: 'http://' + result[0].host + ':' + result[0].port}))
+      cb(err, restify.createJsonClient({url: 'http://' +
+              result[0].host + ':' + result[0].port}))
     })
   }
 
@@ -1007,8 +1020,12 @@ module.exports = function () {
 Next open the file `webapp/routes/add.js`. We need to edit the following lines:
 
 ```javascript
-var addClient = restify.createJsonClient({url: 'http://' + process.env.ADDERSERVICE_SERVICE_HOST + ':' + process.env.ADDERSERVICE_SERVICE_PORT})
-var auditClient = restify.createJsonClient({url: 'http://' + process.env.AUDITSERVICE_SERVICE_HOST + ':' + process.env.AUDITSERVICE_SERVICE_PORT})
+var addClient = restify.createJsonClient({url: 'http://' +
+                process.env.ADDERSERVICE_SERVICE_HOST + ':' +
+                process.env.ADDERSERVICE_SERVICE_PORT})
+var auditClient = restify.createJsonClient({url: 'http://' +
+                  process.env.AUDITSERVICE_SERVICE_HOST + ':' +
+                  process.env.AUDITSERVICE_SERVICE_PORT})
 ```
 
 We also need to require our `helper.js` module, edit the file so that it looks like the code below:
@@ -1028,14 +1045,20 @@ router.post('/calculate', function (req, res, next) {
   helper.createClient('adderservice', function (err, addClient) {
     if (err) { console.log(err) }
 
-    addClient.get('/add/' + req.body.first + '/' + req.body.second, function (err, serviceReq, serviceRes, resultObj) {
+    addClient.get('/add/' + req.body.first + '/' + req.body.second,
+    function (err, serviceReq, serviceRes, resultObj) {
       if (err) { console.log(err) }
 
-      res.render('add', {first: req.body.first, second: req.body.second, result: resultObj.result})
+      res.render('add', {first: req.body.first,
+                         second: req.body.second,
+                         result: resultObj.result})
       var calcString = '' + req.body.first + ' + ' + req.body.second
-      helper.createClient('auditservice', function (err, auditClient) {
+      helper.createClient('auditservice',
+      function (err, auditClient) {
         if (err) { console.log(err) }
-        auditClient.post('/append', {calc: calcString, calcResult: resultObj.result}, function (err, req, res, obj) {
+        auditClient.post('/append', {calc: calcString,
+                                     calcResult: resultObj.result},
+        function (err, req, res, obj) {
           if (err) { console.log(err) }
         })
       })
@@ -1084,9 +1107,11 @@ module.exports = function () {
   var url
 
   function init () {
-    conc.dns.resolve('_main._tcp.mongo.micro.svc.cluster.local', function (err, result) {
+    conc.dns.resolve('_main._tcp.mongo.micro.svc.cluster.local',
+    function (err, result) {
       if (err) { console.log(err) }
-      url = 'mongodb://' + result[0].host + ':' + result[0].port + '/audit'
+      url = 'mongodb://' + result[0].host + ':' +
+            result[0].port + '/audit'
     })
   }
 
@@ -1112,7 +1137,8 @@ module.exports = function () {
       if (err) return cb(err)
 
       var audit = db.collection('audit')
-      audit.find({}, {limit: 10, sort: [['ts', 'desc']]}).toArray(function (err, docs) {
+      audit.find({}, {limit: 10,
+        sort: [['ts', 'desc']]}).toArray(function (err, docs) {
         if (err) return cb(err)
         cb(null, {list: docs})
         db.close()
@@ -1165,8 +1191,10 @@ Under the hood the  `concordant` module firstly performs an `SRV` query, this re
 If we look at the code in the Audit service, we can see that the service is using the following code to resolve a hostname and port number for the `mongodb` database:
 
 ```javascript
-  conc.dns.resolve('_main._tcp.mongo.micro.svc.cluster.local', function (err, result) {
-    url = 'mongodb://' + result[0].host + ':' + result[0].port + '/audit'
+  conc.dns.resolve('_main._tcp.mongo.micro.svc.cluster.local',
+  function (err, result) {
+    url = 'mongodb://' + result[0].host + ':' +
+          result[0].port + '/audit'
   })
 ```
 
@@ -1196,7 +1224,7 @@ fuge> info auditservice full
 Fuge will display the environment that is passed into the `auditservice` which should look like the following:
 
 ```
-command: node index.js
+  command: node index.js
 directory: ...
 environment:
   DNS_HOST=127.0.0.1
@@ -1220,17 +1248,7 @@ All of these environment variables will be available to the service process. Not
 
 Let's now run the `zone` command, this should provide us with out put similar to the following:
 
-```
-type      domain                                                address                                  port
-A         adderservice.micro.srv.cluster.local                  127.0.0.1                                -
-A         auditservice.micro.srv.cluster.local                  127.0.0.1                                -
-A         webapp.micro.srv.cluster.local                        127.0.0.1                                -
-A         mongo.micro.srv.cluster.local                         127.0.0.1                                -
-SRV       _main._tcp.adderservice.micro.srv.cluster.local       adderservice.micro.srv.cluster.local     8080
-SRV       _main._tcp.auditservice.micro.srv.cluster.local       auditservice.micro.srv.cluster.local     8081
-SRV       _http._tcp.webapp.micro.srv.cluster.local             webapp.micro.srv.cluster.local           3000
-SRV       _main._tcp.mongo.micro.srv.cluster.local              mongo.micro.srv.cluster.local            27017
-```
+![image](./images/fuge-zone.png)
 
 As we can see Fuge is supplying both SRV and A records for discovery.
 
@@ -1302,7 +1320,8 @@ module.exports = function (service) {
         service[message.action](message, function (err, result) {
           if (err) { console.log(err) }
           if (message.returnPath) {
-            redis.lpush(message.returnPath, JSON.stringify(result), function (err) {
+            redis.lpush(message.returnPath, JSON.stringify(result),
+            function (err) {
               if (err) { console.log(err) }
               receive()
             })
@@ -1317,7 +1336,8 @@ module.exports = function (service) {
   }
 
   function init () {
-    conc.dns.resolve('_main._tcp.redis.micro.svc.cluster.local', function (err, result) {
+    conc.dns.resolve('_main._tcp.redis.micro.svc.cluster.local',
+    function (err, result) {
       if (err) { return console.log(err) }
       redis = Redis.createClient(result[0].port, result[0].host)
       receive()
@@ -1338,9 +1358,11 @@ module.exports = function () {
   var url
 
   function init () {
-    conc.dns.resolve('_main._tcp.mongo.micro.svc.cluster.local', function (err, result) {
+    conc.dns.resolve('_main._tcp.mongo.micro.svc.cluster.local',
+    function (err, result) {
       if (err) { console.log(err) }
-      url = 'mongodb://' + result[0].host + ':' + result[0].port + '/events'
+      url = 'mongodb://' + result[0].host + ':' +
+            result[0].port + '/events'
     })
   }
 
@@ -1417,7 +1439,8 @@ module.exports = function () {
   }
 
   function init () {
-    conc.dns.resolve('_main._tcp.redis.micro.svc.cluster.local', function (err, result) {
+    conc.dns.resolve('_main._tcp.redis.micro.svc.cluster.local',
+    function (err, result) {
       if (err) { return console.log(err) }
       redis = Redis.createClient(result[0].port, result[0].host)
     })
@@ -1438,7 +1461,8 @@ var evt = require('./eventLogger')()
   .
   app.use(function (req, res, next) {
     next()
-    evt.logEvent({type: 'page', url: req.protocol + '://' + req.get('host') + req.originalUrl})
+    evt.logEvent({type: 'page', url: req.protocol + '://' +
+                  req.get('host') + req.originalUrl})
   })
   .
   .
@@ -1469,18 +1493,22 @@ var CliTable = require('cli-table')
 var QNAME = 'eventservice'
 var RESPONSE_QUEUE = 'sumary'
 
-conc.dns.resolve('_main._tcp.redis.micro.svc.cluster.local', function (err, result) {
+conc.dns.resolve('_main._tcp.redis.micro.svc.cluster.local',
+function (err, result) {
   if (err) { return console.log(err) }
 
   var redis = Redis.createClient(result[0].port, result[0].host)
-  redis.lpush(QNAME, JSON.stringify({action: 'summary', returnPath: RESPONSE_QUEUE}), function (err) {
+  redis.lpush(QNAME, JSON.stringify({action: 'summary',
+                                     returnPath: RESPONSE_QUEUE}),
+  function (err) {
     if (err) { return console.log(err) }
 
     redis.brpop(RESPONSE_QUEUE, 5, function (err, data) {
       if (err) { return console.log(err) }
 
       var display = JSON.parse(data[1])
-      var table = new CliTable({head: ['url', 'count'], colWidths: [50, 10]})
+      var table = new CliTable({head: ['url', 'count'],
+                                colWidths: [50, 10]})
       Object.keys(display).forEach(function (key) {
         table.push([key, display[key]])
       })
