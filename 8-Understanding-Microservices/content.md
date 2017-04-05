@@ -178,6 +178,8 @@ We don't necessarily need to use the curl command to test our microservices, We 
 In this recipe we are going to create a web application that will consume our microservice. This is the API and client tier in our reference architecture depicted in the figure in the introduction to the chapter. We will be using the Express web framework to do this and also the Express Generator to create an application skeleton.
 
 ### Getting Ready
+This recipe builds on the code from our last recipe `Building a simple RESTful microservice` and we will be using the code from this as a starting point. The code from this recipe is available in the accompanying source code in the directory `source/Building_RESTful_microservice`.
+
 To get ready for this recipe we need to install the `express-generator`. To do this run:
 
 ```sh
@@ -232,7 +234,6 @@ var restify = require('restify')
 router.get('/', function (req, res, next) {
   res.render('add', { first: 0, second: 0, result: 0 })
 })
-
 
 router.post('/calculate', function (req, res, next) {
     var client = restify.createClient({url: 'http://localhost:8080'})
@@ -395,6 +396,8 @@ In order to avoid the problems of shell hell we are going to install and configu
 npm install -g fuge
 ```
 
+This recipe builds on the code from our last recipe `Consuming a Service` and we will be using from this as our starting point. The code is available in the accompanying source under the directory `source/Consuming_Service`.
+
 ### How to do it
 Fuge needs a simple configuration file in order to take control of our development system, let's write it now. Firstly we need to create a directory called `fuge` at the same level as our `webapp` and service directories.
 
@@ -483,7 +486,6 @@ Finally let's shutdown our system by issuing the `stop all` command in the Fuge 
 
 ![image](./images/fuge-stopall.png)
 
-
 We can now exit the Fuge shell by typing `exit`.
 
 ### How it works
@@ -493,28 +495,73 @@ Under the hood Fuge reads its configuration file to determine what processes it 
 
 Fuge can also manage Docker containers locally for us and that will be a subject for one of our later recipes.
 
-### There's more
-As we saw by running the `help` command Fuge has a number of other useful commands for example:
-
-* pull - to pull fresh code for each managed project
-* grep - to search logs of all running processes
-* test - to run a nominated test script for each managed project
-* stop/start - to stop/start processes individually
-* watch/unwatch - to toggle process restart watching individually
-* tail/untail - to toggle log tailing for all processes
-* info - to display process environment information
-* debug - attach a debugger to a specific process
-
 It should be noted that Fuge is a development tool, something that is used locally. Fuge should not be used for running microservices in a production environment.
 
+### There's more
+As we saw by running the `help` command Fuge has a number of other useful commands let's try a few of them out.
+
+### Apply Command
+The `apply` command allows us to execute any shell command in the directory of each named service. This sometimes come in very useful, but should be used carefully. Spin up the fuge shell as before and run:
+
+```sh
+fuge> apply ls -l
+[adderservice]
+total 16
+drwxr-xr-x  52 pelger  staff  1768 24 Mar 13:33 node_modules
+-rw-r--r--   1 pelger  staff   313 24 Mar 13:34 package.json
+-rw-r--r--   1 pelger  staff   399 24 Mar 13:33 service.js
+[webapp]
+total 16
+-rw-r--r--   1 pelger  staff  1313 24 Mar 13:33 app.js
+drwxr-xr-x   3 pelger  staff   102 24 Mar 13:33 bin
+drwxr-xr-x  98 pelger  staff  3332 24 Mar 13:33 node_modules
+-rw-r--r--   1 pelger  staff   349 24 Mar 13:33 package.json
+drwxr-xr-x   5 pelger  staff   170 24 Mar 13:33 public
+drwxr-xr-x   5 pelger  staff   170 24 Mar 13:33 routes
+drwxr-xr-x   5 pelger  staff   170 24 Mar 13:33 views
+```
+
+The utillity of this becomes apparent once we have a larger (greater than 5) number of services, particularly if they are using different git repositories. For example running `apply git status` will give us an immediate view of the current changes on our local system. Another useful example is `apply npm test` to run all of the unit tests in one go across our system.
+
+### Debug Command
+Fuge allows us to start a node.js process in debug mode. To enable this we need to tell fuge that a service is a node.js process. Open up the file `micro/fuge/fuge.yml` and change the `type` field to `node` as below:
+
+```
+adderservice:
+  type: node
+  path: ../adderservice
+  run: 'node service.js'
+  ports:
+    - http=8080
+```
+
+Now start up the Fuge shell again and run the following:
+
+```sh
+fuge> debug adderservice
+[adderservice - 7115]: Debugger listening on port 9229.
+[adderservice - 7115]: Warning: This is an experimental feature and could change at any time.
+[adderservice - 7115]: To start debugging, open the following URL in Chrome:
+[adderservice - 7115]:     chrome-devtools://devtools/remote/serve_file/@60cd6e859b9f557d2312f5bf532f6aec5f284980/inspector.html?experiments=true&v8only=true&ws=127.0.0.1:9229/4dacb476-3942-4ed2-b281-7659feca6fe3
+[adderservice - 7115]: restify listening at http://[::]:8080
+```
+
+Copy and paste the provided `url` into Chrome and the developer tools will open allowing us to naviagte to the adder service code and debug it.
+
+### Shell Passthrough
+Commands that Fuge does not recognise are passed through to the shell for execution, for example try the following:
+
+```sh
+fuge> start all
+fuge> ps
+fuge> ps aux | grep -i node
+fuge> netstat -an | grep -i listen
+```
+
+This can be very useful during a development session and saves having to switch shells for simple one liners!
+
 ### See also
-Fuge is just one tool for managing microservices in development. There are of course other approaches. For example:
-
-* Docker Compose - provides a container based approach to configuring and running a microservice system. Compose is limited because a fresh container needs to be constructed for each code change which limits development speed
-
-* Otto - from Hasicorp provides a similar abstraction to Fuge, however we feel that Otto tries to cover too much in that it also targets production deployment.
-
-The other advantage of Fuge is of course that it is fully open sourced and implemented entirely in Node.
+**TODO DMC**
 
 ## Dealing with Configuration
 In this recipe we are going to improve our service and calling code by removing hard coded urls and port numbers. We will also switch to the `restify` JSON client as a more natural way to invoke and receive data from our services.
