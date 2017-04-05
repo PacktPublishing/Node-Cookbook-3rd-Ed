@@ -21,7 +21,7 @@ router.post('/calculate', function (req, res, next) {
         serviceRes.body += chunk
       })
       serviceRes.on('end', function () {
-        res.render('add', { first: req.body.first, second: req.body.second, result: serviceRes.body })
+        res.render('add', { first: req.body.first, second: req.body.second, result: serviceRes.body.replace(/"+/g, '') })
       })
     })
   })

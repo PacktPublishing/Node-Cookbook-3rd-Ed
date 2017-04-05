@@ -248,9 +248,9 @@ router.post('/calculate', function (req, res, next) {
           serviceRes.body += chunk
         })
         serviceRes.on('end', function () {
-          res.render('add', { first: req.body.first,
-                              second: req.body.second,
-                              result: serviceRes.body })
+          res.render('add', {first: req.body.first,
+                      second: req.body.second,
+                      result: serviceRes.body.replace(/"+/g, '')})
         })
       })
     })
@@ -333,15 +333,55 @@ It is also important to note the reason for the API tier (the Express applicatio
 The following recipes will go on to build on more elements of our system however before we do so our next recipe will look at how we can configure an effective local development environment.
 
 ### There's more
+So far we have omitted unit and integration testing from our code. Whilst testing is not the foucs of this chapter, robust testing is an absolute requirement for any system. Let's create a quick integration test for our `webapp` and `adderservice`. To do this we will use the `superagent` and `tap` modules. Let's get setup by creating a fresh directory for our tests:
 
-- integration testing with supertest
+```sh
+$ cd micro
+$ mkdir inttest
+$ cd inttest
+$ npm init -y
+$ npm install superagent --save-dev
+$ npm install tap --save-dev
+$ npm install -g tap
+```
 
--
+Next let's create a test script in a file `addtest.js`:
+
+```javascript
+var request = require('superagent')
+var test = require('tap').test
+
+test('add test', function (t) {
+  t.plan(2)
+
+  request
+    .post('http://localhost:3000/add/calculate')
+    .send('first=1')
+    .send('second=2')
+    .end(function (err, res) {
+      t.equal(err, null)
+      t.ok(/result = 3/ig.test(res.text))
+    })
+})
+```
+
+> #### TAP ![](../info.png)
+> TAP stands for Test Anything Protocol and has implementations in many languages. Find out more about TAP here: `https://testanything.org/`
+
+Since we installed the `tap` command globally we can run this test using tap, ensuring first that we have our `adderservice` and `webapp` running in another shell:
+
+```sh
+$ tap addtest.js
+addtest.js ............................................ 2/2
+total ................................................. 2/2
+  2 passing (328.645ms)
+  ok
+```
+
+Our simple test exercises both our frontend `webapp` and also our service. This of course is no sustitute for robust unit testing which should be implemented for all services and front ends.
 
 ### See also
-**TODO**
-
-
+**TODO DMC**
 
 ## Setting up a development environment
 Microservice systems have many advantages to traditional monolithic systems, however this style of development does present it's own challenges. One of these has been termed Shell Hell. This occurs when we have many microservices to spin up and down on a local development machine in order to run integration and regression testing against the system, as illustrated in the image below:
