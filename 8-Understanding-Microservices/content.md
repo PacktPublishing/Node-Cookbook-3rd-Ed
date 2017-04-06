@@ -1148,6 +1148,8 @@ Kubernetes supports two methods for service discovery firstly the use of environ
 In this recipe we are going to convert our system to use DNS for service discovery.
 
 ### Getting Ready
+This recipe builds on the code from the last recipe `Using Containerize Infrastructure`. If you skipped this recipe, the code is available in the accompanying source in the directory `source/Using_Containers`.
+
 As we already have everything required for this recipe let's dive right in and covert our code. To do this we are going to use a module called `concordant`. This is a small module that performs DNS lookups for us in oderer to determine the host and port information for a service. We will need to change the code in our service consumer, which is in the `webapp` project, the service code itself will remain largely unchanged.
 
 ### How to do it
@@ -1362,7 +1364,7 @@ If we look at the code in the Audit service, we can see that the service is usin
   })
 ```
 
-Concordant performs service discovery based on how it's environment is configured. If a DNS_HOST environment variable is present Concordant will query this server directly. In a production environment, if this variable if not present, Concordant will use the system configured DNS infrastructure as opposed to a direct lookup. This of course means that the application code does not need to take this into account, the environment differences between development and production are encapsulated within the `concordant` module for us.
+Concordant performs service discovery based on how it's environment is configured. If a DNS_HOST environment variable is present Concordant will query this server directly. In a production environment, if this variable is not present, Concordant will use the system configured DNS infrastructure as opposed to a direct lookup. This of course means that the application code does not need to take this into account, the environment differences between development and production are encapsulated within the `concordant` module for us.
 
 The hostname that we are passing to the Concordant module looks a little long. This is the standard format for Kubernetes DNS based lookups and it follows a well defined schema:
 
@@ -1378,6 +1380,16 @@ In we look at the mongo configuration in our Fuge configuration file, we can see
 Let's take a look at how the `webapp` code is consuming the `adder` and `audit` services, in the file `webapp/helper.js` we can see that the `createClient` function is using exactly the same naming scheme to dynamically resolve the service end points.
 
 ### There's more
+In this recipe we have used DNS as our service discovery mechanism. We did this specifically to align our development environment with our expected production environment under Kubernetes. There are of course many ways to deploy a microservice system and also many other service discovery mechanisms that we could have used. We will cover these options in more detail in the chapter on deployment, however for now some of the options that you should consider researching are listed below. Firstly for service discovery:
+
+* Consul.io by Hasicorp, provides a robust service discovery mechanism providing both HTTP and DNS based registration and lookup.
+* etcd, distributed key value store. This is used internally by Kubernetes
+* Zookeeper, distributed key value store from the Apache project
+* SWIM, Scaleable Weakly consistent Infection style process group Membership protocol. Peer to peer based service discovery protocol
+
+Let's explore how Fuge is emulating Kubernets in a little more detail:
+
+#### Viewing the Environment and DNS Zone
 Fuge exposes information on both environment variables and DNS for us through the `info` and `zone` commands to aid us in debugging our service discovery process. Let's try this out. Start the Fuge shell and then run the info command for a service:
 
 ```sh
@@ -1412,23 +1424,10 @@ Let's now run the `zone` command, this should provide us with out put similar to
 
 ![image](./images/fuge-zone.png)
 
-As we can see Fuge is supplying both SRV and A records for discovery.
+As we can see Fuge is supplying both SRV and A records for discovery which Concordant is able to lookup. It is important to note that in a Kubernetes production environment the same DNS entries will be available for service discovery.
 
 ### See also
-In this recipe we have used DNS as our service discovery mechanism. We did this specifically to align our development environment with our expected production environment under Kubernetes. There are of course many ways to deploy a microservice system and also many other service discovery mechanisms that we could have used. We will cover these options in more detail in the chapter on deployment, however for now some of the options that you should consider researching are listed below. Firstly for service discovery:
-
-* Consul.io by Hasicorp, provides a robust service discovery mechanism providing both http and DNS based registration and lookup.
-* etcd, distributed key value store. This is used internally by Kubernetes
-* Zookeeper, distributed key value store from the Apache project
-* SWIM, Scaleable Weakly consistent Infection style process group Membership protocol. Peer to peer based service discovery protocol
-
-For deployment you should review:
-
-* Kubernetes - container orchestration platform from Google.
-* Swarm - from Docker, provides a distributed container deployment service similar to Kubernetes
-* AWS Container Services - Cloud based container deployment platform from Amazon
-* OpenShift - Kubenetes based hybrid container deployment platform from RedHat
-* Triton - Container orchestration from Joyent (now Samsung) layered on top of SmartOS
+**TODO DMC**
 
 ## Adding a Queue Based Service
 In this recipe we will create a simple asynchronous event recording service. In this context asynchronous means that we will expose the service over a queue rather than a direct point to point connection. We will be using Redis as a our queue mechanism for this recipe as it is simple and lightweight to use.
