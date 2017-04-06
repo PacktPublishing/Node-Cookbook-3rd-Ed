@@ -753,7 +753,7 @@ We can execute the test by running `tap addtest.js`. Of course this is a very si
 ## Using Containerized Infrastructure
 Container technology has recently gained rapid adoption within the industry and for good reason. Containers provide a powerful abstraction and isolation mechanism to that can lead to robust and repeatable production deployments.
 
-Then container model for software deployment has become synonymous with microservice and distributed systems in general, largely because the architectural model is a natural fit with the underlying container model. Whilst a full discussion of the merits of containers is outside the scope of this book some of the key benefits to bear in mind are:
+The container model for software deployment has become synonymous with microservice and distributed systems in general, largely because the architectural model is a natural fit with the underlying container model. Whilst a full discussion of the merits of containers is outside the scope of this book some of the key benefits to bear in mind are:
 
 * Isolation - containers provide a clean isolated environment for our services to run in. The container 'brings' the correct environment with it so we can be sure that if it runs on my machine it will run on yours!
 
@@ -763,7 +763,7 @@ Then container model for software deployment has become synonymous with microser
 
 * Scale - Given that we construct our services correctly, containers can be rapidly scaled up or down for a single or multiple service elements
 
-In this recipe and subsequent ones in this chapter we are going to be using prebuilt containers to gain a practical understanding of the benefits of containerization, particularly when applied to a microservice system. We will be building our own container in the deployment chapter later in the book.1Gjjkk
+In this recipe and subsequent ones in this chapter we are going to be using prebuilt containers to gain a practical understanding of the benefits of containerization, particularly when applied to a microservice system. We will be building our own container in the deployment chapter later in the book.
 
 ### Getting Ready
 For this recipe we will be using the Docker container engine. Firstly we will need to install this and validate that it is operating correctly. To do this head over to `http://www.docker.com` and install the appropriate binary for your system. Docker supports Linux, Windows and Mac natively.
@@ -780,7 +780,7 @@ This command will pull the `hello-world` image from Docker Hub - a central repos
 > Docker was originally built for Linux based operating systems. Until recently running docker on Mac or Windows required the use of a virtual machine using either > VirtualBox or VMWare, however Docker is now available natively on both Mac and Windows. This requires a recent version of OSX or Windows so be sure to check the
 > prerequisites when installing Docker.
 
-Now that we have Docker installed we can press ahead. In this recipe we will be adding a new microservice that stores data into a MongoDB container.
+Now that we have Docker installed we can press ahead. In this recipe we will be adding a new microservice that stores data into a MongoDB container to our microservice system from the last recipe `Dealing with Configuration`. If you skipped this recipe, the code is available in the accompanying source in the directory `source/Dealing_With_Configuration`.
 
 ### How to do it
 Firstly we need to pull the MongoDB container. We can do this using Docker to pull the official Docker MongoDB container, to do this run:
@@ -1066,19 +1066,59 @@ We connected to the Mongo container using this url:
 Fuge generated these environment variables from the service definition for us which means that we do not have to have a separate configuration file for our service. We will see in the next recipe on service discovery and in the following chapter on deployment how this is important to ensure a smooth transition for our service from development to a production environment.
 
 ### There's more
-We are using Fuge to run our microservices in development as a convenience. However another approach would be to run the container manually with Docker and remove it from the Fuge config file. To run the MongoDB container with Docker execute the following command:
+We are using Fuge to run our microservices in development as a convenience. This may not always be the best approach because once we exit the fuge shell the data in the container will be lost.
+
+#### Running Containers in the Background
+If we would prefer to have some of our containers execute in the background whilst still using fuge we can do this by tweaking our fuge configuration. Open up `micro/fuge/fuge.yml` and update the `fuge_global` section by adding the `run_containers` setting as below:
+
+```
+fuge_global:
+  run_containers: false
+  tail: true
+  monitor: true
+  monitor_excludes:
+    - '**/node_modules/**'
+    - '**/.git/**'
+    - '*.log'
+```
+
+Now start up the fuge shell and run a ps
+
+```
+$ cd micro
+$ fuge shell fuge/fuge.yml
+fuge> ps
+name                          type           status         watch          tail
+adderservice                  process        stopped        yes            yes
+auditservice                  process        stopped        yes            yes
+webapp                        process        stopped        yes            yes
+mongo                         container      not managed
+```
+
+Fuge reports that the mongo container is `not managed`.  In another shell run the mongo container using Docker directly:
 
 ```sh
 $ docker run -p 127.0.0.1:27017:27017 -d mongo
 ```
 
-This will start the MongoDB container in the background and expose port `27017` from the container to the `localhost` interface. We can now connect to this using the audit service or through the standard Mongodb client. Fuge supplies all of this configuration for us by interpreting the configuration file but it is good to understand the underlying command structure.
+This will start the MongoDB container in the background and expose port `27017` from the container to the `localhost` interface. We can now connect to this using the `auditservice` or through the standard Mongodb client. We can check this by running:
+
+```sh
+$ docker ps
+```
+
+Next start the rest of our system in the Fuge shell:
+
+```sh
+fuge> start all
+```
+
+We can confirm that everything is running as before by accessing the `webapp` through a browser. We can now exit the Fuge shell and our mongo container will continue to run.
+
+The key point to note here is that we can leave our infrastructure containers running in the background and tell Fuge about them. Fuge will then generate the appropriate environment variables (and other information) to allow us to access the container but will not attempt to start/stop the container.
 
 ### See also
-In this chapter we have been using Fuge as our development system runner, another approach is to use Docker Compose. Compose allows us to use a configuration file similar to the Fuge configuration to specify how our services should be run. However Compose only works with containers this means that for every code change a fresh container must be built and executed or we must use Container Volumes which allow us to mount a portion our local storage inside the container.
-
-> #### Docker Compose .. ![](../info.png)
-> You can find out more about Docker Compose from the offical Docker documentation site here: `https://docs.docker.com/compose/`
+**TODO DMC**
 
 ## Service Discovery with DNS
 Once a microservice system begins to grow past a few services we typically run into the challenge of service discovery. By this we mean:
@@ -1724,6 +1764,16 @@ A full discussion of security as pertaining to microservices is outside the scop
 * Be familiar and ensure that your team is familiar with the OWASP top ten security risks [https://www.owasp.org/index.php/Category:OWASP_Top_Ten_Project](https://www.owasp.org/index.php/Category:OWASP_Top_Ten_Project)
 
 ### There's more
+
+USE DOCKER COMPOSE HERE...
+
+In this chapter we have been using Fuge as our development system runner, another approach is to use Docker Compose. Compose allows us to use a configuration file similar to the Fuge configuration to specify how our services should be run. However Compose only works with containers this means that for every code change a fresh container must be built and executed or we must use Container Volumes which allow us to mount a portion our local storage inside the container.
+
+> #### Docker Compose .. ![](../info.png)
+> You can find out more about Docker Compose from the offical Docker documentation site here: `https://docs.docker.com/compose/`
+
+
+kkk
 During these recipes we have been starting and stopping both processes and Docker containers. Restarting containers is sometimes not the ideal solution, this is because container storage is ephemeral and once a container is stopped any changes are lost, for example the astute reader will have noted that each time the system is restarted all of the data is removed from the MongoDB database. Also stopped containers are still left on disk and will eventually need to be cleaned up. To see this open up a command prompt and run:
 
 ```sh
