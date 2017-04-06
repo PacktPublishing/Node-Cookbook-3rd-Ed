@@ -1,7 +1,7 @@
 # 8 Understanding Microservices
 This chapter covers the following topics
 
-* Building a simple RESTful microservice
+* Building a simple RESTful Microservice
 * Consuming a Service
 * Setting up a Development Environment
 * Dealing with Configuration
@@ -1439,7 +1439,7 @@ To prepare for this recipe we need to ensure that we have Redis available. The s
 $ docker pull redis
 ```
 
-Once this image is downloaded we are good to get started.
+This recipe builds on the code from the last recipe `Service Discovery with DNS`. The code for this recipe is available in the accompanying source in the directory under `source/Service_Discovery_DNS`.
 
 ### How to do it
 Our service is going to record events of interest in the system such as page loads. In a full system we might record this type of information against specific user ID's in order to analyze system usage patterns, however for our system where we don't have a user context we will simply be recording the events. Let's start by creating a directory for our service and initializing it with a `package.json` file:
@@ -1689,8 +1689,6 @@ export DNS_SUFFIX=svc.cluster.local
 node index.js
 ```
 
-Lastly for our report utility we need to install dependencies:
-
 Finally we need to add the Redis container and our new `eventservice` to our Fuge configuration. Edit the file `fuge/fuge.yml` and add the following two entries:
 
 ```
@@ -1763,57 +1761,75 @@ A full discussion of security as pertaining to microservices is outside the scop
 * Be familiar and ensure that your team is familiar with the OWASP top ten security risks [https://www.owasp.org/index.php/Category:OWASP_Top_Ten_Project](https://www.owasp.org/index.php/Category:OWASP_Top_Ten_Project)
 
 ### There's more
+For the recipes in this chapter we have been using Docker containers, in the chapter on deployment we will investigate building our own containers. There are some useful container techniques that we should be aware of, lets explore a few here:
 
-USE DOCKER COMPOSE HERE...
+#### Getting a Shell
+Sometimes it is necessary to open up a shell into a container to see what is happening internally for debugging purposes. This should really never be needed in production, but sometimes needs must. Let's do this on our mongo container. Firstly start the container:
 
-In this chapter we have been using Fuge as our development system runner, another approach is to use Docker Compose. Compose allows us to use a configuration file similar to the Fuge configuration to specify how our services should be run. However Compose only works with containers this means that for every code change a fresh container must be built and executed or we must use Container Volumes which allow us to mount a portion our local storage inside the container.
+```sh
+$ docker run -p 127.0.0.1:27017:27017 -d mongo
+```
 
-> #### Docker Compose .. ![](../info.png)
-> You can find out more about Docker Compose from the offical Docker documentation site here: `https://docs.docker.com/compose/`
+Next connect to it using the container ID which we can obtain through running `docker ps`
 
+```sh
+$ docker exec -ti <container id> /bin/bash
+```
 
-kkk
-During these recipes we have been starting and stopping both processes and Docker containers. Restarting containers is sometimes not the ideal solution, this is because container storage is ephemeral and once a container is stopped any changes are lost, for example the astute reader will have noted that each time the system is restarted all of the data is removed from the MongoDB database. Also stopped containers are still left on disk and will eventually need to be cleaned up. To see this open up a command prompt and run:
+This will drop us into a root prompt inside the container and we can now run commands to diagnose issues. For example:
+
+```sh
+root@88d2d16c08fe:/# ps aux
+USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+mongodb      1  0.9  2.8 268452 57632 ?        Ssl  12:41   0:00 mongod
+root        28  0.0  0.1  20248  3196 ?        Ss   12:41   0:00 /bin/bash
+root        32  0.0  0.1  17500  2064 ?        R+   12:42   0:00 ps aux
+root@88d2d16c08fe:/# netstat -an
+bash: netstat: command not found
+```
+
+We can see that the Mongo daemon is running, however netstat is missing. This is because most containers are stripped down as they don't require all of the normal command line tools. We can fix this on the fly:
+
+```sh
+root@88d2d16c08fe:/# apt-get update
+root@88d2d16c08fe:/# apt-get install net-tools
+root@88d2d16c08fe:/# netstat -an | grep -i listen
+tcp        0      0 0.0.0.0:27017           0.0.0.0:*               LISTEN
+unix  2      [ ACC ]     STREAM     LISTENING     22078    /tmp/mongodb-27017.sock
+```
+
+We can use the containers package manager to install software packages on the fly to solve issues in our running container. Once we kill and start a fresh container from the mongo image our changes will disappear of course.
+
+#### Saving Container State
+What if we want to persist our changes to a container? We can do that too. Exit from the Mongo container and run the following:
+
+```sh
+$ docker commit <container id> mymongo
+$ docker images
+```
+
+We can now see a fresh container image `mymongo` in the docker image list. It can sometimes be useful to use this approach for example creating a databse conatiner with pre-populated test data for sharing amongst a development team.
+
+#### Cleaning up Containers
+Once a container has stopped running, it doesn't just disappear. Lets stop all of our running containers with:
+
+```sh
+$ docker kill $(docke ps -a -q)
+```
+
+Next, to view all containers run:
 
 ```sh
 $ docker ps -a
 ```
 
-A list of stopped containers will be displayed. We can restart a stopped container by running `docker start <container id>`, but normally we start containers using the `run` command which instantiates a container from an image. We can remove all of these stopped containers by running:
+This will list all containers both running and stopped. We can restart a stopped container by running `docker start <container id>`, but normally we start containers using the `run` command which instantiates a container from an image. We can remove all of these stopped containers by running:
 
 ```sh
 $ docker rm $(docker ps -a -q)
 ```
 
-It is perfectly possible to just leave containers running in the background and this is often useful for databases and other infrastructure. To do this with our microservice system edit the Fuge configuration file and add the following entry into the global section:
-
-```
-fuge_global:
-
-  run_containers: false
-```
-
-This tells Fuge not to start up any containers. If we open up a shell prompt we can start both of our containers manually by running:
-
-```sh
-$ docker run -p 27107:27017 -d mongo
-$ docker run -p 6379:6379 -d redis
-```
-
-If we now start up our system using Fuge:
-
-```sh
-$ fuge shell fuge/fuge.yml
-fuge> ps
-```
-
-We can see that the containers are grayed out and will not be managed by Fuge. Note that we still need to tell our system about these containers so that our services can resolve them via DNS. Let's go ahead and start the system as before:
-
-```sh
-fuge> start all
-```
-
-The system should function normally except that once we stop all of the managed processes with Fuge our container will keep running in the background.
+If we now run a second `docker ps -a` command we can see that the stopped containers have indeed been removed
 
 ### See also
-In this chapter we have explored some techniques and approaches to building microservices using Node. In the next chapter we will look at some strategies for deploying these types of systems to production.
+**TODO DMC**
