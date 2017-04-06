@@ -11,5 +11,8 @@
   "license": "ISC",
   "dependencies": {
     "restify": "^4.3.0"
+  },
+  "devDependencies": {
+    "tap": "^10.3.1"
   }
 }

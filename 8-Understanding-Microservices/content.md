@@ -546,7 +546,7 @@ fuge> debug adderservice
 [adderservice - 7115]: restify listening at http://[::]:8080
 ```
 
-Copy and paste the provided `url` into Chrome and the developer tools will open allowing us to naviagte to the adder service code and debug it.
+Copy and paste the provided `url` into Chrome and the developer tools will open allowing us to navigate to the `adderservice` code and debug it.
 
 ### Shell Passthrough
 Commands that Fuge does not recognise are passed through to the shell for execution, for example try the following:
@@ -567,7 +567,7 @@ This can be very useful during a development session and saves having to switch 
 In this recipe we are going to improve our service and calling code by removing hard coded urls and port numbers. We will also switch to the `restify` JSON client as a more natural way to invoke and receive data from our services.
 
 ### Getting Ready
-We already have everything we need in our codebase so let's dive in and fix the code!
+This recipe extends the code from our last recipe `Setting up a Development Environment` and we will be using the code from this as a starting point. The code is available in the accompanying source in the directory `source/Development_Environment`. Starting from this point, let's dive in and fix the code!
 
 ### How to do it
 Firstly let's update our `adderservice`. This code is a little tangled at the moment in that the service logic is wrapped up with the `restify` framework code. In addition the port number that this service listens on is hardcoded. To fix this, firstly create a file `wiring.js` in the directory `micro/adderservice` and add the following code to it:
@@ -593,7 +593,7 @@ module.exports = function (service) {
 }
 ```
 
-Next change the code in the file `service.js` and remove the restify code from it as below:
+Next change the code in the file `service.js` and remove the `restify` code from it as below:
 
 ```javascript
 module.exports = function () {
@@ -695,12 +695,15 @@ We can see that the port setting is provided by Fuge to the `adderservice` proce
 
 Our second change was to separate the service logic from the framework logic in the `adderservice`. If we look again at the file `micro/adderservice/service.js` we can see that it has no external dependencies and is therefore independent of the calling context. By this we mean that it would be perfectly possible to replace our `wiring.js` file with a similar one that used `express` instead of `restify` and our service logic would remain unchanged. This is an important principle to observe when building microservice systems, namely that a service should run independently of the context that it is called in.
 
-> #### Transport Independent ![](../tip.png)
+> #### Execution Independent ![](../tip.png)
 > Microservice business logic should execute independent of the context in which it is called. Put another way a microservice should not know anything about the context that it is executing in.
+
+The code changes in the recipe are broadly inline with the principles outlined in the `12 factor app`. If you are not familiar with these you can read about them in more detail here here: `https://12factor.net/`
 
 ### There's more
 Throughout this chapter we are using `restify` as our tool to create `REST` based interfaces to our microservices. However it should be stressed that this is just one approach to creating point to point connections to services, there are of course several other approaches that one might use. It is of course perfectly possible to use other HTTP based frameworks to accomplish the same end, however there are other approaches which are certainly worth considering.
 
+#### The Seneca Framework
 The Seneca framework `http://senecajs.org` provides an interesting approach to microservice construction. Rather than using explicit point to point connections, Seneca provides is layered over two key ideas: Pattern matching and transport independence. This means that rather than explicitly wiring service together, using Seneca, we define a pattern routing network overlay and allow this network overlay determine how services are invoked.
 
 We can think of this operating in much the same way that an IP network functions except that in place of IP addresses Seneca uses patterns to route messages to services. In a Seneca based microservice system every participating entity has a pattern routing table at its core.
@@ -716,8 +719,36 @@ The receiving router within the user service then figures out the appropriate ha
 
 Frameworks such as Seneca can help in taking out a lot of the boilerplate work associated with microservice construction, however you should carefully consider the requirements of the system you are constructing and the costs / benefits of adoption of any framework before diving in!
 
+#### Unit Testing
+An additional benefit of this reorganization is that we have made our service code much simpler to test. Previously our service code was tightly coupled to the `restify` module which would have required us to call our service over a HTTP interface, even for a unit test. Happily we can now write a much simpler unit test.
+
+Firstly lets install `tap`:
+
+```sh
+$ cd micro/adderservice
+$ npm install tap --save-dev
+```
+
+Next create a `test` directory and a file `addtest.js` inside it. Add the following code:
+
+```javascript
+var test = require('tap').test
+var service = require('../service')()
+
+test('test add', function (t) {
+  t.plan(2)
+
+  service.add({first: 1, second: 2}, function (err, result) {
+    t.equal(err, null)
+    t.equal(result, 3)
+  })
+})
+```
+
+We can execute the test by running `tap addtest.js`. Of course this is a very simplistic test, however the point is that the unit test is not in anyway concerned with how the service is exposed. Becuse we extracted the wiring logic into `wiring.js` we can test out service logic independent of context.
+
 ### See also
-The code changes in the recipe are broadly inline with the principles outlined in the `12 factor app`. If you are not familiar with these you can read about them in more detail here here: `https://12factor.net/`
+**TOD DMC**
 
 ## Using Containerized Infrastructure
 Container technology has recently gained rapid adoption within the industry and for good reason. Containers provide a powerful abstraction and isolation mechanism to that can lead to robust and repeatable production deployments.
