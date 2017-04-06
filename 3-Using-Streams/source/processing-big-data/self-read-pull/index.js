@@ -1,9 +1,14 @@
 'use strict'
+
 const fs = require('fs')
 const rs = fs.createReadStream(__filename)
 
-rs.on('data', (data) => {
-  console.log('Read chunk:', data)
+rs.on('readable', () => {
+  var data = rs.read()
+  while (data !== null) {
+    console.log('Read chunk:', data)
+    data = rs.read()
+  }
 })
 
 rs.on('end', () => {

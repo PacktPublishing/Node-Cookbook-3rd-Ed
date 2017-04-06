@@ -13,8 +13,9 @@ This chapter covers the following topics
 
 Streams are one of the best features in Node. They have been a big part of the ecosystem since the early days of Node and today thousands of modules exists on npm that help us compose all kinds of great stream based apps. They allow us to work with large volumes of data in environments with limited resources. In addition to that they help us decouple our applications by supplying a generic abstraction that most I/O patterns work with.
 
-In this chapter we're going to explore why streams are such a valuable
-abstraction, how to safely compose streams together in a production environment, and convenient utilities to stream creation and management.
+In this chapter we're going to explore why streams are such a valuable abstraction, how to safely compose streams together in a production environment, and convenient utilities to stream creation and management.
+
+Whilst this chapter is somewhat theoretical, the recipes contained are foundational to the rest of the book, throughout proceeding chapters streams are used regularly in practical examples. 
 
 ## Processing big data
 
@@ -26,7 +27,7 @@ Using the command line tool `curl` which is included (or at least installable) o
 $ curl https://skimdb.npmjs.com/registry/_changes?include_docs=true
 ```
 
-This will prints a new line delimited JSON stream of all modules.
+This will print a new line delimited JSON stream of all modules.
 
 The JSON stream returned by the registry contains a JSON object for each module stored on npm followed by a new line character.
 
@@ -79,7 +80,7 @@ Streams abstract this away by returning an object instance that represents the e
 
 How do we get the file data out of this abstraction?
 
-One way to extract data from stream is by listening to the `data` event.
+One way to extract data from a stream is by listening to the `data` event.
  
 Let's attach a data listener that will be called every time a new small chunk of the file has been read.
 
@@ -103,16 +104,29 @@ $ node index.js
 
 ### How it works
 
-Streams are bundled with Node core as a core module (the `streams`) module.
-Other parts of core such as `fs` rely on the `streams` module for their
-higher level interfaces. The two main stream abstractions are a readable stream and a writable stream.
+Streams are bundled with Node core as a core module (the `stream`) module. Other parts of core such as `fs` rely on the `stream` module for their higher level interfaces. 
 
-In our case we use a readable stream (as provided by the `fs` module), to 
-read our source file (`index.js`) a chunk at a time. Since our file is smaller
-than the maximum size per chunk (16KB), only one chunk is read. 
+The two main stream abstractions are a readable stream and a writable stream.
 
-The `data` event is therefore only emitted once, and then the `end` event is 
-emitted.
+In our case we use a readable stream (as provided by the `fs` module), to read our source file (`index.js`) a chunk at a time. Since our file is smaller than the maximum size per chunk (16KB), only one chunk is read. 
+
+The `data` event is therefore only emitted once, and then the `end` event is emitted.
+
+While the contents of `self-read/index.js` isn't considered
+"big data", this data processing approach can scale 
+potentially infinitely because the amount of memory used
+by the process stays constant.
+
+> #### Never use the core `stream` module directly
+> As a rule, when we create streams we should avoid using
+> the internal `stream` module directly. This is because
+> the behavior (more so than the API) of streams can (and has) 
+> changed between Node versions. While this is expected to occur
+> less, or in a less impacting way in future, it's still safer to
+> always use the `readable-stream` module instead. 
+> The `readable-stream` module (for historical reasons) is very poorly name, it's the latest core `stream` module exposed as an npm
+> module and it's compatible with all Node versions. This still doesn't quite cater to core module (like `fs`) that rely on the core `stream` module, nevertheless it's a best-effort practice to
+avoid maintenance pain in the future.
 
 ### There's more
 
@@ -161,23 +175,76 @@ Notice that the program does not crash even though the file is infinite. It just
 
 Scalability is one of the best features about streams in general as most of the programs written using streams will scale well with any input size. 
 
+#### Flow mode vs pull-based streaming
+
+A Node stream can be in either non-flowing (pulling)
+for flowing (pushing) mode. When we attach a `data` event
+to a stream it enters flowing mode, which means as long 
+as there is data, the `data` event will be called. If we
+want it to stop we can call the Readable streams `pause`
+method, and when we want to start again we can call the `resume`
+method (see the **There's More** section of the **Decoupling I/O** 
+recipe for an example).
+
+An alternative way to extract data from a stream is to 
+wait for a `readable` event and then continually call the
+streams `read` method until it returns `null` (which is
+the stream terminator entity). In this way we *pull* data
+from the stream, and can simply stop pulling if necessary. 
+In other words, we don't need to instruct the stream to pause
+and then resume, we can simply stop and start pulling as required.
+
+Let's copy the `self-read` folder from the main recipe to 
+`self-read-pull`:
+
+```sh
+$ cp -fr self-read self-read-pull
+```
+
+Now we'll modify `index.js to look like so:
+
+```js
+const fs = require('fs')
+const rs = fs.createReadStream(__filename)
+
+rs.on('readable', () => {
+  var data = rs.read()
+  while (data !== null) {
+    console.log('Read chunk:', data)
+    data = rs.read()
+  }
+})
+
+rs.on('end', () => {
+  console.log('No more data')
+})
+```
+
+Now we're pulling data from the stream instead of it 
+being pushed to an event handler. The `readable` event 
+may trigger multiple times, as data becomes available,
+and once there's no data available the `read` method 
+returns `null`.
+
 #### Understanding stream events
 
 All streams inherit from EventEmitter and emit a series of different events. When working with streams it is a good idea to understand some of the more important events being emitted. Knowing what each event means will make debugging streams a lot easier.
 
-* `data`. Emitted when new data is read from a readable stream. The data is provided as the first argument to the event handler. Beware that unlike other event handlers attaching a data listener has side effects. When the first data listener is attached your stream will be unpaused. You should never emit `data` yourself. Always use the `.push()` function instead.
+* `data` Emitted when new data is read from a readable stream. The data is provided as the first argument to the event handler. Beware that unlike other event handlers attaching a data listener has side effects. When the first data listener is attached our stream will be unpaused. We should never emit `data` ourselves. Instead, we should always use the `push` function instead.
 
-* `end`. Emitted when a readable stream has no more data available AND all available data has been read. You should never emit `end` yourself. Use `.push(null)` instead.
+* `end` Emitted when a readable stream has no more data available AND all available data has been read. We should never emit `end` ourselves, instead we should pass `null` to `push` to signifiy
+end of data.
 
-* `finish`. Emitted when a writable stream has been ended AND all pending writes has been completed. Similar to the above events you should never emit `finish` yourself. Use `.end()` to trigger finish manually pipe a readable stream to it.
+* `finish` Emitted when a writable stream has been ended AND all pending writes has been completed. Similar to the above events you should never emit `finish` yourself. Use `end()` to trigger finish manually pipe a readable stream to it.
 
-* `close`. Loosely defined in the stream docs, `close` is usually emitted when the stream is fully closed. Contrary to `end` and `finish` a stream is *not* guaranteed to emit this event. It is fully up to the implementer to do this.
+* `close` Loosely defined in the stream docs, `close` is usually emitted when the stream is fully closed. Contrary to `end` and `finish` a stream is *not* guaranteed to emit this event. It is fully up to the implementer to do this.
 
-* `error`. Emitted when a stream has experienced an error. Tends to followed by a `close` event although, again, no guarantees that this will happen.
+* `error` Emitted when a stream has experienced an error. Tends to followed by a `close` event although, again, no guarantees that this will happen.
 
-* `pause`. Emitted when a readable stream has been paused. Pausing will happen when either backpressure happens or if the `.pause` method is explicitly called. For most use cases you can just ignore this event although it is useful to listen for, for debugging purposes sometimes.
+* `pause` Emitted when a readable stream has been paused. Pausing will happen when either backpressure happens or if the `pause` method is explicitly called. For most use cases you can just ignore this event although it is useful to listen for, for debugging purposes sometimes. See the **There's More** section of the **Decoupling I/O** recipe for an example of backpressure and
+pause usage.
 
-* `resume`. Emitted when a readable stream goes from being paused to being resumed again. Will happen when the writable stream you are piping to has been drained or if `.resume` has been explicitly called.
+* `resume` Emitted when a readable stream goes from being paused to being resumed again. Will happen when the writable stream you are piping to has been drained or if `resume` has been explicitly called. See the **There's More** section of the **Decoupling I/O** recipe for an example of resume usage.
 
 ### See also
 
@@ -635,7 +702,7 @@ produce output asynchronously.
 In this recipe, we'll look at creating a transform 
 stream with the `through2` module, in the **There's More**
 section we'll look at how to create streams with the core
-`streams` module.
+`stream` module.
 
 ### Getting Ready
 
@@ -726,20 +793,34 @@ also let's explore object streams.
 
 #### Transform streams with Node's core `stream` module
 
-Let's create a folder called `core-transform-streams`
-with a `prototypal.js`, `classical`, `modern.js` and `index.js` files:
+Let's create a folder called `core-transform-streams`,
+intialize it as a package, install the `readable-stream` module
+and create `prototypal.js`, `classical`, and `modern.js` files:
 
 ```sh
 $ mkdir core-transform-streams
+$ npm init -y
+$ npm install readable-stream
 $ touch prototypal.js classical.js modern.js index.js
 ```
 
 We'll use these files to explore the evolution of stream creation.
 
+Mostly when we use a core module, we use it directly.
+For instance, to work with streams we would do `require('stream')`.
+
+However, the rule of thumb is: never use the core `stream` module
+directly. While the name is a complete misnomer, we recommend 
+always using the `readable-stream` module instead of the packaged
+core `stream` module, this will ensure any streams we create will
+be consistent across Node versions. So instead of `require('stream')`
+we'll be using `require('readable-stream')` which is the exact same
+thing, only with the behavior of most recent Node versions.
+
 Let's write the following in `prototypal.js`:
 
 ```js
-const stream = require('stream')
+const stream = require('readable-stream')
 const util = require('util')
 
 function MyTransform(opts) {
@@ -759,12 +840,12 @@ process.stdin.pipe(upper).pipe(process.stdout)
 
 In earlier version of Node this was the canonical way to create streams,
 with the advent of EcmaScript 2015 (ES6) classes, there's a slightly
-less noisy approach. 
+less noisy approach.
 
 Let's make the `classical.js` file look as follows:
 
 ```js
-const {Transform} = require('stream')
+const {Transform} = require('readable-stream')
 
 class MyTransform extends Transform {
   _transform (chunk, enc, cb) {
@@ -787,7 +868,7 @@ this allows for a more functional approach (similar to `through2`),
 let's make `modern.js` look as follows:
 
 ```js
-const {Transform} = require('stream')
+const {Transform} = require('readable-stream')
 
 const upper = Transform({
   transform: (chunk, enc, cb) => {
@@ -802,31 +883,6 @@ The `Transform` constructor doesn't require `new` invocation,
 so we can call it as a function. We can pass our transform function
 as the `transform` property on the options object passed to the
 `Transform` function.
-
-For our final mutation, let's initialize the folder as a package
-and install `readable-stream`:
-
-```sh
-$ npm init -y
-$ npm install readable-stream
-```
-
-To have complete parity with the `through2` module, we need to 
-use `readable-stream` instead of the core `stream` module.
-
-Let's make `index.js` look as follows:
-
-```js
-const {Transform} = require('readable-stream')
-
-const upper = Transform({
-  transform: (chunk, enc, cb) => {
-    cb(null, chunk.toString().toUpperCase())
-  }
-})
-
-process.stdin.pipe(upper).pipe(process.stdout)
-```
 
 This of course limits us to using Node 4 or above, so isn't
 a recommended pattern for public modules, the prototypal approach
@@ -876,16 +932,20 @@ side is in object mode, but the readable side isn't. Objects
 go in, buffers come out.
 
 With core streams we pass an `objectMode` option to create an 
-object stream instead. Let's create a `core.js` file in the same folder, 
+object stream instead. 
+
+Let's create a `core.js` file in the same folder, and install
+the `readable-stream` module: 
 
 ```sh
 $ touch core.js
+$ npm install --save readable-stream
 ```
 
 Now we'll fill it with the following code:
 
 ```js
-const {Transform} = require('stream')
+const {Transform} = require('readable-stream')
 const {serialize} = require('ndjson')
 
 const xyz = Transform({
@@ -1047,13 +1107,22 @@ Whenever this method is called the stream expects us to provide more data availa
 > and multi-version compatible representation of the core streams module
 > and ensures consistency.
 
-Let's create a folder called `core-streams` and create an `index.js`
-file inside.
+Let's create a folder called `core-streams`, initialize it as a package
+install `readable-stream` and and create an `index.js`
+file inside:
+
+```sh
+$ mkdir core-streams
+$ cd core-streams
+$ npm init -y
+$ npm install readable-stream
+$ touch index.js
+```
 
 At the top of `index.js` we write: 
 
 ``` js
-const {Readable, Writable} = require('stream')
+const {Readable, Writable} = require('readable-stream')
 
 const rs = Readable({
   read: () => {
@@ -1112,12 +1181,23 @@ The way it does this is by waiting for us to call `push` and then calling `_read
 
  A problem with this approach is that if we want to call `push` more than once, in an asynchronous way this becomes problematic.
 
- Let's create a folder called `readable-flow-control`, with a file
- called `undefined-behavior.js` containing the following:
+ Let's create a folder called `readable-flow-control`, 
+ initialize it as a package and install `readable-stream` and create a file
+ called `undefined-behavior.js`:
+
+ ```sh
+ $ mkdir readable-flow-control
+ $ cd readable-flow-control
+ $ npm init -y
+ $ npm install --save readable-stream
+ $ touch undefined-behavior.js
+ ```
+ 
+ The `undefined-behavior.js` file should contain the following:
 
 ```js
 // WARNING: DOES NOT WORK AS EXPECTED
-const {Readable} = require('stream')
+const {Readable} = require('readable-stream')
 const rs = Readable({
   read: () => {
     setTimeout(() => {
@@ -1147,7 +1227,6 @@ Luckily as we show in this recipe, there are more user friendly modules availabl
 Let's install `from2` into our folder and create a file called `expected-behavior.js`:
 
 ```sh
-$ npm init -y
 $ npm install --save from2
 $ touch expected-behavior.js
 ```
@@ -1231,6 +1310,7 @@ two streams that are interrelated in some way.
 ### See also
 
 * TBD
+
 
 ## Decoupling I/O
 
@@ -1397,7 +1477,8 @@ applicable type of channel.
 ### There's more
 
 When using Streams to decouple I/O, what is ultimately the best way
-to create streams, core or modules like `through2`? 
+to create streams, core or modules like `through2`? Also it's important to understand backpressure before we use or create 
+streams in anger.
 
 #### Stream destruction
 
@@ -1473,4 +1554,138 @@ The `destroy` method is extremely useful in many applications and more or less e
 
 For this reason using `from2` (and other stream modules described in this book) is highly recommended over using the core stream module.
 
+#### Handling backpressure
+
+By default writable streams have a high water mark of 16384
+bytes (16KB). If the limit is met, the writable stream will indicate that this is the case and it's up to the stream consumer to stop writing until the streams buffer has cleared. However,
+even if the high water mark is exceeded a stream can still be written to. This is how memory leaks can form.   
+
+When a writable (or transform) stream is receiving more data
+than it's able to process in a given time frame, a backpressure
+strategy is required to prevent the memory from continually growing until the process begins to slow down and eventually crash.
+
+When we use the `pipe` method (including when used indirectly
+via `pump`), the backpressure is respected by default.
+
+Let's create a folder called `backpressure`, initialize it as a package and install `readable-stream`. 
+
+```sh
+$ mkdir backpressure
+$ cd backpressure
+$ npm init -y
+$ npm install readable-stream --save
+```
+
+Now we'll create a file called `backpressure-with-pipe.js`,
+with the following contents:
+
+```js
+const {Readable, Writable} = require('readable-stream')
+
+var i = 20
+
+const rs = Readable({
+  read: (size) => {
+    setImmediate(function () {
+      rs.push(i-- ? Buffer.alloc(size) : null)
+    })
+  }
+})
+
+const ws = Writable({
+  write: (chunk, enc, cb) => {
+    console.log(ws._writableState.length)
+    setTimeout(cb, 1)
+  }
+})
+
+rs.pipe(ws)
+```
+
+We have a write stream the takes 1ms to process each
+chunk, and a read stream that pushes 16KB chunks (the `size` parameter will be 16KB). We use `setImmediate` in the 
+read stream to simulate asynchronous behavior, as read streams
+tend to (and should generally be) asynchronous.
+
+In our write stream we're logging out the size of the 
+stream buffer on each write.
+
+We can definitely (as we'll soon see) write more than 
+one 16KB chunk to a stream before the 1ms timeout occurs.
+
+However if we run our `backpressure-with-pipe.js` program:
+
+```sh
+$ node backpressure-with-pipe.js
+```
+
+We should see results as shown in the following image:
+
+![](images/backpressure-pipe.png)
+
+We'll see that the write stream's buffer never exceeds 16KB,
+this is because the `pipe` method is managing the backpressure.
+
+However, if we write directly to the stream, we can 
+push the stream far above its watermark.
+
+Let's copy the `backpressure-with-pipe.js` to 
+`direct-write-no-backpressure.js`, and alter the 
+very last which states `rs.pipe(ws)` to:
+
+```js
+rs.on('data', (chunk) => ws.write(chunk))
+```
+
+If we run our new program:
+
+```sh
+$ node direct-write-no-backpressure.js
+```
+
+We should see (as shown in the following image) the size of the write streams buffer grow almost
+to 300KB before it falls back to 16KB as the stream attempts to
+free up the buffer.
+
+![](images/no-backpressure.png)
+
+If we want to manage backpressure without pipe, we have
+to check the return value of our call to write. If the 
+return value is `true` then the stream can be written to,
+if the value if `false` then we need to wait for the `drain`
+event to begin writing again. 
+
+Let's copy `direct-write-no-backpressure.js` to 
+`direct-write-with-backpressure.js` and alter 
+the final line (`rs.on('data', (chunk) => ws.write(chunk))`)
+to:
+
+```js
+rs.on('data', (chunk) => {
+  const writable = ws.write(chunk)
+  if writable === false) { 
+    rs.pause()
+    ws.once('drain', () => rs.resume())
+  }
+})
+```
+
+We check the return value of `ws.write` to determine
+whether the stream is still writable (in the advisable sense).
+
+If it isn't writable we have to pause the incoming readable stream,since once we listen to a `data` event the mode of the stream
+changes from to non-flowing mode (where data is pulled from it) to
+flowing mode (where data is pushed).
+
+If we run `direct-write-with-backpressure.js`:
+
+```sh
+$ node direct-write-with-backpressure.js
+```
+
+We should see, as with our piping example, that the writable
+streams buffer does not exceed 16KB.
+
 ### See also
+
+* TBD

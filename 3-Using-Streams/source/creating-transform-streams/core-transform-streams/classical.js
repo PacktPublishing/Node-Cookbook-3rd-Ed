@@ -1,6 +1,6 @@
 'use strict'
 
-const {Transform} = require('stream')
+const {Transform} = require('readable-stream')
 
 class MyTransform extends Transform {
   _transform (chunk, enc, cb) {

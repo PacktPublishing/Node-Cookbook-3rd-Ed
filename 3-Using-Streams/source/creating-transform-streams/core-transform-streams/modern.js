@@ -1,6 +1,6 @@
 'use strict'
 
-const {Transform} = require('stream')
+const {Transform} = require('readable-stream')
 
 const upper = Transform({
   transform: (chunk, enc, cb) => {

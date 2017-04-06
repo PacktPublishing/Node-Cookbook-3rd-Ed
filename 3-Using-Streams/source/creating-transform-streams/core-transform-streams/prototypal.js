@@ -1,6 +1,6 @@
 'use strict'
 
-const stream = require('stream')
+const stream = require('readable-stream')
 const util = require('util')
 
 function MyTransform(opts) {
