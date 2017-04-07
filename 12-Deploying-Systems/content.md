@@ -1601,9 +1601,9 @@ $ kops delete cluster <domain name> --yes
 ### How it works
 Our deployed system is shown in the diagram below:
 
-**TODO**
+![image](./images/BuildDetailAWS.png)]
 
-Note that the configuration is very similar to our local setup, only that we have now deployed our system to the AWS cloud.
+Note that the configuration is very similar to our local setup, only that we have now deployed our system to the AWS cloud. Within AWS Kubernetes is running on three machine instances, one master and two worker nodes. Our containers are distributed across these nodes, in fact we don't event care too much which instances they are running on, Kubernetes will manage workload and distribution for us.
 
 `kops` is a powerful tool that allows us to manage multiple Kubernets clusters and takes a lot of the grunt work out of so doing. `kops` stores it's configuration in an S3 bucket so that it is centrally available - this is known as the `kops` state store. Both `'kops` and Kuberenets use the information in the state store to configure and update the cluster and underlying infrastructure. To edit the contents of the state store we should always use the `kops` interface, rather than editing the files on S3 directly, for example to edit the cluster information we could run:
 
