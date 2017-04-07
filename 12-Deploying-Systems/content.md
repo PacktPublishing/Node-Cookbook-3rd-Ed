@@ -398,7 +398,9 @@ We can observe that the latest tag has been moved for the changed service. For e
 DockerHub provides a global repository of images. We have already used it to fetch MongoDB and Redis images for use in the microservices chapter. In this recipe we are going to push our `adderservice` container to DockerHub.
 
 ### Getting Ready
-We need to build the `adderservice` image, if we don't already have it available, `cd` into the `micro/adderservice` directory and run:
+This recipe uses the code from our first recipe `Building a Single Container`. If you don't have this already you should grab the code from the accompanying source for the chapter under `source/Building_Single_Container`.
+
+We need to build the `adderservice` image, if it's not already have it available, `cd` into the `micro/adderservice` directory and run:
 
 ```sh
 $ docker build -t adderservice .
@@ -441,21 +443,42 @@ $ docker pull <namespace>/adderservice
 ```
 
 ### How it works
-Applying the tag `<namespace>/adderservice` tells docker that this image is associated with a repository on DockerHub. Docker discriminates between a local private regisrty and the central hub based on the format of the tag. If the namespace tag contains an IP address or dotted domain name and port then docker will attempt to push/pull from a private registry. If the tag is just a namespace then docker will use the central Hub to push and pull. To avoid confusion the namespace that you provide on DockerHub is restricted to only allow letters and digits.
+Applying the tag `<namespace>/adderservice` tells docker that this image is associated with a repository on DockerHub. Docker discriminates between a local private registry and the central hub based on the format of the tag. If the namespace tag contains an IP address or dotted domain name and port then docker will attempt to push/pull from a private registry. If the tag is just a namespace then docker will use the central Hub to push and pull. To avoid confusion the namespace that you provide on DockerHub is restricted to only allow letters and digits.
 
 In this recipe we created a public repository. DockerHub is free to use for public repositories, but of course public repositories may be accessed by anyone on the internet. This is a similar model to Github and other cloud based code version management systems. It is therefore important not to push any proprietary code to a public repository. Also bear in mind that we should never push images that contain secret information such as ssh keys or API keys to public repositories.
 
 It is possible to host private repositories on DockerHub for a fee, private repositories are only accessible to nominated DockerHub accounts so access can be tightly controlled.
 
-### There's more
-**TODO**
-
-### See also
 DockerHub is just one of several cloud based registries that we can use, alternatives include:
 
 * Google Container Registry - managed registry for those using Google cloud services
 
 * Amazon ECR  - managed registry for those using AWS
+
+### There's more
+Using a cloud based registry can be far more convenient than managing our own on premise registry, however it is important to effectively manage image versions, we will explore this a little more here:
+
+#### Using a Specific Version tag
+Applying the tag structure in this recipe results in Docker applying using `latest` as the version tag. When we build a new version of an image without explicitly providing a version, Docker will move the `latest` tag to this new image and leave the previous build untagged. The same process will occur with images that we push to Docker Hub. It is generally better practice to use a specific image version tag. By doing this we can maintain a history of our images which makes any rollback or post incident analysis easier.
+
+Let's tag our `adderservice` image with a version, run:
+
+```sh
+$ docker tag adderservice <namespace>/adderservice:1
+```
+
+We can now push this image to Docker Hub:
+
+```sh
+$ docker push <namespace>/adderservice:1
+```
+
+If we now navigate to the `Tags` panel for our `adderservice` image on DockerHub we can see that our newly pushed image is available.
+
+Using an incremental build number is one approach to maintaining version tags, another approach is to pull the version field from `package.json` and use that as a version tag. Our preferred approach is to use the `git` SHA as a version tag, that we we can immediately identify the exact code that is built into our service containers.
+
+### See also
+**TODO DMC**
 
 ## Deploying a Container To Kubernetes
 Kubernetes is an open source container orchestration and management system originally built at Google. Kubernetes is a powerful tool and can become quite complex however the basics are fairly simple to understand. To get to grips with Kubernetes, we will be deploying a single container into a local Kunbernetes system using Minikube. Minikube is a convenient way to explore the power of Kubernetes without building a complex cloud based deployment.
