@@ -711,12 +711,12 @@ Notice that our logging statement is present.
 **TODO DMC**
 
 ## Creating a Deployment Pipeline
-In the previous recipes in this chapter we have become familiar with a Docker and Kubernetes. It's time now to really exploit the power of these technologies through creating a deployment pipeline. Wether we are deploying to a staging environment (continuous delivery) or directly to production (continuous deployment) a robust and automated pipeline is powerful tool that should form the basis of our DevOps strategy.
+In the previous recipes in this chapter we have become familiar with Docker and Kubernetes. It's time now to really exploit the power of these technologies by creating a deployment pipeline. Wether we are deploying to a staging environment (continuous delivery) or directly to production (continuous deployment) a robust and automated pipeline is powerful tool that should form the core of our DevOps strategy.
 
 ### Getting Ready
 For this recipe we are going to be using the Jenkins CI/CD system as our build and deployment tool so we will need to install this first. Head over to https://jenkins.io/ to download the appropriate binary for your system. Once you have the the download run the installer.
 
-Jenkins runs as in the background as a daemon process, in order to do this, the installer creates a `jenkins` user account, this account is very restricted in what it can do which is great for security on a production build system, however we are going to loosen things off a little bit on our local development environment (although not that much!). To to this we are going to give the `jenkins` user `sudo` powers, run the following command:
+Jenkins runs as in the background as a daemon process, in order to do this, the installer creates a `jenkins` user account, this account is very restricted in what it can do which is great for security on a production build system, however we are going to loosen things off a little bit on our local development environment. To to this we are going to give the `jenkins` user `sudo` powers, run the following command:
 
 ```sh
 $ sudo visudo
@@ -731,7 +731,6 @@ jenkins ALL=(ALL) NOPASSWD:ALL
 > ### Sudoers ![](../tip.png)
 > We have used very loose permissions for the Jenkins user, there are other more secure methods that can be used to allow `jenkins` to effectively run builds
 > We have used this method as it allows us to focus on build configuration and not security.
-Next we need to create a Gitub repository for our code. If you don't have a Github account headver to http://github.com and create one. Next create a repository called `micro` and add the code from the `adderservice` and the deployment folder to it. The repository strucutre should look as follows:
 
 We also need to update the `PATH` environment variable for the jenkins user. To do this run the following:
 
@@ -741,31 +740,36 @@ $ cd ~
 $ echo export PATH="/usr/local/bin:$PATH" > .bashrc
 ```
 
-For this recipe we will be building the `adderservice` project. We will take the code from the previous recipe as out starting point. The code for this is available here: **todo** link to code.
+This recipe uses the code from our previous recipe `Deploying a Container to Kubernetes`, this is available in the accompanying source under `source/Deploying_Container_Kubernetes`.
+
+For this recipe we need to create a Gitub repository for our code. If you don't have a Github account head over to http://github.com and create one. Next create a repository called `micro`. We will add code to this during the recipe.
 
 ### How to do it
 Our build pipeline is going to consist of the following steps:
 
 * Pull the latest code
-
 * run a build step - npm install
-
 * run a test step -  npm test
-
 * build an updated container, updating the version number
-
 * push the container to DockerHub
-
 * rollout the new container to our minikube environment
 
-This build pipeline will be controlled and executed by Jenkins. This pipeline will focus only on building the `adderservice` project. The build will pull our `adderservice` and other code from github so firstly we need to create a local git repository:
+This build pipeline will be controlled and executed by Jenkins. This pipeline will focus only on building the `adderservice` project. The build will pull our `adderservice` and other code from Github so firstly we need to create a local git repository:
 
 ```sh
 $ cd micro
 $ git init
 ```
 
-Then head over to Github and create a new public repo called `micro`. Follow the instructions provided to push the `micro` code to the repository.
+Next add the code from the `adderservice` and the `deployment` folder from the previous recipe to this new local repository. To keep the repository clean let's add a `.gitignore` file at the root containing the following:
+
+```
+*.log
+node_modules
+npm-debug.log
+```
+
+We can now commit our code, add the remote origin and push our first commit to Github.
 
 Before we wire up Jenkins, we are going to create our build script, we are also going to make our Kubernetes deployment a little more generic. Firstly `cd` into the `micro/deployment` directory and create a new file `deployment-template.yml`, add the following code to it:
 
@@ -809,10 +813,10 @@ spec:
 ```
 
 > ### Build Scripts ![](../tip.png)
-> Jenkins and other build systems can be powerful tools, however it is normally better to write simple build scripts and trigger/measure them with tools like
+> Jenkins and other build systems can be powerful tools, however it is normally better to write simple build scripts and trigger/manmage them with tools like
 > Jenkins. This way it is simpler to debug the build process and also to transfer to another build tool if required.
 
-As we can see, these templates are just our previous Kuberenetes deployment scripts with the specific service name, port and image replaced with the string `_NAME_`, `_PORT` and `_IMAGE_`. Next let's take care of the build script for the `adderservice`. `cd` into the `micro/adderservice` directory and create a file build.sh. Add the following code to it, replacing the string `_user_` with a user account that has security permissions to run docker and to upload images to Docker Hub.
+As we can see, these templates are just our previous Kuberenetes deployment scripts with the specific service name, port and image replaced with the string `_NAME_`, `_PORT` and `_IMAGE_`. Next let's take care of the build script for the `adderservice`. `cd` into the `micro/adderservice` directory and create a file build.sh. Add the following code to it, replacing the string `_user_` with our own user account that has security permissions to run docker and to upload images to Docker Hub.
 
 ```sh
 #!/bin/bash
@@ -846,7 +850,7 @@ esac
 Replace <username> with your username, i.e. the account that you log into your computer with. Replace <dockerhub account> with your DockerHub user account name.
 
 > ### Templates and `sed` ![](../info.png)
-> We are using `sed` as a simple way of running a template based Kubernetes solution. There is discussion in the Kuberenetes community on adding templates to
+> We are using `sed` as a simple way of running a template based build script. There is discussion in the Kuberenetes community on adding templates to
 > Kubernetes but this is not currently supported. `sed` is an easy way to create a template based solution.
 
 Next we need to wire our build script into Jenkins. We will be using a feature called `pipelines`. Pipelines are described in text files, by convention, called `Jenkinsfile` let's create a Jenkinsfile for our `addderservice` build pipeline. `cd` into the `micro/adderservice` directory and create a file called `Jenkinsfile`,
@@ -908,7 +912,7 @@ We also need to configure the pipeline settings as illustrated below:
 
 ![image](./images/jenk_config2.png)
 
-Once we have these configured and saved, it's time to test our build out. From the main Jenkins menu click the `adderservice` link and then click the `build now` link. Jenkins will now kick off the pipeline and build then deploy our service to Kubernetes. Once the build is complete we can inspect the log output and also the overview as below:
+Once we have these configured and saved, it's time to test our pipeline. From the main Jenkins menu click the `adderservice` link and then click the `build now` link. Jenkins will now kick off the pipeline and build then deploy our service to Kubernetes. Once the build is complete we can inspect the log output and also the overview as below:
 
 ![image](./images/jenk_build1.png)
 
@@ -923,20 +927,20 @@ $ minikube dashboard
 We can see that a fresh pod has been deployed along with our newly created container image.
 
 ### How it works
-We accomplished a lot in that recipe so there is quite a bit to understand. let's start with the build script. Firstly this read the short form Git Sha for the current branch in our micro project using this code:
+We accomplished a lot in that recipe so there is quite a bit to understand. let's start with the build script. Firstly this reads the short form Git SHA for the current branch in our micro project using this code:
 
 ```sh
 GITSHA=$(git rev-parse --short HEAD)
 ```
 
-Later in the script we used the Sha to tag our image and to upload it to DockerHub.
+Later in the script we used the SHA to tag our image and to upload it to DockerHub.
 
 ```sh
 sudo -u <username> docker tag adderservice:$GITSHA <dockerhub account>/adderservice:$GITSHA
 sudo -i -u <username> docker push <dockerhub account>/adderservice:$GITSHA
 ```
 
-Using a Git Sha as a tag on a container image is a useful technique because it means that we can identify the exact code that is in the container just by looking at the container name. There are of course other valid tagging strategies, such as using the npm version number from `package.json` or some kind other independent build number.
+Using a Git SHA as a tag on a container image is a useful technique because it means that we can identify the exact code that is in the container just by looking at the container tag. There are of course other valid tagging strategies, such as using the `npm` version number from `package.json` or some kind other independent build number.
 
 We used the following code to generate our Kubernetes deployment configuration from our templates:
 
@@ -955,17 +959,25 @@ sudo -i -u _user_ kubectl apply -f $(pwd)/svc.yml
 sudo -i -u _user_ kubectl apply -f $(pwd)/dep.yml
 ```
 
-Note that we use the `pwd` command to generate an absolute path because of the context that this script is run in by Jenkins. Let's take a look at the Jenkinsfile again, which is broken down into a number of stages. Jenkins scans the repository that we nominated when we configured the pipeline through the Jenkins web interface. Jenkins reads our Jenkinsfile and beings executing the first phase `Checkout`. Here Jenkins will get a full copy of our `micro` repository into a temporary build area.
+Note that we use the `pwd` command to generate an absolute path because of the context that this script is run in by Jenkins. Let's take a look at the Jenkinsfile again, which is broken down into a number of stages. Jenkins scans the repository that we nominated when we configured the pipeline through the Jenkins web interface. Jenkins reads our Jenkinsfile and begins executing the first phase `Checkout`. Here Jenkins will get a full copy of our `micro` repository into a temporary build area.
 
-The next two phases just execute an `npm install` and `npm test` as the build and test phases. In the case of our `adderservice` project we haven't defined any unit tests, but of course for an actual system the test phase should break the build pipeline on failure. Normally we might also apply some other metrics such as measuring coverage levels or linting the code.
+The next two phases just execute an `npm install` and `npm test` as the build and test phases. In the case of our `adderservice` project we haven't defined any unit tests, but of course for an actual system the test phase should break the build pipeline on test failure. Normally we might also apply some other metrics such as measuring coverage levels or `linting` the code.
 
 In the `container` phase we build, tag and upload our new container image to DockerHub. Finally we apply the changes to Kubernetes in the deployment phase. It is important to note that our approach when using tools like Jenkis is to always do the minimum work within the tool itself and to handle the build as much as possible in external scripts. This makes our build process much easier to debug and also much more portable.
 
+We should note that Jenkins is just one of a number of CI/CD tools, although it is very widely used. There are several noteworthy alternatives, including:
+
+* Bamboo - Part of the Atlassian tool suite https://www.atlassian.com/software/bamboo
+* Travis - Cloud based build tool free for use with public projects https://travis-ci.org/
+* Circle CI - Fully featured, commercial build tool https://circleci.com/
+* Go - from ThroughtWorks https://www.gocd.io/
+
 ### There's more
+We accomplished a lot in this recipe! We now have a Jenkins controlled pipeline building and deploying our `adderservice` container to Kubernetes. Let's explore how we might debug this build process and also automatically trigger it.
 
 #### Debugging the build
 If we encounter any issues with the build process, Jenkins will report these in the output logs. Once we have made a correction to our build scripts we will need to commit and push them to github before telling Jenkins to rebuild. This results in quite a long development cycle. A much better way is to test the scripts directly in a shell so that we are sure that they work before committing for Jenins to build.
-em
+
 To do this we need to test our scripts in the context of the `jenkins` user. We can do this using the `sudo` command. Let's run the container build step in isolation:
 
 ```sh
@@ -994,21 +1006,13 @@ Using the credentials that we created in the previous step. We can use the `Test
 ![image](./images/jenk_gh.png)
 
 > ### Webhooks ![](../info.png)
-> We are using polling in this recipe because our Jenkins server is running on `localhost`. A more efficient way to trigger a build is to setup a Github `webhook`
-> wereby Github will call a nominated url on certain event such as branch merge.
+> We are using polling in this recipe because our Jenkins server is running on `localhost`. A more efficient way to trigger a build is to setup a Github `webhook`.
+> Using this technique, Github will call a nominated url on certain event such as branch merge.
 
-Now that we have our Github polling setup we can go ahead and trigger a build. To do this we can make a small change to our project, for example adding an additional console.log or a comment to the code and push the change to our master branch. Jenkins will pick this change up on it's next poll and automatically run the full pipeline for us right through to deploying new pods on Kubernetes!
+Now that we have our Github polling setup we can go ahead and trigger a build. To do this we can make a small change to our project, for example adding an additional `console.log` or a comment to the code and push the change to our master branch. Jenkins will pick this change up on it's next poll and automatically run the full pipeline for us right through to deploying new pods on Kubernetes!
 
 ### See also
-Jenkins is just one CI/CD tool, although it is very widely used. There are several noteworthy alternatives, including:
-
-* Bamboo - Part of the Atlassian tool suite https://www.atlassian.com/software/bamboo
-
-* Travis - Cloud based build tool free for use with public projects https://travis-ci.org/
-
-* Circle CI - Fully featured, commercial build tool https://circleci.com/
-
-* Go - from ThroughtWorks https://www.gocd.io/
+**TODO DMC**
 
 ## Deploying a Full System
 Now that we have experience with containers and building a deployment pipeline for a single service, it's time to build a deployment pipeline for an entire microservice system. We will be setting this up to work on our local machine for now, but a later recipe will explore how to lift this into a cloud environment.
