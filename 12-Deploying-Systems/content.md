@@ -486,7 +486,7 @@ Kubernetes is an open source container orchestration and management system origi
 ### Getting ready
 For this recipe we will need to install Minikube locally. Head over to the projects Github page to install pre-requisites and the appropriate build for your platform: `https://github.com/kubernetes/minikube/releases`.
 
-This recipe builds on the work that we did in the recipe `Storing Images on DockerHub`, in order to proceed with the recipe we will need a DockerHub account with our `adderservice` container available. Once we have this and Minikube installed we are good to go.
+This recipe builds on the work that we did in the recipe `Storing Images on DockerHub`, in order to proceed with the recipe we will need a DockerHub account with our `adderservice` container available. We will also need the code from our first recipe in this chapter, `Building a Single Container`.The code for this is available in the accompanying source under `source/Building_Single_Container`. Once we have this and Minikube installed we are good to go.
 
 ### How to do it
 Firstly we need to start up `minikube` to do this run:
@@ -533,6 +533,7 @@ Now that we have our namespace created we need to set the Kubernetes context to 
 ```sh
 $ kubectl config set-context minikube --namespace=micro
 ```
+
 Next we need to create a deployment and a service for our `adderservice`, in the deployment directory create a new file `adderservice-dep.yml` and add the following code to it:
 
 ```
@@ -634,7 +635,14 @@ The structure is as follows:
 
 A full introduction and tutorial on Kubernetes can be found on the official Kubernetes site here: https://kubernetes.io/docs/tutorials/. This tutorial provides a great explanation of the basic concepts that we need in order to work with Kubernetes. It is strongly recommended that you work through this tutorial and then revisit the diagram above before proceeding to the next recipe.
 
+There are of course alternatives to Kubernets, however, Kubernetes is at present the leading container orchestration platform. Some alternatives include:
+
+* Docker Swarm - https://docs.docker.com/engine/swarm/
+* Apache Mesos - http://mesos.apache.org/
+* Amazon Elastic Container Services - https://aws.amazon.com/ecs
+
 ### There's more
+It is important to fully understand the core concepts behind Kubernets, to help us do this we will explore the dashboard and also push an updated container to `minikube`
 
 ### Dashboard
 `Minikube` comes with a built in web dashboard. Whilst the `kubectl` command line client is our primary point of interaction, the dashboard is a great visual tool for exploring Kubernetes. let's open it up now:
@@ -700,14 +708,7 @@ Finally let's test our service and check that our log statement shows up. Firstl
 Notice that our logging statement is present.
 
 ### See also
-
-There are several other container orchestration systems that are available including:
-
-* Docker Swarm - https://docs.docker.com/engine/swarm/
-
-* Apache Mesos - http://mesos.apache.org/
-
-* Amazon Elastic Container Services - https://aws.amazon.com/ecs
+**TODO DMC**
 
 ## Creating a Deployment Pipeline
 In the previous recipes in this chapter we have become familiar with a Docker and Kubernetes. It's time now to really exploit the power of these technologies through creating a deployment pipeline. Wether we are deploying to a staging environment (continuous delivery) or directly to production (continuous deployment) a robust and automated pipeline is powerful tool that should form the basis of our DevOps strategy.

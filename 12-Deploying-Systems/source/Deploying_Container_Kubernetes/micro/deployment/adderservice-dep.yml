@@ -1,0 +1,16 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: adderservice
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        run: adderservice
+    spec:
+      containers:
+      - name: adderservice
+        image: pelger/adderservice:2
+        ports:
+        - containerPort: 8080
