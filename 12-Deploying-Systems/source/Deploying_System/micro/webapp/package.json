@@ -1,0 +1,21 @@
+{
+  "name": "webapp",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node ./bin/www",
+    "test": "echo \"no test specified\" && exit 0"
+  },
+  "dependencies": {
+    "body-parser": "~1.16.0",
+    "concordant": "^0.2.1",
+    "cookie-parser": "~1.4.3",
+    "debug": "~2.6.0",
+    "ejs": "~2.5.5",
+    "express": "~4.14.1",
+    "morgan": "~1.7.0",
+    "redis": "^2.7.1",
+    "restify": "^4.3.0",
+    "serve-favicon": "~2.3.2"
+  }
+}

@@ -1,0 +1,17 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: _NAME_
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        run: _NAME_
+    spec:
+      containers:
+      - name: _NAME_
+        image: _IMAGE_
+        ports:
+        - containerPort: _PORT_
+

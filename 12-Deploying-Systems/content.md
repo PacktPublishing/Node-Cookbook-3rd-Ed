@@ -769,7 +769,15 @@ node_modules
 npm-debug.log
 ```
 
-We can now commit our code, add the remote origin and push our first commit to Github.
+We also need to make a slight change to `package.json` in the `adderservice`. Update the test command in the `scripts` section to read as follows:
+
+'''
+scripts {
+  "test": "echo \"no test specified\" && exit 0"
+}
+'''
+
+By default `npm` will insert and `exit 1` which will cause our test build phase to fail later in the recipe. Note that we are not advocating that one should skip testing, robust unit testing is a key practice for any systems development, however the focus of this recipe is on constrcuting a build pipeline not on the content of any unit tests we might write. We can now commit our code, add the remote origin and push our first commit to Github.
 
 Before we wire up Jenkins, we are going to create our build script, we are also going to make our Kubernetes deployment a little more generic. Firstly `cd` into the `micro/deployment` directory and create a new file `deployment-template.yml`, add the following code to it:
 
@@ -1015,18 +1023,18 @@ Now that we have our Github polling setup we can go ahead and trigger a build. T
 **TODO DMC**
 
 ## Deploying a Full System
-Now that we have experience with containers and building a deployment pipeline for a single service, it's time to build a deployment pipeline for an entire microservice system. We will be setting this up to work on our local machine for now, but a later recipe will explore how to lift this into a cloud environment.
+Now that we have experience with containers and building a deployment pipeline for a single service, it's time to build a deployment pipeline for an entire microservice system. We will be setting this up to work on our local machine for now, but in our next recipe will explore how to lift this into a cloud environment.
 
 ### Getting Ready
-In Chapter 7 'Understanding Microservices' we developed a small microservice system. For this recipe we will be deploying this system using techniques used in the previous recipes in this chapter. So to get ready we need to grab a copy of the code from the last recipe in chapter 7 'Adding a Queue Based Service'.
+In the Chapter 'Understanding Microservices' we developed a small microservice system. For this recipe we will be deploying this system using techniques used in the previous recipes in this chapter. So to get ready we need to grab a copy of the code from the last recipe in chapter 7 'Adding a Queue Based Service'. This code is available in the accompanying source for the microservices chapter under `source/Queue_Based_Service`.
 
-This recipe builds on the work of our previous recipe 'Creating a Deployment Pipeline' it is necessecary to complete that recipe before proceeding with this one.
-We also assume that Docker and Minikube are installed locally as required by the previous recipe.
+This recipe builds on the work of our previous recipe 'Creating a Deployment Pipeline' and it is necessary to complete that recipe before proceeding with this one.
+We also assume that Docker, Minikube and Jenkins are installed locally as required by the previous recipe.
 
 If Github triggers are running for the `adderservice` in Jenkins then now would be a good time to temporarily disable these whilst we work on the rest of the pipeline.
 
 ### How to do it
-Firstly we need to add the code for the rest of the system into our `micro` repository that we created in the previous recipe. To do this copy the following top level directories into our micro repository:
+Firstly we need to add the code for the rest of the system into our `micro` repository that we created in the previous recipe. To do this copy the following top level directories into the root of our micro repository:
 
 * auditservice
 * eventservice
@@ -1062,7 +1070,7 @@ Next we need to apply the same build structure to `eventservice`, `auditservice`
 > ### Check with Fuge ![](../tip.png)
 > We have copied across our fuge config with our microservice system, we can start the system up anytime under fuge to check that the system is running correctly,
 > todo this just run `fuge shell fuge/fuge.yml`. Note that we may need to stop our Jenkins server to do this because the adder service is running on port 8080 as is
-> Jenkins
+> Jenkins.
 
 To do this copy the files `.dockerignore`, `Dockerfile`, `Jenkinsfile` and `build.sh` from the `adderservice` folder to each of the `eventservice`, `auditservice` and `webapp` folders. Once copied we will need to modify the files to match the service that they are now pertaining to. Specifically this means replacing references to `adderservice` and the adder service port number. For example for the audit service `build.sh` should look as follows:
 
@@ -1151,7 +1159,7 @@ scripts {
   "test": "echo \"no test specified\" && exit 0"
 ```
 
-Once we have completed these changes for each of `auditservice`, `eventservice` and `webapp`, commit them to Github master branch.
+Once we have completed these changes for each of `auditservice`, `eventservice` and `webapp`, commit them to the Github master branch.
 
 ```sh
 $ git add .
@@ -1160,11 +1168,11 @@ $ git push origin master
 ```
 
 > ### Independent Variation ![](../Info.png)
-> We have chosen to clone and modiry our build script and jenkins file to each service. Whilst we could have created a single parameterized script to deploy our
+> We have chosen to clone and modify our build script and `Jenkinsfile` for each service. Whilst we could have created a single parameterized script to deploy our
 > services it is usually better to have a build script per service. That way the build may be customized as required for each service without introducing
 > complication into a master build script.
 
-Recall from our microservice chapter that the `auditservice` and `eventservice` require `mongodb` and `redis` to run correctly so we need to ensure that these elements are deployed as part of our overall pipeline. To do this create a directory called `infrastructure` under `micro` and add a `build.sh` and a `Jenkinsfile` they should contain the following code, for `build.sh`:
+Recall from our microservice chapter that the `auditservice` and `eventservice` require `mongodb` and `redis` to run correctly so we need to ensure that these elements are deployed as part of our overall pipeline. To do this create a directory called `infrastructure` under `micro` and add a `build.sh` and a `Jenkinsfile` which should contain the following code, for `build.sh`:
 
 ```sh
 #!/bin/bash
@@ -1237,11 +1245,11 @@ That takes care of our infrastructure, we now just need to configure our other s
 
 ![image](./images/kube_infradep.png)
 
-We can now go ahead and trigger builds for each of our services and also our `webapp` project. Let's go ahead and do this manually in Jenkins. Once all of the builds have completed open up the minikube dashboard which should look similar to the image below:
+We can now go ahead and trigger builds for each of our services and also our `webapp` project. Let's go ahead and do this manually in Jenkins. Once all of the builds have completed open up the `minikube` dashboard which should look similar to the image below:
 
 ![image](./images/kube_full.png)
 
-Finally let's test that our system is up and running correctly to do this we need to deterine the external port number that Kubernetes assigned to our web app and also the Kubernetes IP address:
+Finally let's test that our system is up and running correctly to do this we need to determine the external port number that Kubernetes assigned to our web app and also the Kubernetes IP address:
 
 ```sh
 $ minikube ip
@@ -1256,12 +1264,12 @@ redis          10.0.0.57    <nodes>       6379:31863/TCP    17m
 webapp         10.0.0.54    <nodes>       3000:30607/TCP    9m
 ```
 
-In the case of the output above we can see that the `webapp` is available on IP address `192.168.99.100` port number `30607`. If we now go ahead and point our browser to `http://192.168.99.100:30607/add` we should see the webapp page rendered as before. When se enter some numbers and press `add` we should see a result, also the audit link at `http://192.168.99.100/30607/audit` should show a recording of all of our calculations.
+In the case of the output above we can see that the `webapp` is available on IP address `192.168.99.100` port number `30607`. If we now go ahead and point our browser to `http://192.168.99.100:30607/add` we should see the `webapp` page rendered as before. When we enter some numbers and press `add` we should see a result, also the audit link at `http://192.168.99.100/30607/audit` should show a recording of all of our calculations.
 
 The final thing to do is to trigger the build using Git. To do this we need to repeat the step of the previous recipe by selecting the `Poll SCM` setting for each project and setting the schedule to `* * * * *` to poll every minute.
 
 ### How it works
-We have accomplished a lot in this recipe, we now have a functioning microservice system with a continuous delivery pipeline. This is depicted in the image below:
+We now have a functioning microservice system with a continuous delivery pipeline. This is depicted in the image below:
 
 ![image](./images/BuildDetail.png)
 
@@ -1270,7 +1278,7 @@ Once a commit is pushed to the master branch, Jenkins will pull the latest versi
 It is important to note at this point the transition from running our system in development mode using Fuge, which was the subject of several recipes in the microservices chapter to running our system in Kubernetes. This transition was smooth because our code was written from the start to use the same service discovery mechanisms in each case.
 
 ### There's more
-Whilst Kubernetes can seem a little overwhelimg at first, exploring some more `power user` techniques can help with mastering it. One technique that can help in many scenarios is to run a shell inside a Kubernetes managed container, let's try this out:
+Whilst Kubernetes can seem a little overwhelming at first, exploring some more `power user` techniques can help with mastering it. One technique that can help in many scenarios is to run a shell inside a Kubernetes managed container, let's try this out:
 
 #### Running a Report
 Recall that in the recipe `Adding a Queue Based Service` in the microservices chapter we created a reporting utility that displayed URL counts for our system. Let's run this again but from inside of Kubernetes. To do this we need to build a container for our reporting service. Firstly copy the code from the microservices chapter recipe directory  `micro/report` into our working `micro` directory.
@@ -1342,7 +1350,7 @@ Finally type `exit` to close the command prompt and exit the running container.
 
 ### See also
 
-**TODO**
+**TODO DMC**
 
 ## Deploying to the Cloud
 In the final recipe for this chapter we are going to take our deployment and shift it up onto a public cloud, at the end we will have a cloud based deployment of our microservice system with a supporting continuous delivery pipeline. We will be using Amazon Web Services AWS as our cloud provider because at the time of writing AWS is the most popular Infrastructure as a Service (IAAS) provider. Please note that this recipe will incur billable time on the AWS cloud so you are advised to shut down the system once you have completed the recipe in order to minimize costs.
@@ -1603,7 +1611,6 @@ Note that the configuration is very similar to our local setup, only that we hav
 $ kops edit cluster
 ```
 
-
 `kops` uses a set of rules to specify sensible default values for the Kubernets cluster, hiding a lot of the detailed configuration. Whilst this is useful to spin up a staging cluster it is advisable to fully understand the configuration at a more detailed level when implementing production grade clusters, particularly with regard to system security.
 
 To view a list of all of the resources that `kops` created for us by running the `delete` command without the `--yes` flag:
@@ -1618,11 +1625,19 @@ In our previous recipes we used NodePort as the service type, this is because `m
 
 Throughout this chapter and the `microservices` chapter we have been working with the same codebase. It is important to note that the codebase has been deployed in development mode using the `fuge` tool, to a local minikube cluster and now to a full blown Kubernetes cluster on AWS - WITHOUT CHANGE! i.e. we have not needed to provide separate environment configuirations for `dev`, `test`, `staging` etc.. This is because the code was developed to use the same service discovery mechanism in all environments. We also harnessed the power of containers not only for deployment but also in development to provide our Mongo and Redis databases.
 
+`kops` is just one tool that helps us to automate Kubernets cluster deployment, others include:
+
+* `kube-aws` - from the folks at CoreOS, as the name implies targets creating Kubernets clusters on AWS: https://coreos.com/kubernetes/docs/latest/kubernetes-on-aws-render.html
+* Google Container Engine - turnkey cloud based Kubernetes deployment https://cloud.google.com/container-engine/
+* Kargo - Supports deployment to bare metal and various cloud providers https://github.com/kubernetes-incubator/kargo
+
+Finally the long form way is to install Kubernets from scratch: https://kubernetes.io/docs/getting-started-guides/scratch/.
+
 ### There's more
-Before we delete our cluster from AWS it is worth exploring it a little more firstly with the Kubernetes dashboard:
+Before we delete our cluster from AWS it is worth exploring it a little more, firstly with the Kubernetes dashboard.
 
 #### Running the Dashboard
-Recall from our previous use of `minikube` that we ran the Kubernetes dashboard as a means on inspecting our cluster. We can install and run the dashboard in our AWS cluster by running the following commands:
+Recall from our previous use of `minikube` that we ran the Kubernetes dashboard as a means of inspecting our cluster. We can install and run the dashboard in our AWS cluster by running the following commands:
 
 ```sh
 $ kubectl create -f https://rawgit.com/kubernetes/dashboard/master/\
@@ -1631,7 +1646,7 @@ $ kubectl proxy
 Starting to serve on 127.0.0.1:8001
 ```
 
-If we now open a browser at `http://localhost:3001/ui/` we can view the Kubernetes dashboard on our cluster as we did with `minikube`.
+The `proxy` command will forward requests on `localhost` port 3001 to our cluster master on AWS. If we now open a browser at `http://localhost:3001/ui/` we can view the Kubernetes dashboard on our cluster as we did with `minikube`.
 
 #### Inspecting the `kops` State Store
 `kops` stores it's state in our S3 bucket. We can grab the contents of the bucket locally using the AWS tools. To do this, Create a fresh empty directory `cd` into it and run:
@@ -1655,15 +1670,7 @@ This will pull the entire contents of the `kops` state store for us to inspect. 
     └── ...
 ```
 
-The key files are `cluster.spec` and `config` which control the overall structure of our cluster. Disecting these configuration files is a great way to take our Kubernetes knowledge to the next level, however sadly that is outside the scope of this chapter!
+The key files are `cluster.spec` and `config` which control the overall structure of our cluster. Dissecting these configuration files is a great way to take our Kubernetes knowledge to the next level, however sadly that is outside the scope of this chapter!
 
 ### See also
-`kops` is just one tool that helps us to automate Kubernets cluster deployment some other include:
-
-* `kube-aws` - from the folks at CoreOS, as the name implies targets creating Kubernets clusters on AWS: https://coreos.com/kubernetes/docs/latest/kubernetes-on-aws-render.html
-
-* Google Container Engine - turnkey cloud based Kubernetes deployment https://cloud.google.com/container-engine/
-
-* Kargo - Supports deployment to bare metal and various cloud providers https://github.com/kubernetes-incubator/kargo
-
-Finally the long form way is to install Kubernets from scratch: https://kubernetes.io/docs/getting-started-guides/scratch/
+**TODO DMC**

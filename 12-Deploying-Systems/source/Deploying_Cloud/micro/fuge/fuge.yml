@@ -1,0 +1,45 @@
+fuge_global:
+  run_containers: true
+  dns_enabled: true
+  dns_host: 127.0.0.1
+  dns_port: 53053
+  dns_suffix: svc.cluster.local
+  dns_namespace: micro
+  tail: true
+  monitor: true
+  monitor_excludes:
+    - '**/node_modules/**'
+    - '**/.git/**'
+    - '**/*.log'
+adderservice:
+  type: node
+  path: ../adderservice
+  run: node index.js
+  ports:
+    - main=8080
+auditservice:
+  type: process
+  path: ../auditservice
+  run: 'node index.js'
+  ports:
+    - main=8081
+eventservice:
+  type: process
+  path: ../eventservice
+  run: 'node index.js'
+webapp:
+  type: process
+  path: ../webapp
+  run: npm start
+  ports:
+    - http=3000
+mongo:
+  image: mongo
+  type: container
+  ports:
+    - main=27017:27017
+redis:
+  image: redis
+  type: container
+  ports:
+    - main=6379:6379
