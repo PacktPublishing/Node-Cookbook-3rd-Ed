@@ -782,7 +782,6 @@ $ mkdir plugins
 $ touch plugins/answer.js
 ```
 
-
 We'll make the contents of `plugins/answer.js` 
 look like so:
 
@@ -799,6 +798,26 @@ function answer (server, options, next) {
 
 answer.attributes = {name: 'answer'}
 ```
+
+The `next` callback is supplied to allow for any
+asynchronous activity. We call it to let Hapi know
+we've finished setting up the plugin. Under the hood
+Hapi would call the `server.register` callback once
+all the plugins had called their respective `next` callback 
+functions.
+
+> #### Events and Extensions ![](../info.png)
+> There are a variety of server events (which we can listen
+> to with `server.on`) and "extensions". Extensions are
+> very similar to server events, except we use `server.ext`
+> to listen to them and must call `reply.continue()` when
+> we're ready to proceed. See <https://hapijs.com/api#request-lifecycle>
+> as a starting point to learn more.
+
+We use the `onPreResponse` extension (which is very much like 
+an event) to add our custom header. The `onPreResponse` extension
+is the *only* place we can register headers (the `onRequest` 
+extension is too early and the `response` event is too late).
 
 We'll add the answer plugin near the top of 
 the `index.js` file like so:
@@ -828,12 +847,181 @@ function start (err) {
 }
 ```
 
-#### Labels
+#### Label Selecting
 
-#### Server Events and Extensions
+Each Hapi connection can be labelled with one or more identifiers,
+which can in turn be used to conditionally register plugins and
+define routes or perform other connection specific tasks.
+
+Let's copy the `app` folder from our main recipe to `label-app`:
+
+```sh
+$ node index.js
+```
+
+Now we'll alter our `index.js` to the following:
+
+```js
+const hapi = require('hapi')
+const inert = require('inert')
+const routes = {
+  index: require('./routes/index'),
+  devStatic: require('./routes/dev-static')
+}
+
+const devPort = process.env.DEV_PORT || 3000
+const prodPort = process.env.PORT || 8080
+
+const server = new hapi.Server()
+
+server.connection({
+  host: 'localhost',
+  port: devPort,
+  labels: ['dev', 'staging']
+})
+
+server.connection({
+  host: '0.0.0.0',
+  port: prodPort,
+  labels: ['prod']
+})
+
+server.register({
+  register: inert,
+  select: ['dev', 'staging']
+}, start)
+
+function start (err) {
+  if (err) throw err
+
+  routes.index(server)
+  
+  routes.devStatic(server)
+
+  server.start((err) => {
+    if (err) throw err
+    console.log(`Dev/Staging server listening on port ${devPort}`)
+    console.log(`Prod server listening on port ${prodPort}`)
+  })
+}
+```
+
+We removed the `dev` constant as we're using Hapi labels to
+handle conditional environment logic. We now have two port
+constants, `devPort` and `prodPort` and we use them to create
+two server connections. The first listens on the local loopback
+interface (`localhost`) as normal, on the `devPort` which defaults
+to port `3000`. The second listens on the public interface 
+(`0.0.0.0`), on the `prodPort` default to port `8080`. 
+
+We add `label` property to each connection, on the first we supply
+an array of `['dev', 'staging']` and to the second a string containing
+`prod`. This means we can treat our development connection as a
+staging connection when it makes sense - for instance in our case
+we're using `inert` for static file hosting on both development and
+staging but in production we assume a separate layer in the deployment
+architecture is handling this. 
+
+We've removed the `if` statement checking for `dev` and have instead
+housed the `inert` plugin in an object as we pass it to `server.register`.
+Passing `inert` directly or passing as the `register` property of an object
+are equivalent. However passing it inside an object allows us to supply
+other configuration. In this case add a `select` property which is 
+set to `['dev', 'staging']`. This means the `inert` plugin will only
+register on the development connection, but will not be present on the
+production connection.
+
+In the `start` function we've also removed the `if(dev)` 
+statemenet preceeding our call to `routes.devStatic`. We need
+to modify `routes/dev-static.js` so that the static route 
+handler is only registered for the development connection.    
+
+Let's change `routes/dev-static.js` to the following:
+
+```js
+module.exports = devStatic 
+
+function devStatic (server) {
+  server.select(['dev', 'staging']).route({
+    method: 'GET',
+    path: '/{param*}',
+    handler: {
+      directory: {
+        path: 'public'
+      }
+    }
+  })
+}
+```
+
+We've added in call to `server.select`. When we call `route` on
+the resulting object, the route is only applied to connections
+that match the supplied labels.
+
+We can confirm that our changes are working by running our server:
+
+```sh
+$ node index.js
+```
+
+And using curl to check whether the development server delivers
+static assets (which it should) and the production server responds
+with 404:
+
+```sh
+$ curl http://localhost:3000/styles.css
+```
+
+This should respond with the contents of `public/styles.css`.
+
+However the following should respond with `{"statusCode":404,"error":"Not Found"}`:
+
+```sh
+$ curl http://localhost:8080/styles.css
+```
+
+This approach does uses more ports than necessary in production,
+may lead to reduced performance and does beg some security questions.
+However, we could side step these problems while still getting the
+benefits of labelling (in this specific case) by reintroducing the
+`dev` constant and only conditionally creating the connections 
+based on whether `dev` is true or false. 
+
+For example: 
+
+```js
+const dev = process.env.NODE_ENV !== 'production'
+
+if (dev) server.connection({
+  host: 'localhost',
+  port: devPort,
+  labels: ['dev', 'staging']
+})
+
+if (!dev) server.connection({
+  host: '0.0.0.0',
+  port: prodPort,
+  labels: 'prod'
+})
+```
+
+However this would require a modification to any conditional routing,
+since there Hapi requires at least one connection before a route
+can be added.
+For instance in our case we would have to modify 
+the top of the function exported from `routes/dev-static.js` like so:
+
+```js
+function devStatic (server) {
+  const devServer = server.select(['dev', 'staging'])
+  if (!devServer.connections.length) return
+  devServer.route({ /* ... etc ... */ })
+}
+```
 
 ### See also
 
+* TBD
 
 ## Creating a Koa Web App
 
