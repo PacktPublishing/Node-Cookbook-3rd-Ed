@@ -3,8 +3,7 @@
 const router = require('koa-router')()
 
 router.get('/', async function (ctx, next) {
-  await next()
-  const { title } = ctx.state
+  const title = await pretendDbLookup('title')
   ctx.body = `
     <html>
       <head>
@@ -17,6 +16,10 @@ router.get('/', async function (ctx, next) {
       </body>
     </html>
   `
-}, async (ctx) => ctx.state = {title: 'Koa'})
+})
+
+function pretendDbLookup () {
+  return Promise.resolve('Koa')
+} 
 
 module.exports = router

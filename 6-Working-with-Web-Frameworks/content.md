@@ -2,23 +2,11 @@
 
 This chapter covers the following topics
 
-* topics
-* as
-* bullets
-* here
-
-
-additional things to mention
-
-- prod env
-- using frameworks for microservices
-- ref. input vaslidation in sec
-- ref hardening in sec.
-
-
-maybe add recipe - creating a plugin (e.g middleware)
-for custom functionality? or rather recommend against?
-something about interacting with a model...
+* Creating web applications with common web frameworks
+* Configuring web frameworks such as Express, Hapi and Koa
+* Recommended logging practices
+* Implementing views in web frameworks
+* Building an example authentication based web application (with Express, Hapi and Koa)
 
 ## Introduction
 
@@ -120,7 +108,7 @@ so let's write the `routes/index.js` file:
 const {Router} = require('express')
 const router = Router()
 
-router.get('/', function (req, res, next) {
+router.get('/', function (req, res) {
   const title = 'Express'
   res.send(`
     <html>
@@ -134,7 +122,6 @@ router.get('/', function (req, res, next) {
       </body>
     </html>
   `)
-  next()
 })
 
 module.exports = router
@@ -211,12 +198,11 @@ The `express.static` method comes bundled with Express.
 It returns a middleware function which is passed into
 `app.use`. This function will attempt to locate a file
 based on supplied configuration (in our case, we set 
-the root directory to the `public` folder) for given route.
+the root directory to the `public` folder) for a given route.
 Then it will create a write stream from the file and stream
-it to the request object (`req`). If it can't find a file,
-or there's some other error, it will pass an error object to 
-the middleware `next` callback, to allow middleware further
-down the middleware stack to handle the error.
+it to the request object (`req`). If it can't find a file
+it will pass control to the next middleware by calling the `next`
+callback.
 
 We only use the static middleware in development mode
 (based on the value of the `dev` reference, which is
@@ -228,13 +214,13 @@ Node has come a long way in recent years, Node's strength
 remains in generating dynamic content - it still doesn't 
 usually make sense to use it for static assets in production. 
 
-The order of middleware is significant. For instance, 
-if we register static file handling middleware before 
-route handling middleware in the case of name collision
-(where a route could apply to a file or a dynamic route),
+The order of middleware is significant, because middleware executes in
+cascading fashion. For instance, if we register static file handling 
+middleware before route handling middleware in the case of 
+name collision (where a route could apply to a file or a dynamic route),
 the file handling middleware will take precedence. However,
 if the route handling middleware is first, the dynamic route
-takes will serve the request first instead.    
+takes will serve the request first instead. 
 
 The `app.use` function can accept a string as the first
 argument, which determines a "mount point" for a piece 
@@ -325,7 +311,8 @@ in attempts to fetch the `public/styles.css` file.
 > Never place user input directly into HTML output 
 > in production without sanitizing it first. Otherwise, 
 > we make ourselves vulnerable to XSS attacks.
-> See **Chapter 8 Dealing with Security** for details 
+> See *Guarding Against Cross Site Scripting (XSS)* 
+> in **Chapter 8 Dealing with Security** for details.
 
 Let's copy our `app` folder to `params-postable-app`,
 and then install the `body-parser` middleware module:
@@ -1025,10 +1012,30 @@ function devStatic (server) {
 
 ## Creating a Koa Web App
 
+Koa is an evolution of the middleware concept in line with
+updates to the JavaScript language. Originally in Koa v1, flow
+control was handled by repurposing EcmaScript 2015 (ES6) Generator
+functions (using the `yield` keyword to freeze function execution) 
+combined with promises. In Koa v2, a more normative route is taken 
+using EcmaScript 2016 `async/await` syntax.
+
+It's a minimalist web framework compared to Express
+(and far more minimalist compared to Hapi). Koa is more closely
+comparable to the Connect web framework (which was the precursor
+to Express). This means that functionality which tends to come
+as standard in other web frameworks (such as route handling) is 
+is installed separately as Koa middleware.
+
+In this recipe, we're going to create a Koa (v2) web application.
+
+> #### Node 8+ Only ![](../info.png)
+> This recipe focuses on Koa 2, using up to date `async/await`
+> syntax which is only supported from Node 8 onwards.  
+
 ### Getting Ready
 
 Let's create a folder called `app`, initialize it as a package,
-and install `express`:
+and install `koa`, `koa-router` and `koa-static`:
 
 ```sh
 $ mkdir app
@@ -1038,7 +1045,7 @@ $ npm install --save koa koa-router koa-static
 
 ### How to do it
 
-Let's start by creating a few files:
+We'll start by creating a few files:
 
 ```sh
 $ touch index.js
@@ -1047,7 +1054,7 @@ $ touch routes/index.js
 $ touch public/styles.css
 ```
 
-Let's kick off the `index.js` file by loading necessary
+Now let's kick off the `index.js` file by loading necessary
 dependencies:
 
 ```js
@@ -1067,17 +1074,16 @@ const dev = process.env.NODE_ENV !== 'production'
 const port = process.env.PORT || 3000
 ```
 
-Now we'll register relevant middleware and routes:
+Next we'll register relevant middleware and routes:
 
 ```js
 if (dev) {
   app.use(serve(join(__dirname, 'public')))
 }
 
-router.use('/', index.routes(), index.allowedMethods())
+router.use('/', index.routes(), index)
 
 app.use(router.routes())
-app.use(router.allowedMethods())
 ```
 
 Finally in `index.js` we'll bind Koa's internal server to our
@@ -1090,14 +1096,16 @@ app.listen(port, () => {
 ```
 
 Our `index.js` file is relying on `routes/index.js` so
-let's write it. Our code in `routes/index.js` should
-look as follows:
+let's write it. 
+
+Our code in `routes/index.js` should look as follows:
 
 ```js
 const router = require('koa-router')()
 
 router.get('/', async function (ctx, next) {
-  const title = 'Koa'
+  await next()
+  const { title } = ctx.state
   ctx.body = `
     <html>
       <head>
@@ -1110,11 +1118,10 @@ router.get('/', async function (ctx, next) {
       </body>
     </html>
   `
-  await next()
-})
+}, async (ctx) => ctx.state = {title: 'Koa'})
 
 module.exports = router
-```
+``` 
 
 Finally the `public/styles.css` file:
 
@@ -1131,15 +1138,112 @@ If we start our server with:
 $ node index.js
 ```
 
-And access  http://localhost:3000 in a browser,
+And access http://localhost:3000 in a browser,
 we should see something like the following image:
 
 ![](images/koa-app.png) 
 
-
 ### How it works
 
+Since Koa is a bare bones web framework, we installed
+`koa-static` and `koa-router` along with `koa` and use
+them in our `index.js` file.
+
+> #### Essential Knowledge ![](../info.png)
+> To understand how Koa works at a basic level,
+> we need a fundamental understanding of JavaScript
+> Promises (in particular ES 2015 Promises) and
+> of `async/await` syntax. See https://medium.com/@bluepnume/eb148164a9c8
+> for an excellent article on how these abstractions interact.
+
+The `koa-static` module returns a Koa middleware function
+which is passed into `app.use`. Koa middleware accepts
+a context object (often called `ctx`) and a `next` function.
+The `next` function always returns a promise.
+
+The `koa-static` middleware attempts to locate files as per 
+our defined path (the `public` folder), then creates 
+a write stream from a file (if found) to the `ctx.request`
+object which is Node's core `http` request object 
+(an instance of `http.IncomingMessage` often called `req`).
+If the file isn't found it passes on control to the next
+piece of middleware.
+
+The `koa-router` middleware is superficially similar
+to the `Router` utility in Express. However, we 
+register other router instances with our main
+router instance (our `router` object in `index.js`)
+by calling `router.use`. This allows us to  
+set mount points for a particular set of routes. 
+Then we pass the main `router` instance into `app.use`. 
+
+In `routes/index.js` we load `koa-router` and call it as
+a function (the same as we do in `index.js`) to create another
+`router` instance. We can call methods on the `router` 
+object that correspond to HTTP verbs (such as `get`, `post`,
+`delete`, `put` etcetera). 
+
+We register the `/` route with `router.get`, meaning we've
+set up a GET route that will respond to requests to the `/`
+path.
+
+We've taken a contrived approach to handling this route,
+in order to demonstrate how control flow works in Koa.
+
+We supply two functions to the `router.get` call, both 
+of them prefixed with the `async` keyword. An `async` 
+function always returns a promise, which Koa is expecting.
+
+Our first function immediately calls the `next` function
+with the `await` keyword (`await next()`). This means the
+execution of the function pauses until the promise returned 
+from `next` is resolved. 
+
+The `next` function will (indirectly)
+call whichever piece of middleware is next in the stack.
+In our case, it's the route specific middleware, that is,
+the third argument passed to `router.get`, which is also
+an `async` function. 
+
+This second function simply
+sets `ctx.state` to an object containing a `title` property. 
+Since it's an `async` function it returns a promise, which 
+our first function waits to be resolved because `await next()` 
+in this case relates to the resolution of the next route middleware
+(the third function supplied to `router.get`). 
+
+The line following `await next()` then assigns the `title`
+constant based on the contents of `ctx.state`. In this case
+`title` will now equal "Koa". Then we set `ctx.body` to
+our HTML content with the `title` constant interpolated.
+
+This asynchronous dance is completely unnecessary, we could
+have just set the `title` constant directly in the first
+function and not bothered with the second function. However,
+the point of supplying this example in this recipe
+was to showcase Koa's control flow behavior in action.
+
+This declarative fine grained control over where a 
+function should defer to subsequent middleware before 
+the function continues to execute is what makes Koa
+special in comparison to Express and Hapi.
+
+> #### A note about promises ![](../info.png)
+> This book has taken a light touch approach to promises, 
+> since their usage on the server side is a matter of some
+> contention. While the concept of promises is excellent,
+> their specification in the language have unfortunate 
+> drawbacks the detailing of which is far too in depth and
+> out of scope - but primarily concerns traceability and analysis which 
+> has an effect on certain production diagnostics, such as post mortems. 
+> However, Koa is a futuristic framework (which is on the 
+> brink of being modern), and promise adoption continues to 
+> increase so these issues will hopefully be resolved 
+> (or at least alternative approaches will arise) in future. 
+
 ### There's more
+
+Let's explore more Koa functionality.
 
 #### Creating Middleware
 
@@ -1154,6 +1258,9 @@ $ mkdir middleware
 $ touch middleware/answer.js
 ```
 
+Our `middleware/answer.js` file should look like
+the following:
+
 ```js
 module.exports = answer
 
@@ -1165,29 +1272,89 @@ function answer () {
 }
 ```
 
+In our main `index.js` file we can load our
+answer middleware like so:
+
 ```js
-const Koa = require('koa')
-const serve = require('koa-static')
-const router = require('koa-router')()
-const {join} = require('path')
-const index = require('./routes/index')
 const answer = require('./middleware/answer')
 ```
+
+And then register the middleware with Koa as follows:
 
 ```js
 app.use(answer())
 ```
 
- 
+Our `answer` function returns an `async` function,
+which sets our custom header using `ctx.set` and then
+delegates execution to subsequent middleware by calling
+`next` with `await` (`await next()`).
+
+#### Performing Asynchronous Lookups
+
+Koa's use of promises via `async` functions does 
+make a very clear declarative syntax when it comes
+to common scenarios involving asynchronous operations.
+
+For instance, let's consider our `routes/index.js` file,
+imagine we had to lookup the `title` from a database.
+
+With `async/await` it would look something like the following:
+
+```js
+const router = require('koa-router')()
+
+router.get('/', async function (ctx, next) {
+  const title = await pretendDbLookup('title')
+  ctx.body = `
+    <html>
+      <head>
+        <title> ${title} </title>
+        <link rel="stylesheet" href="styles.css">
+      </head>
+      <body>
+        <h1> ${title} </h1>
+        <p> Welcome to ${title} </p>
+      </body>
+    </html>
+  `
+})
+
+function pretendDbLookup () {
+  return Promise.resolve('Koa')
+} 
+
+module.exports = router
+```
+
+We can check this by copying the `app` folder from the main
+recipe to `async-ops-app` and placing the above in `routes/index.js`.
+
+As long as the asynchronous operation returns a promise, 
+we can use `await` inside Koa middleware and route handlers
+to perform asynchronous operations in a syntactically 
+aesthetic manner. On a side note `pretendDbLookup` could 
+have been written as `async function pretendDbLookup () { return 'Koa' }`
+and the net result would be same (a promise which resolves
+to the string "Koa"). 
 
 ### See also
 
+* TBD
 
 ## Adding a view layer
 
-... in there's more maybe discuss using template strings
-... and also using frontend frameworks for SSR
-... view layer includes css
+At a basic level, web frameworks are primarily responsible 
+for delivering dynamically generated HTML to a web browser.
+
+We tend to use a view layer of some kind, generally 
+in the form of a template language, as a declarative way 
+to integrate data with HTML to produce the desired combined
+output.
+
+In this recipe we'll learn how to use views with Express,
+and in the **There's More** section we'll explore the same
+with the Hapi and Koa.
 
 ### Getting Ready
 
@@ -1207,19 +1374,28 @@ $ npm install --save ejs
 
 ### How to do it
 
+Let's start by creating a `views` folder and placing
+a view file in there, which we'll call `index.ejs`:
+
 ```sh
 $ mkdir views
 $ touch views/index.ejs
 ```
 
-index.js alter: 
+Next we'll configure Express using `app.set` to configure
+the view engine and location of the views folder.
+
+We'll place the following just underneath the `port`
+assignment in the main `index.js` file:
 
 ```js
 app.set('views', join(__dirname, 'views'))
 app.set('view engine', 'ejs')
 ```
 
-views/index.ejs
+Now for our view, we'll fill the `views/index.js` file
+with the following content:
+
 ```html
 <html>
   <head>
@@ -1234,9 +1410,19 @@ views/index.ejs
 ```
 
 > #### Escaping Inputs ![](../tip.png)
-> <%=  vs <$- - ref to sec chapter
+> EJS syntax allows for interpolation with 
+> `<%= %>` or `<%- %>`. The former (with the equals sign)
+> will escape inputs whereas the latter includes inputs
+> verbatim. While the `title` template local is set by 
+> us (and is therefore trusted input which doesn't require escaping)
+> it's generally good habit to use the `<%= %>` syntax by default,
+> and then consciously unescape inputs at a later stage 
+> (e.g. when optimizing). For more on escaping inputs see 
+> the *Guarding Against Cross Site Scripting (XSS)* in 
+> **Chapter 10 Dealing with Security**.
 
-routes/index.js:
+Finally we'll modify the GET route in our
+`routes/index.js` file to use the template engine:
 
 ```js
 const {Router} = require('express')
@@ -1251,32 +1437,110 @@ router.get('/', function(req, res, next) {
 module.exports = router
 ```
 
+Now if we start our server:
+
+```sh
+$ node index.js
+```
+
+Then navigate to http://localhost:3000 we should see
+the same result as in previous recipes, however this time
+our page is being rendered from EJS templates.
 
 ### How it works
 
+The `app.set` method is used to alter settings which 
+are used internally by Express (although can also be
+used a general store for application code too). We set
+the `views` namespace to the location of our `views`
+folder. This is actually unnecessary in our case, since
+Express defaults to this location anyway, but it's good
+to be explicit nonetheless.
+
+The `view engine` setting sets the default extension
+for rendering. For instance in our `routes/index.js`
+file we call `res.render` with `index`. Express takes
+this to mean `views/index.ejs` because of the `views`
+setting and the `view engine` setting. 
+
+> #### Alternative View Engines ![](../tip.png)
+> We use EJS in this recipe because it's popular
+> and easy to understand due to the use of 
+> embedded JavaScript syntax. For alternative
+> template engines see https://github.com/expressjs/express/wiki#template-engines
+> For incompatible view engines, there's the [consolidate](http://npm.im/consolidate)
+> module, which maps a wide range of template engines.    
+
+We do not require the `ejs` module directly, Express
+will attempt to require the view engine based on the 
+file extension. Since the file extension is exploded 
+from `index` to `views/index.ejs`, the first time we 
+load our view, Express parses out the extension (`ejs`)
+and requires it. Template engines that are compatible 
+with Express export an `__express` function which will 
+integrates the render engine with Express. Essentially
+the act of rendering `views/index.js` results in the
+`app.engine('ejs', require('ejs').__express))` being
+called on first render which maps the `ejs` extension
+to the function supplied by the `ejs` modules exported
+`__express` property. To use an alternative extension
+with the same view engine (say, `html`), we could call 
+`app.engine('html', require('ejs').__express))` in the
+main `index.js` file.
+
+> #### A note on CSS preprocessing ![](../tip.png)
+> While web frameworks do support CSS preprocessing on 
+> the fly (such as Sass, Less and Stylus) we would recommend
+> avoiding this work in the web server layer. Instead, build 
+> assets (including CSS processing) as part of a build pipeline, 
+> then host them on a CDN. CSS preprocessing could be performed
+> in the web server in development, but the time it takes to run
+> this as separate process would be similar. Using a build pipeliine
+> in development is also advisable.  
+
 ### There's more
+
+Let's see how to render views with Hapi and Koa,
+plus a way organize and render views in a framework 
+independent way.
 
 #### Adding a view layer to Koa
 
+Let's copy the application we created in the **Creating a Koa Web App** recipe,
+and call it `koa-views`. 
+
+We'll install the `ejs` and `koa-views` module:
+
+
 ```sh
-$ cp -fr creating-a-koa-web-app/app express-views
+$ cp -fr creating-a-koa-web-app/app koa-views
 $ cd koa-views
 $ npm install --save koa-views ejs
+```
+
+We'll also copy the views folder from the main recipe
+to the `koa-views/views`:
+
+```sh
 $ cp -fr ../express-views/views views
 ```
 
-index.js top
+Next we'll require `koa-views` module among 
+the other dependencies at the top of `index.js`:
 
 ```js
+const {join} = require('path')
 const Koa = require('koa')
 const serve = require('koa-static')
 const views = require('koa-views')
 const router = require('koa-router')()
-const {join} = require('path')
 const index = require('./routes/index')
 ```
 
-index.js middle 
+Then, beneath were assign the `port` constant in `index.js`,
+we'll use the `views` middleware, and pass it the path
+to the `views` folder, along with an options object 
+specifying the relevant file extension of our view files: 
 
 ```js
 app.use(views(join(__dirname, 'views'), {
@@ -1284,31 +1548,97 @@ app.use(views(join(__dirname, 'views'), {
 }))
 ```
 
+> #### Alternative View Engines in Koa ![](../tip.png)
+> The `koa-views` middleware depends upon the 
+> `consolidate` module, which has a list of 
+> supported template engines at http://npm.im/consolidate#supported-template-engines   
+
+
+Now let's turn our attention to the `routes/index.js` file:
+
 ```js
 const router = require('koa-router')()
 
 router.get('/', async function (ctx, next) {
-  ctx.state = {
-    title: 'Koa'
-  }
-  await ctx.render('index')
   await next()
-})
+  await ctx.render('index')
+}, async (ctx) => ctx.state = {title: 'Koa'})
 
 module.exports = router
 ```
 
+We can run our server `node index.js` and check 
+http://localhost:3000 in a browser to verify that
+everything is working as before.
+
+The `koa-views` middleware adds a `render` function 
+to the `ctx` object, which we use to render a template. 
+The `koa-views` middleware already knows that the extension 
+is `ejs` and where the views folder is so it converts the 
+string we pass (`index`) to `views/index.ejs` and attempts
+to load that view. Like Express, `koa-views` will require 
+the `ejs` module by itself.
+
+We could have passed our template locals as the second 
+argument to `ctx.render`, much like we do in the main recipe
+with Express' `res.render` method. 
+
+However, `koa-views` will automatically set template locals
+based on `ctx.state`. In Express there is a equivalent behavior,
+any keys set on `res.locals` is loaded as template state as well.
+
+However, with Koa, we can set the state in subsequent middleware
+(or route middleware), and then wait for `ctx.state` to be set
+(using `await next()` prior to rendering.
+
+Again this slightly over complicated for teaching purposes, 
+our GET route in `routes.js` could be written thusly: 
+
+```js
+router.get('/', async (ctx, next) => {
+  await ctx.render('index', {title: 'Koa'})
+})
+```
+
+The `ctx.render` method is called with `await`, without using `await`
+an error occurs (headers sent after response finished) because due to
+a race condition, the  rendering process isn't able to complete before
+the request finishes. For instance, the following will cause a server error
+(and a 404 GET response code): 
+
+```js
+// WARNING THIS WON'T WORK~
+router.get('/', async (ctx, next) => {
+  ctx.render('index', {title: 'Koa'})
+})
+```
+
+The return value of an `async` function is a promise, 
+which only resolves (completes) when all `await` statements have resolved. If we don't
+call `ctx.render` with `await`, the promise returned from `ctx.render` resolves
+in *parallel* to the outer `async` function and the promise returned from the 
+`async` function tends to resolve before the promise returned from `ctx.render`.
+When the promise from the `async` route middleware function resolves, 
+subsequent middleware and Koa internals continue to execute until eventually
+the response is ended - but without using `await` on the `ctx.render` promise,
+the rendering process attempts to continue after the response has finished, 
+resulting in the server error.
 
 #### Adding a view layer to Hapi
 
+Let's copy the `app` folder we created in the *Creating a Hapi Web App* recipe to
+the `hapi-views` folder, install the `vision` (a Hapi view manager) and `ejs`
+modules and copy the `views` folder from our main recipe into the `hapi-views`
+directory: 
+
 ```sh
-$ cp -fr creating-a-hapi-web-app/app express-views
+$ cp -fr creating-a-hapi-web-app/app hapi-views
 $ cd hapi-views
 $ npm install --save vision ejs
 $ cp -fr ../express-views/views views
 ```
 
-index.js top
+At the top of `index.js` we'll include the `vision` and `ejs` modules:
 
 ```js
 const hapi = require('hapi')
@@ -1317,12 +1647,18 @@ const vision = require('vision')
 const ejs = require('ejs')
 ```
 
-index.js bottom:
+Near the bottom of `index.js` we'll update the plugins we want to register
+(based on the `dev` constant):
 
 ```js
 const plugins = dev ? [vision, inert] : [vision]
 server.register(plugins, start)
+```
 
+Now we'll call the new `server.views` method,
+in our `start` function with relevant settings: 
+
+```js
 function start (err) {
   if (err) throw err
 
@@ -1343,8 +1679,7 @@ function start (err) {
 }
 ```
 
-
-routes/index.js
+Finally let's update the route handler in `routes/index.js`:
 
 ```js
 module.exports = index 
@@ -1361,20 +1696,80 @@ function index (server) {
 }
 ```
 
+The `vision` plugin decorates the server object by adding a `views` method, 
+and the `reply` function with a `view` method.
 
+When we call `server.views` in the `start` function, we set the `engines`
+property to an object with a key of `ejs` containing the `ejs` module
+(we used ES2015 shorthand object properties, `{ ejs }` is the same as `{ejs: ejs}`).
+The key on the `engines` object corresponds to the extension used for a given view,
+if there is only one property of the engines object then it becomes the default
+view extension. So when we call `reply.view` with `index` Hapi knows to assume
+we mean `views/index.ejs`. 
+
+> #### Alternative View Engines in Hapi ![](../tip.png)
+> The `vision` middleware used for template rendering
+> has a standard interface for hooking in different 
+> template engines. See https://github.com/hapijs/vision#examples
+> for several examples of template engines integrating with `vision`.
 
 
 #### ES2015 Template Strings as Views
 
--- maybe include tagged escape function
+With the advent of ES2015 tagged template strings,
+and their implementation into Node's JavaScript engine
+(V8) multi-line strings with interpolation syntax became 
+supported natively. If we wish to take a minimalist, framework
+independent approach to a web servers view layer implementation 
+we could use functions that return template strings instead
+of template engines. 
 
-#### Registering Styling Preprocessor
+Let's copy the `app` folder from the *Creating an Express Web App*
+recipe and call it `express-template-strings`, create a `views` folder
+with an `index.js` file:
+
+```sh
+$ cp -fr creating-an-express-web-app/app express-template-strings
+$ cd express-template-strings
+$ mkdir views
+$ touch index.js
+```
+
+This would generally be more performant, can be used with
+any web framwork without the need for compatibility 
+facades and as a native part of JavaScript, doesn't require
+us to learn yet another DSL.
+
+However, it's important not to forget a primary function
+that template engines typically provides: context aware
+escaping. In our case, `title` is a trusted
+template input, however if we were taking user input and
+displaying it in a template we would need to HTML escape
+(in this case) the input. Check out 
+*Guarding Against Cross Site Scripting (XSS)* in 
+**Chapter 8 Dealing with Security**  
+for more information.
 
 ### See Also
 
+* TBD
+
 ## Adding Logging
 
+A web server should provide some form of log data,
+particularly of incoming requests and their responses
+before it can be considered production worthy.
+
+In this recipe we look at using `pino`, which is a
+high performance JSON logger with Express. In the
+**There's More** section we'll look at alternative
+loggers and integrating logging into Koa and Hapi.
+
 ### Getting Ready
+
+Let's copy the `express-views` folder from our previous
+recipe into a new folder we'll call `express-logging`, 
+and install `pino` and `express-pino-logger`:
 
 ```sh
 $ cp -fr adding-a-view-layer/express-views express-logging
@@ -1382,10 +1777,10 @@ $ cd express-logging
 $ npm install --save pino express-pino-logger
 ```
 
-
 ### How to do it
 
-index.js top
+We'll require `pino` and `express-pino-logger` at the
+top of the `index.js` file:
 
 ```js
 const {join} = require('path')
@@ -1396,13 +1791,22 @@ const logger = require('express-pino-logger')({
 })
 const index = require('./routes/index')
 ```
-index.js middle
+
+Notice how we instantiate a Pino instance by immediately
+calling the function returned from `require('pino')` and
+then pass that as the `instance` property of the object
+passed to the function returned from `require('express-pino-logger')`. 
+
+This creates the `logger` middleware, let's register the middleware.
+Just underneath the second call to `app.set` we can add
+the following line:
 
 ```js
 app.use(logger)
 ```
 
-index.js bottom
+At the bottom of `index.js` we'll modify the `app.listen`
+callback like so:
 
 ```js
 app.listen(port, () => {
@@ -1410,7 +1814,8 @@ app.listen(port, () => {
 })
 ```
 
-routes/index.js
+Let's also add a log message to the GET route
+in our `routes/index.js` file: 
 
 ```js
 router.get('/', function (req, res, next) {
@@ -1421,15 +1826,81 @@ router.get('/', function (req, res, next) {
 })
 ```
 
+Now let's start our server:
+
+```sh
+$ node index.js
+```
+
+Then, if we make a request to the server by navigating
+to http://localhost:3000 in the browser, log messages
+similar to those shown in the following image should
+be generated.
+
+![](images/express-logging.png)
+
+> #### Pino
+> For more on `pino` and `express-pino-logger` see
+> http://npm.im/pino and http://npm.im/express-pino-logger
 
 ### How it works
+
+We require `pino` and  `express-pino-logger` which is a middleware
+wrapper around `pino`. We separate the creation of the logger 
+(using `pino`) and the middleware instantiation, passing the logger
+instance into the middleware, so that the logger instance can be used 
+independently.
+
+The Pino logger has a Log4J interface - an Apache
+logger written for Java which has become a common, intuitive
+abstraction across other languages. Messages can be logged at 
+different levels by calling methods on a logging instance
+(`trace`, `debug`, `info`, `warn`, `error`, `fatal`). 
+The general log level is `info`. 
+
+So we changed our `console.log` in the `app.listen` callback
+to `pino.info`, which writes a JSON log message on
+server start, like:
+
+```json
+{"pid":92598,"hostname":"Davids-MBP.lan","level":30,"time":1492375156224,"msg":"Server listening on port 3000","v":1}
+```
+
+When we register `logger` in `app.js` the `express-pino-logger`
+middleware function adds a `log` object to every incoming request
+(as `req.log`). Each log object is unique to that request, and contains
+a req property with various data about the request, along with a unique
+generated id - which allows us to trace any log messages to a specific
+client request.
+
+So our call to `req.log.info` outputs JSON similar to:
+
+```json
+{"pid":92598,"hostname":"Davids-MBP.lan","level":30,"time":1492375259910,"msg":"rendering index view with Express","req":{"id":1,"method":"GET","url":"/","headers":{"host":"localhost:3000","user-agent":"curl/7.49.1","accept":"*/*"},"remoteAddress":"::ffff:127.0.0.1","remotePort":52021},"v":1}
+```
+
+Additionally the `express-pino-logger` middleware generates
+a log message for each completed request, adding a `res` key
+to the JSON describing the status code, headers and response time.
+
+So we'll also see a log message like:
+
+```json
+{"pid":92598,"hostname":"Davids-MBP.lan","level":30,"time":1492375259931,"msg":"request completed","req":{"id":1,"method":"GET","url":"/","headers":{"host":"localhost:3000","user-agent":"curl/7.49.1","accept":"*/*"},"remoteAddress":"::ffff:127.0.0.1","remotePort":52021},"res":{"statusCode":200,"header":"HTTP/1.1 200 OK\r\nX-Powered-By: Express\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: 182\r\nETag: W/\"b6-RiFgAF19aXq/BPWr42vDhAdUX8Q\"\r\nDate: Sun, 16 Apr 2017 20:40:59 GMT\r\nConnection: keep-alive\r\n\r\n"},"responseTime":26,"v":1}
+```
+ 
+ Other JSON loggers and their respective middleware wrappers work
+ in much the same way, however we focus on Pino in this recipe because
+ it adds significantly less overhead to the server. 
 
 > #### Log Processing ![](../tip.png)
 > Talk about transports, give e.g. elasticsearch etc
 
 ### There's more
 
-#### Using the Winston Logger
+#### Logging with Winston
+
+#### Logging with Morgan
 
 #### Adding Logging to Koa
 

@@ -3,11 +3,15 @@
 const router = require('koa-router')()
 
 router.get('/', async function (ctx, next) {
-  ctx.state = {
-    title: 'Koa'
-  }
-  await ctx.render('index')
   await next()
-})
+  await ctx.render('index') 
+}, async (ctx) => ctx.state = {title: 'Koa'})
+
+
+// simplified: 
+// router.get('/', async (ctx, next) => {
+//   await ctx.render('index', {title: 'Koa'})
+// })
 
 module.exports = router
+
