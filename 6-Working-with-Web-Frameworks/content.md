@@ -723,7 +723,7 @@ to a function which accepts `request` and `reply` arguments.
 
 The `request` and `reply` parameters whilst analogous to the 
 parameters passed to the `http.createServer` request handler function
-(often callef `req` and `res`) are quite distinct. Unlike Express
+(often called `req` and `res`) are quite distinct. Unlike Express
 which *decorates* `req` and `res`, Hapi creates separate abstractions
 (`request` and `reply`) which interface with `req` and `res` internally.
 
@@ -919,7 +919,7 @@ register on the development connection, but will not be present on the
 production connection.
 
 In the `start` function we've also removed the `if(dev)` 
-statemenet preceeding our call to `routes.devStatic`. We need
+statement preceeding our call to `routes.devStatic`. We need
 to modify `routes/dev-static.js` so that the static route 
 handler is only registered for the development connection.    
 
@@ -1014,7 +1014,7 @@ function devStatic (server) {
 
 Koa is an evolution of the middleware concept in line with
 updates to the JavaScript language. Originally in Koa v1, flow
-control was handled by repurposing EcmaScript 2015 (ES6) Generator
+control was handled by re-purposing EcmaScript 2015 (ES6) Generator
 functions (using the `yield` keyword to freeze function execution) 
 combined with promises. In Koa v2, a more normative route is taken 
 using EcmaScript 2016 `async/await` syntax.
@@ -1968,14 +1968,12 @@ http://localhost:3000:
 
 #### Logging with Morgan
 
-Another alternative logger is the morgan logger, which can
-output logs in different formats which can be defined
-using preset labels (such as common, which provides
-standard Apache log output), with tokenized strings or
-with a function. 
+Another alternative logger is the Morgan logger, which can
+output logs in different formats. These can be defined
+using preset labels, a tokenized string or a function. 
 
-We'll use Morgan to make our Express server log out common
-Apache log messages: 
+We'll use Morgan to make our Express server log messages in
+the common Apache log format,
 
 Let's copy the `express-views` folder from our previous
 recipe into a new folder we'll call `express-morgan-logging`, 
@@ -2007,7 +2005,7 @@ let's start out server with `node index.js` and make a
 request to http://localhost:3000 we should see something
 similar to the following:
 
-![](images/morgan-logger.png)
+![](images/morgan-logging.png)
 
 Morgan is a nice lightweight logger that can provide Apache
 style (and other common) log formats that may integrate well
@@ -2442,7 +2440,7 @@ router.get('/logout', function (req, res, next) {
 module.exports = router
 ```
 
-> #### Password Security ![](images/tip.png)
+> #### Password Security ![](../tip.png)
 > It goes without saying, but we'll say it anyway: don't check plaintext
 > passwords in real life. Always store a cryptographically
 > secure hash of the password and check against the hash of 
@@ -2460,7 +2458,7 @@ router.get('/', function (req, res) {
 })
 ```
 
-> #### Session storage and production worthiness ![](images/tip.png)
+> #### Session storage and production worthiness ![](../tip.png)
 > The `express-session` module has a standard `MemoryStore` interface,
 > that can be used to store sessions in a database. However, by default the 
 > session storage mechanism is in-process storage - the lack of a peer dependency
@@ -2565,7 +2563,6 @@ will contain a `Set-Cookie` HTTP header, containing
 a key and value that holds the session key name (which
 defaults to `connect.sid`) and the session identifier.
 
-
 > #### Session Key Name ![](../tip.png)
 > To avoid server fingerprinting, we should make a practice 
 > of configuring web servers to set a generic session key name.
@@ -2616,14 +2613,19 @@ receive the users session cookie back without HTTPS).
 
 In production, we should absolutely use HTTPS and send secure
 session cookies, in development it's more convenient to use HTTP
-(which means we can't use secure cookies). So we assume a production
-environment that applies SSL encryption to connections at a load balancer
-or reverse proxy layer, but our web server serves content to the 
-load balancer (or reverse proxy) via HTTP. To make this work we 
+(which means we can't use secure cookies). 
+
+So we assume a production environment that applies SSL encryption to 
+connections at a load balancer or reverse proxy layer, but our web server 
+serves content to the load balancer (or reverse proxy) via HTTP. To make this work we 
 set the Express `trust proxy` setting to `1`. Which means trust exactly
-one proxy IP to deliver unencrypted content to. The `trust proxy` setting
-can also (preferably) be set to a whitelist array of accepted proxy
-IP addresses to trust (or for more complex setups, a predicate function
+one proxy IP to deliver unencrypted content *as if* it was encrypted when that
+proxy adds an `X-Forwarded-Proto` header with the value of `HTTPS` to the request. 
+When this is the case, `express-session` will set the `Secure` attribute on the session cookie,
+even though it's technically served over HTTP to the proxy layer.
+
+The `trust proxy` setting can also (preferably) be set to a whitelist array of 
+accepted proxy IP addresses to trust (or for more complex setups, a predicate function
 which checks the IP for validitiy). We only do this in production, based
 on the value of the `dev` constant (which is set based on the `NODE_ENV` environment
 variable). We also use the `dev` constant to determine whether a session cookie
@@ -2633,18 +2635,30 @@ the opposite of `dev` (`!dev`).
 
 ### There's more
 
-Let's look at implementating authentication in Hapi
-and Koa, and take a brief exploration of production storage 
-for session data.
+Let's look at implementing authentication in Hapi
+and Koa.
 
-### Hapi
+### Session Authentication in Hapi
+
+Let's implement authentication in our Hapi server.
+
+We'll copy the `hapi-logging` folder which we created
+in the *There's More* section of the previous recipe 
+(*Adding Logging*) name it `hapi-authentication`. We'll
+also copy the `views` folder from the main recipe, 
+install the `yar` module, and create a `routes/auth.js` file:
 
 ```sh
 $ cp -fr ../adding-logging/hapi-logging hapi-authentication
 $ cd hapi-authentication
 $ cp -fr ../express-authentication/views views
 $ npm install --save yar
+$ touch routes/auth.js
 ```
+
+Let's require the `yar` module in the `index.js`
+module, and require the `routes/auth.js` file within
+our `routes` object:
 
 ```js
 const yar = require('yar')
@@ -2654,6 +2668,8 @@ const routes = {
   devStatic: require('./routes/dev-static')
 }
 ```
+
+Let's add `yar` to the `plugins` declaration:
 
 ```js
 const plugins = dev ? [{
@@ -2681,14 +2697,29 @@ const plugins = dev ? [{
 }, vision]
 ```
 
+The password has to be at least 32 bytes to be secure, 
+hence the usage of longform passwords.
+
+In development `isSecure` is set to `false` whereas 
+in production `isSecure` is to set to `true`. As with
+our main recipe, we assume a production that serves 
+content over HTTPS from a proxy layer (load balancer/reverse proxy).
+We don't need to set a `trust proxy` setting equivalent in Hapi,
+Hapi will implicitly trust proxies `X-Forwarded-Proto` headers and 
+allow the `Secure` attributed to be set on the session cookie accordingly.
+
+We'll add the `auth` route in the `start` function, between the `index`
+and `devStatic` routes: 
+
 ```js
+/* inside start function: */ 
   routes.index(server)
   routes.auth(server)
   
   if (dev) routes.devStatic(server)
 ```
 
-routes/auth.js
+Now let's fill out the `auth/routes.js` file:
 
 ```js
 module.exports = auth
@@ -2731,16 +2762,87 @@ function auth (server) {
 }
 ```
 
-### Koa
+Finally we'll alter our `routes/index.js` file like so:
 
-app.keys - keygrip
+
+```js
+
+module.exports = index 
+
+function index (server) {
+  server.route({
+    method: 'GET',
+    path: '/',
+    handler: function (request, reply) {
+      const title = 'Hapi'
+      const user = request.yar.get('user')
+      request.logger.info(`rendering index view with ${title}`)
+      reply.view('index', {title, user})
+    }
+  })
+}
+```
+
+We can start our server with `node index.js` and execute the same
+user flow as in the main recipe to get the same results. 
+
+Our Hapi implementation is almost conceptually similar to the
+Express implementation in the main recipe. The API's
+differ (`request.yar.get('user')` instead of `request.session.user`,
+and so forth) but more potently there is a fundamental difference in 
+approach to session storage.
+
+The `yar` module, by default, will use a hybrid storage approach, 
+keeping state first client-side and the server-side when client
+side state limits are met.
+
+The `yar` plugin will store up to 1KB of session state in the cookie itself
+- which allows for server-stateless sessions. A common use case of this approach
+is holding fine-grained permission flags. 
+
+The cookie is encrypted and decrypted server side (via the [`iron`](http://npm.im/iron) module)
+using the password set through the `yar` options object as the key. 
+This means intermediaries (and clients) cannot decode the state in the cookie. 
+
+The amount of state stored in the session cookie be increased via the `yar`
+plugins `maxCookieSize` option, although we should avoid setting 
+this above 4093 bytes since that's (historically - it may be 4096 bytes in recent
+iOS Safari versions) the maximum cookie size in mobile Safari 
+(and is therefore the lowest common denomitor of browser cookie limit). 
+
+Equivalent behavior is available in Express with the [`cookie-session`](http://npm.im/cookie-session)
+middleware which has an API similar to `express-session`. 
+
+Hapi's `yar` plugin, however, will also begin to use server side storage 
+if `maxCookieSize` is exceeded. The storage mechanism is determined by 
+Hapi's `server.cache` API, which can be configured with different
+storage mechanisms, typically via the `catbox` caching service. 
+See http://npm.im/catbox, and https://github.com/hapijs/hapi/blob/master/API.md#servercacheprovisionoptions-callback
+for more information.  
+
+### Session Authentication in Koa
+
+Let's implement the same authentication as our main recipe, but
+this time using Koa!
+
+Let's copy the `koa-logging` folder which we created
+in the *There's More* section of the previous recipe 
+(*Adding Logging*) name it `koa-authentication`, 
+copy the `views` folder from the main recipe, 
+install the `koa-bodyparser` and `koa-generic-session` modules,
+and create a `routes/auth.js` file:
 
 ```sh
 $ cp -fr ../adding-logging/koa-logging koa-authentication
 $ cd koa-authentication
 $ cp -fr ../express-authentication/views views
 $ npm install --save koa-bodyparser koa-generic-session
+$ touch routes/auth.js
 ```
+
+Let's require the two additional modules we installed near the
+top of the `index.js` as well as loading our new `routes/auth.js`
+file: 
 
 ```js
 const bodyParser = require('koa-bodyparser')
@@ -2749,14 +2851,28 @@ const index = require('./routes/index')
 const auth = require('./routes/auth')
 ```
 
+Koa has an internal concept of cookies - and also of signed 
+cookies. Not only this, but it uses the [`keygrip`](http://npm.im/keygrip)
+module internally to supply a rotated credentials system.
+
+So, to allow our session cookie to be signed, need to set the
+`app.keys` property to an array of possible keys
+(each key should be a minimum of 32 bytes), like so: 
+
 ```js
 app.keys = ['koa has integrated secret management', 'add another key for rotated credentials benefits']
 ```
+
+Next we'll register the `koa-generic-session` and `koa-bodyparser` middleware:
 
 ```js
 app.use(session())
 app.use(bodyParser())
 ```
+
+Now we'll configure our main Koa `router` instance with a new `/auth`
+mount point that uses the routes defined on our `auth` router 
+(which we'll create in `routes/auth.js` shortly):
 
 ```js
 router.use('/', index.routes())
@@ -2765,7 +2881,7 @@ router.use('/auth', auth.routes())
 app.use(router.routes())
 ```
 
-routes/auth.js
+Our `routes/auth.js` file should look as follows: 
 
 ```js
 const router = require('koa-router')()
@@ -2798,7 +2914,7 @@ router.get('/logout', async (ctx, next) => {
 module.exports = router
 ```
 
-routes/index.js
+Finally we'll modify our `routes/index.js` like so:
 
 ```js
 const router = require('koa-router')()
@@ -2813,8 +2929,29 @@ router.get('/', async function (ctx) {
 module.exports = router
 ```
 
-- notes on memory store
-- notes on koa-session for cookie client-side storage
+We can now start our server (`node index.js`) and follow the same
+user authentication flow as in the main recipe.
+
+There are two (official) Koa modules for session management, 
+`koa-generic-session` and `koa-session`. We used `koa-generic-session`
+to duplicate the behavior of the main recipe. The `koa-generic-session`
+middleware uses the same store API as `express-session`, which means 
+all of the compatible stores for `express-session` will work with 
+`koa-generic-session`. The `koa-session` module
+can also use external stores, but has a slightly different API (promise
+returning functions) but by default will store state in the session cookie.
+However unlike `yar` (see the previous *Session Authentication In Hapi*) 
+at the time of writing `koa-session` doesn't have a maxmium size limit 
+for cookies, nor does it supply a hybrid approach to cookie and external 
+storage - you either use cookie storage or external storage. 
+
+This either/or approach is a little more brittle - it makes 
+easy to accidentally become incompatible with some browsers and not others. 
+For instance if all cookies on a particular domain become greater than 4096 
+bytes will mean logins fail on Chrome, Safari, and Firefox but not Internet Explorer.
+On the other hand, a vivid awareness of hard limit could help
+architectural design decisions in preventing state bloat, and allow 
+for stateless (on the server side) sessions. 
 
 ### See also
 
