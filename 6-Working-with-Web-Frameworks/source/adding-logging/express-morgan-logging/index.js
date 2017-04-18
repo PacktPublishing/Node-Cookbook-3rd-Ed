@@ -1,17 +1,9 @@
 'use strict'
 
-const express = require('express')
 const {join} = require('path')
-const winston = require('winston')
-const expressWinston = require('express-winston')
+const express = require('express')
+const morgan = require('morgan')
 const index = require('./routes/index')
-const logger = new winston.Logger({
-  transports: [
-    new winston.transports.Console({
-      json: true
-    })
-  ]
-})
 
 const app = express()
 const dev = process.env.NODE_ENV !== 'production'
@@ -20,9 +12,7 @@ const port = process.env.PORT || 3000
 app.set('views', join(__dirname, 'views'))
 app.set('view engine', 'ejs')
 
-app.use(expressWinston.logger({
-  winstonInstance: logger
-}))
+app.use(morgan('common'))
 
 if (dev) {
   app.use(express.static(join(__dirname, 'public')))
@@ -31,5 +21,5 @@ if (dev) {
 app.use('/', index)
 
 app.listen(port, () => {
-  logger.info(`Server listening on port ${port}`)
+  console.log(`Server listening on port ${port}`)
 })

@@ -339,7 +339,7 @@ add:
 app.use(bodyParser.urlencoded({extended: false}))
 ```
 
-> #### Use extended: false ![](../tip.png)
+> #### Use `extended: false` ![](../tip.png)
 > We set `extended` to `false` because the `qs` module which 
 > provides the parsing functionality for `bodyParse.urlencoded`
 > has options which could (without explicit validation) allow
@@ -392,7 +392,7 @@ router.post('/data', function (req, res) {
 })
 ```
 
-Now if we start our server:
+Now let's start our server:
 
 ```sh
 $ node index.js
@@ -461,7 +461,7 @@ top of the middleware section, just underneath the
 app.use(answer())
 ```
 
-Now if we start our server: 
+Now let's start our server: 
 
 ```sh
 $ node index.js
@@ -1132,7 +1132,7 @@ body {
 }
 ```
 
-If we start our server with:
+let's start our server with:
 
 ```sh
 $ node index.js
@@ -1428,16 +1428,15 @@ Finally we'll modify the GET route in our
 const {Router} = require('express')
 const router = Router()
 
-router.get('/', function(req, res, next) {
+router.get('/', function(req, res) {
   const title = 'Express'
   res.render('index', {title: 'Express'})
-  next()
 })
 
 module.exports = router
 ```
 
-Now if we start our server:
+Now let's start our server:
 
 ```sh
 $ node index.js
@@ -1818,11 +1817,10 @@ Let's also add a log message to the GET route
 in our `routes/index.js` file: 
 
 ```js
-router.get('/', function (req, res, next) {
+router.get('/', function (req, res) {
   const title = 'Express'
   req.log.info(`rendering index view with ${title}`)
   res.render('index', {title: 'Express'})
-  next()
 })
 ```
 
@@ -1898,17 +1896,219 @@ So we'll also see a log message like:
 
 ### There's more
 
-#### Logging with Winston
+Let's take a look at some pino utilities, alternative loggers and adding
+logging to Hapi and Koa.
+
+#### Pino Transports and Prettifying
+
+It's advisable to keep as much log processing work outside
+of the main web server Node process as possible. To this end
+the Pino logging philosophy promotes piping log output to 
+a separate process (which we call a logging transport).
+
+This separate process may move the logs into a database, or 
+message bus, or may apply data transforms or both.
+
+For instance, if we wanted to marshal logs into an Elasticsearch
+database (which would allow us to analyse log messages with Kibana
+which is excellent data visualisation and anaalysis tool for 
+Elasticsearch) in a production setting, we could use the 
+`pino-elasticsearch` transport and pipe our server log output to it
+like so:
+
+```sh
+$ node index | pino-elasticsearch
+```
+
+See the `pino-elasticsearch` readme for more information 
+(http://npm.im/pino-elasticsearch). 
+
+Another type of transport that's more for development purposes is
+a prettifier. The `pino` module supplies it's own prettifier, 
+if we install `pino` globally:
+
+```sh
+$ npm install -g pino
+```
+
+This will install a CLI executable called `pino` on our system.
+
+Then if we run our server from the main recipe and
+pipe the servers output to `pino` executable:
+
+```sh
+$ node index.js | pino
+```
+
+After navigating to http://localhost:3000, we should see 
+something like the following:
+
+![](images/pretty-pino.png)
+
+An alternative prettifer for pino which provides
+more concise information is the `pino-colada` module.
+
+If we install `pino-colada` globally:
+
+```sh
+$ npm install -g pino-colada
+```
+
+And pipe our server output through the `pino-colada` executable
+now on our system:
+
+```sh
+$ node index.js | pino-colada
+```
+
+We should see something like the following, once we've hit
+http://localhost:3000:
+
+![](images/pino-colada.png)
 
 #### Logging with Morgan
 
+Another alternative logger is the morgan logger, which can
+output logs in different formats which can be defined
+using preset labels (such as common, which provides
+standard Apache log output), with tokenized strings or
+with a function. 
+
+We'll use Morgan to make our Express server log out common
+Apache log messages: 
+
+Let's copy the `express-views` folder from our previous
+recipe into a new folder we'll call `express-morgan-logging`, 
+and install `morgan`:
+
+```sh
+$ cp -fr adding-a-view-layer/express-views express-morgan-logging
+$ cd express-morgan-logging
+$ npm install --save morgan
+```
+
+Near the top of the `index.js` file, we can load morgan like so:
+
+```js
+const morgan = require('morgan')
+```
+
+Then around the middleware, we can register it as the first
+middleware like so:
+
+```js
+app.use(morgan('common'))
+```
+
+We pass `common` to configure Morgan to output messages in 
+common Apache log format.
+
+let's start out server with `node index.js` and make a 
+request to http://localhost:3000 we should see something
+similar to the following:
+
+![](images/morgan-logger.png)
+
+Morgan is a nice lightweight logger that can provide Apache
+style (and other common) log formats that may integrate well
+into pre-existing deployments. However it will only work
+for request/response logging, custom log messages are not
+supported.
+
+#### Logging with Winston
+
+A very popular alternative to `pino` is the `winston` logger.
+
+In the main, the `winston` logger has the same Log4J interface as Pino,
+however it differs greatly from `pino` in philosophy.
+
+The `winston` logger supplies a large amount of features and configuration
+options - such as log rotation, multiple destinations based on 
+log levels, and in process logging transformations. 
+
+These come with the `winston` logger as standard, and are 
+used in the same Node process as the server 
+(which from a performance perspective is something of a trade off).
+
+Let's copy the `express-views` folder from our previous
+recipe into a new folder we'll call `express-winston-logging`, 
+and install `winston` and `express-winston`:
+
+```sh
+$ cp -fr adding-a-view-layer/express-views express-morgan-logging
+$ cd express-morgan-logging
+$ npm install --save morgan
+```
+
+Now we'll add the following to our dependencies at the top of the `index.js` file:
+
+```js
+const winston = require('winston')
+const expressWinston = require('express-winston')
+```
+
+Just above where we instantiate the Express app (`const app = express()`), 
+we'll create a Winston logger instance, configured to output to `process.stdout`
+in JSON format:
+
+```js
+const logger = new winston.Logger({
+  transports: [
+    new winston.transports.Console({
+      json: true
+    })
+  ]
+})
+```
+
+By default, the `winston.transports.Console` transport will output logs in 
+the format `${level}: ${message}`. However we can set the `json` option 
+to true to enable JSON logging. 
+
+In the middleware section of `index.js` we'll register the `express-winston` middleware
+, passing it the Winston logger instance (`logger`) like so:
+
+```js
+app.use(expressWinston.logger({
+  winstonInstance: logger
+}))
+```
+
+Finally at the bottom of `index.js` we'll use the `logger` instance to output
+the initial server log:
+
+```js
+app.listen(port, () => {
+  logger.info(`Server listening on port ${port}`)
+})
+```
+
+We won't modify the `routes/index.js` file to log a request-linked message,
+as Winston does not support this. 
+
+If we run our server (`node index.js`) and make a request to http://localhost:3000
+we should see output similar to the following:
+
+![](images/winston-logging.png)
+
+The `winston` logger and its `express-winston` counterpart have a vast
+API with many options, see the respective Readmes (http://npm.im/winston and http://npm.im/express-winston) for more information.
+
 #### Adding Logging to Koa
+
+Setting up logging with Koa is very similar to
+logging with Express. Let's copy the `koa-views`
+folder which we created in the *There's More* section of
+the *Adding a View Layer* recipe and name it `koa-logging`,
+we'll also install `pino` and `koa-pino-logger`:
 
 ```sh
 $ cp -fr adding-a-view-layer/koa-views koa-logging
 $ cd koa-logging
 $ npm install --save pino koa-pino-logger
 ```
+
+Near the top of our `index.js` we'll add the following: 
 
 ```js
 const pino = require('pino')()
@@ -1917,9 +2117,15 @@ const logger = require('koa-pino-logger')({
 })
 ```
 
+Then, still in `index.js` underneath where we configure view settings,
+we'll register the logging middleware like so:
+
 ```js
 app.use(logger)
 ```
+
+At the bottom of `index.js` we'll update the `app.listen`
+callback to use `pino.info` instead of `console.log`:
 
 ```js
 app.listen(port, () => {
@@ -1927,22 +2133,28 @@ app.listen(port, () => {
 })
 ```
 
-
-routes/index.js
+Finally in `routes/index.js` we'll add a log
+message to our GET route:
 
 ```js
 router.get('/', async function (ctx, next) {
-  ctx.state = {
-    title: 'Koa'
-  }
-  ctx.log.info(`rendering index view with ${ctx.state.title}`)
-  await ctx.render('index')
   await next()
-})
+  ctx.log.info(`rendering index view with ${ctx.state.title}`)
+  await ctx.render('index') 
+}, async (ctx) => ctx.state = {title: 'Koa'})
 ```
 
+When we start our server with `node index.js` and navigate
+to http://localhost:3000 we'll see similar log output to 
+the log messages in the main recipe.
 
 #### Adding Logging to Hapi
+
+For high performance logging in Hapi, there's the `hapi-pino` plugin.
+
+Let's copy the `hapi-views` folder from the *There's More* section of
+the *Adding a View Layer* recipe, and call it `hapi-logging` and install
+the `pino` and `hapi-pino` modules.
 
 ```sh
 $ cp -fr adding-a-view-layer/hapi-views hapi-logging
@@ -1950,10 +2162,16 @@ $ cd hapi-logging
 $ npm install --save pino hapi-pino
 ```
 
+Near the top of our `index.js` file we'll require 
+and instantiate `pino`, and load the `hapi-pino` plugin:
+
 ```js
 const pino = require('pino')()
 const hapiPino = require('hapi-pino')
 ```
+
+Next we'll add the logger to our plugins (both development
+and production plugins):
 
 ```js
 const plugins = dev ? [{
@@ -1965,6 +2183,17 @@ const plugins = dev ? [{
 }, vision]
 ```
 
+Notice how we pass the `hapiPino` plugin inside an object
+with a `register` property and an `options` property containing
+and object with `instance` property referencing the `pino` logger
+instance. This instructs Hapi to supply the options provided
+to the `hapi-pino` plugin at instantiate time (Hapi instantiates
+plugins internally).
+
+At the bottom of `index.js`, inside the `start` function,
+we'll modify the `server.start` callback to use `server.log`
+instead of `console.log`:
+
 ```js
   server.start((err) => {
     if (err) throw err
@@ -1972,7 +2201,8 @@ const plugins = dev ? [{
   })
 ```
 
-routes/index.js
+Finally we'll update the `routes/index.js` file by adding
+an info log message in the request handler:
 
 ```js
 module.exports = index 
@@ -1990,62 +2220,602 @@ function index (server) {
 }
 ```
 
-#### Debug Logging with Pino
+The `hapi-pino` plugin modifies the `server.log` method to output
+info log messages with `pino` (it's also possible to get the entire
+logger instance by calling `server.logger()`).
+
+Starting our server (`node index.js`) and hitting http://localhost:3000
+should again yield similar JSON logs as output in the main recipe. 
+
+#### Capturing `debug` logs with with Pino
+
+In **Chapter 1 Debugging Processes** we discuss the 
+[`debug`](http://npm.im/debug) module which is used to conditionally 
+output debug logs based on namespeces defined on the `DEBUG` variable.
+Both Express and Koa (and the dependencies they use) use the `debug` module
+heavily. 
+
+The `pino-debug` module can hook into the debug logs, and wrap 
+them in JSON logs, all whilst logging at ten times the speed 
+of `debug` module. This affords us the opportunity of high resolution
+production logging.
+
+Let's check it out copying our `express-logging` folder from the
+main recipe, saving as `express-pino-debug-logging` and
+installing `pino-debug`:
 
 ```sh
-$ npm install -g pino-debug
+$ cp -fr express-logging express-pino-debug-logging
+$ cd express-pino-debug-logging
+$ npm install --save pino-debug
 ```
+
+Now we start our server using the `-r` (require) Node 
+flag, with `pino-debug`. This will automatically load
+`pino-debug` as the process starts:
 
 ```sh
-$ node -r pino-debug index.js
+$ DEBUG=* node -r pino-debug index.js
 ```
 
-```sh
-$ node -r pino-debug index.js | pino
-```
-
-```sh
-$ npm install -g pino-coloda
-```
-
-```sh
-$ node -r pino-debug index.js | pino-colada
-```
-
-
-#### Log Levels
-
-convert the route to trace, enable tracing
-with options (maybe do in hapi?)
-
-#### Reusing a Logging Instance 
-
-
+If we hit the http://localhost:3000 route this will give
+us plenty of (low overhead) logging information.
 
 ### See also
+
+* TBD
 
 ## Implementing Authentication
 
+A common scenario for web sites is an elevated privileges 
+area that requires a user to identify themselves via
+authentication.
+
+The typical way to achieve this is with sessions, so in this
+recipe we're going to implement an authentication layer with
+our Express server and in the *There's More* section we'll
+do the same with Koa and Hapi.
+
 ### Getting Ready
 
+Let's copy the `express-logging` folder from the previous
+section and name the new folder `express-authentication`,
+we'll also need to install `express-session` and `body-parser`:
 
+```sh
+$ cp -fr ../adding-logging/express-logging express-authentication
+$ cd express-authentication
+```
 
 ### How to do it
 
+We're going to need the `body-parser` module (so we can 
+accept and parse POST requests for a login form), and the
+`express-session` module. Let's begin by installing those:
+
+```sh
+$ npm install --save express-session body-parser
+```
+
+Along with modifying a few files, we're also going to create
+a `routes/auth.js` file and `views/login.ejs` file:
+
+```sh
+$ touch routes/auth.js views/login.ejs
+```
+
+Let's require the `express-session` and `body-parser` at the 
+top of the `index.js` file:
+
+```js
+const session = require('express-session')
+const bodyParser = require('body-parser')
+```
+
+Underneath where we load the `index` route, we'll 
+also load our `auth` route:
+
+```js
+const index = require('./routes/index')
+const auth = require('./routes/auth')
+```
+
+HTTP sessions rely on cookies, we want to use secure 
+cookies in production, behind an SSL terminating load
+balancer but it's easier to have non-secure cookies
+server over HTTP in developemnt. 
+
+So underneath where we set our views we'll add 
+the following configuration settting:
+
+```js
+if (!dev) app.set('trust proxy', 1)
+
+```
+
+Next, underneath where we register the logger middleware,
+we'll register session and body parser middleware:
+
+```js
+app.use(session({
+  secret: 'I like pies',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {secure: !dev}
+}))
+app.use(bodyParser.urlencoded({extended: false}))
+```
+
+We'll also set another mount point, `/auth` for 
+our `auth` routes, underneath the original `/` mount point,:
+
+```js
+app.use('/', index)
+app.use('/auth', auth)
+```
+
+We're going to supply a login link if the user does not
+have escalated privileges, and a logout link if they do, 
+also acknowledging the user by name. 
+
+Let's modify `views/index.ejs` like so:
+
+```html
+<html>
+  <head>
+    <title> <%= title %> </title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <h1> <%= title %> </h1>
+    <p> Welcome to <%= title %> </p>
+    <% if (user) { %>
+    <p> Hi <%= user.name %>! </p>
+    <p> <a href=/auth/logout> Logout </a> </p>
+    <% } else { %>
+    <p> <a href=/auth/login> Login </a> </p>
+    <% } %> 
+  </body>
+</html>
+```
+
+Now for the login screen, let's create a `views/login.ejs`
+file with the following content:
+
+```html
+<html>
+  <head>
+    <title> Login </title>
+    <link rel="stylesheet" href="../styles.css">
+  </head>
+  <body>
+    <h1> Login </h1>
+    <% if (fail) { %> 
+    <h2> Try Again </h2>
+    <% } %>
+    <form method=post action=login>
+      User: <input name=un> <br>
+      Pass: <input type=password name=pw> <br>
+      <input type=submit value="login">
+    </form>
+  </body>
+</html>
+```
+
+If login fails, our `view/login.ejs` template will include
+a "Try Again" message.
+
+Now for our auth routes, let's populate `routes/auth.js`
+with the following code:
+
+```js
+const { Router } = require('express')
+const router = Router()
+
+router.get('/login', function (req, res, next) {
+  res.render('login', {fail: false})
+})
+
+router.post('/login', function (req, res, next) {
+  if (req.session.user) {
+    res.redirect('/')
+    next()
+    return
+  }
+  if (req.body.un === 'dave' && req.body.pw === 'ncb') {
+    req.session.user = {name: req.body.un}
+    res.redirect('/')
+    next()
+    return
+  }
+
+  res.render('login', {fail: true})
+
+  next()
+})
+
+router.get('/logout', function (req, res, next) {
+  req.session.user = null
+  res.redirect('/')
+})
+
+module.exports = router
+```
+
+> #### Password Security ![](images/tip.png)
+> It goes without saying, but we'll say it anyway: don't check plaintext
+> passwords in real life. Always store a cryptographically
+> secure hash of the password and check against the hash of 
+> user supplied password.
+
+Finally we'll tweak the GET route in `routes/index.js`
+as follows:
+
+```js
+router.get('/', function (req, res) {
+  const title = 'Express' 
+  req.log.info(`rendering index view with ${title}`)
+  const user = req.session.user
+  res.render('index', {title, user})
+})
+```
+
+> #### Session storage and production worthiness ![](images/tip.png)
+> The `express-session` module has a standard `MemoryStore` interface,
+> that can be used to store sessions in a database. However, by default the 
+> session storage mechanism is in-process storage - the lack of a peer dependency
+> makes for faster development. However, tokens are not expired, so a process
+> would eventually crash. See the *There's More* section for alternative storage
+> options. 
+
+Now let's start our server:
+
+```sh
+$ node index.js
+```
+
+When we navigate to http://localhost:3000 in a browser,
+we should see an initial screen like the following:
+
+![](images/express-auth-1.png)
+
+Upon clicking the login button we should see the following
+login view:
+
+![](images/express-auth-2.png)
+
+Then after logging in, we're redirected back to the 
+index page as an authenticated user, and should see
+something similar to the following:
+
+![](images/express-auth-3.png)
+
+If we click the logout link, we'll see the first screen
+again.
+
 ### How it works
 
-> #### Session Storage ![](../tip.png)
-> explain to not use in mem
+Perhaps the easiest way to discuss our authentication 
+implementation is to analyze if from a user flow perspective.
+
+The first route, the `/` (index) route conditionally displays
+a login or logout link, plus the users name if logged in.
+The `views/index.ejs` template contains the logic which checks
+for a truthiness of a `user` template local and if it doesn't 
+exist presents a login link, pointing to `/auth/login`.
+The `user` local passed to the template in `routes/index.js` 
+is the value on `req.session.user`.
+
+We registered `express-session` middleware on our Express app
+in `index.js`, which means every `req` object has a `session`
+object. However, prior to logging in, the user does not have a session,
+it's simply an empty object where `user` is `undefined` (which 
+equates to false in the the `views/index.js` `if` statement).
+
+When the `/auth/login` link is clicked a GET request to 
+`/auth/login` is made from the browser. In the main
+`index.js` file we mounted the `auth` routes at `/auth`
+with `app.use`. So a request to `/auth/login` matches the
+`/login` GET route in `routes/auth.js`. The route handler
+the `views/login.ejs` view with `fail` set to `false`. 
+
+When the HTML form is filled out and submitted, the browser
+creates a URL Encoded string of the inputs according to the
+input elements names. So in our case, given the user name
+of `dave` and password of `ncb` the browser creates a request
+body of `pw=dave&un=ncb`. The browser makes a POST 
+request to the `/auth/login` route - because that's how
+the HTMl form was configured, the action attributed was 
+set to `login` (which expands to `/auth/login` based on 
+relative path) and the `method` attribute was set to `post`.
+
+The `body-parser` module is covered in the *There's More*
+section (subheading *Route Parameters and POST requests*) 
+of the first recipe of this chapter, *Creating an Express Web App*.
+
+In short, a POST request has a message body. By default browser
+HTML forms send the message body in URL Encoded format (the same as 
+we see with the "search" portion of GET urls, the parameters after the
+question mark). We use the `urlencoded` method of the `body-parser` module
+to create body parsing middleware converts an incoming POST request to
+the `/login` route to an object on `req.body`. 
+
+The POST `/auth/login` route handler in `routes/auth.js` handles
+the login request and will take one of three actions.
+
+If there's is already a session, with an associated `user` 
+object (that is, if `req.session.user` exists), it will
+redirect to the `/` (index) route.
+
+Next we validate the request POST message (`req.body`).
+We do a simple conditional check on username and
+password, but this could be adapted to check a database
+of usernames and password hashes.
+
+If the POST body is invalid, the `/auth/login` POST
+route will respond to the request by rendering the 
+`views/loging.ejs` template again, but this time with
+`fail` set to `true`. Which will cause the template
+to render with a `Try Again` message.
+
+If the POST body is valid we set `req.session.user`. 
+At this point, a session identifer is created. Then
+we redirect to the `/` route. The redirect response
+will contain a `Set-Cookie` HTTP header, containing
+a key and value that holds the session key name (which
+defaults to `connect.sid`) and the session identifier.
+
+
+> #### Session Key Name ![](../tip.png)
+> To avoid server fingerprinting, we should make a practice 
+> of configuring web servers to set a generic session key name.
+> See the *Avoiding Fingerprinting* subheading of the *There's More*
+> section in the  *Hardening Headers in Web Frameworks* recipe in 
+> **Chapter 8 Dealing with Security** for details.
+
+As the browser dutifily makes a new request for the `/`
+route (as per the HTTP redirection), it will pass the
+string which came through the `Set-Cookie` header back
+to the browser under the `Cookie` header. 
+
+The `express-session` middleware will intercept the request,
+and recognize the `connect.sid` portion of the `Cookie` header,
+extract the session identifier and match query the session
+storage for any state is associated with the identifer. State is
+then placed onto the `req.session` object. In our case the `user`
+object is added to `req.session`. The `routes/index.js` GET handler
+will pass the `req.session.user` object into the `res.render` method,
+and the `views/index.ejs` template will enter the first logic branch
+in the conditional statement checking for truthiness of the `user`
+template local.
+
+This time when the `views/index.ejs` renders, it will include
+a welcome message to the logged in user ("Hi dave!") and a logout
+link pointing to `/auth/logout`.
+
+When the `/auth/logout` link is clicked, the `/logout` GET
+route in `routes/auths.js` is passed the request and response objects.
+We set `req.session` to `null` which unsets the session (the session
+data is released from the session store). Then we redirect back
+to the index route (`/`). 
+
+The browser will continue to cache and send the obsolete session cookie
+until it expires, however the session identifer will have no matches in the
+store so our server will treat the browser as if it has no session
+(which it doesn't). Upon logging in again, the browser receives a new 
+session cookie which replaces the old cookie.
+
+The session cookie sent to the browser may or may not be marked
+with a "Secure" attribute. This attribute instructs the 
+browser to never send the session cookie back to the server
+over HTTP - this helps to avoid person in the middle attacks
+designed to steal session cookies. However, the Secure attribute
+cannot be set in the first place if an incoming request is made
+over HTTP (and of course, even if it could, we wouldn't be able to
+receive the users session cookie back without HTTPS). 
+
+In production, we should absolutely use HTTPS and send secure
+session cookies, in development it's more convenient to use HTTP
+(which means we can't use secure cookies). So we assume a production
+environment that applies SSL encryption to connections at a load balancer
+or reverse proxy layer, but our web server serves content to the 
+load balancer (or reverse proxy) via HTTP. To make this work we 
+set the Express `trust proxy` setting to `1`. Which means trust exactly
+one proxy IP to deliver unencrypted content to. The `trust proxy` setting
+can also (preferably) be set to a whitelist array of accepted proxy
+IP addresses to trust (or for more complex setups, a predicate function
+which checks the IP for validitiy). We only do this in production, based
+on the value of the `dev` constant (which is set based on the `NODE_ENV` environment
+variable). We also use the `dev` constant to determine whether a session cookie
+should be secure or not. When we call the `session` function (which is exported
+from `express-session`) we pass an options object, with `secure` set to
+the opposite of `dev` (`!dev`). 
 
 ### There's more
 
+Let's look at implementating authentication in Hapi
+and Koa, and take a brief exploration of production storage 
+for session data.
+
 ### Hapi
+
+```sh
+$ cp -fr ../adding-logging/hapi-logging hapi-authentication
+$ cd hapi-authentication
+$ cp -fr ../express-authentication/views views
+$ npm install --save yar
+```
+
+```js
+const yar = require('yar')
+const routes = {
+  index: require('./routes/index'),
+  auth: require('./routes/auth'),
+  devStatic: require('./routes/dev-static')
+}
+```
+
+```js
+const plugins = dev ? [{
+  register: hapiPino,
+  options: {instance: pino}
+}, {
+  register: yar,
+  options: {
+    cookieOptions: {
+      password: 'I really really really like pies',
+      isSecure: false
+    }
+  }
+}, vision, inert] : [{
+  register: hapiPino,
+  options: {instance: pino}
+}, {
+  register: yar,
+  options: {
+    cookieOptions: {
+      password: 'something more secure than a bit about pies',
+      isSecure: true
+    }
+  }
+}, vision]
+```
+
+```js
+  routes.index(server)
+  routes.auth(server)
+  
+  if (dev) routes.devStatic(server)
+```
+
+routes/auth.js
+
+```js
+module.exports = auth
+
+function auth (server) {
+
+  server.route({
+    method: ['GET', 'POST'],
+    path: '/auth/login',
+    handler: function (request, reply) {
+      if (request.auth.isAuthenticated) {
+        reply.redirect('/');
+        return
+      }
+
+      if (request.method === 'get') {
+        reply.view('login', {fail: false})
+        return
+      }
+
+      if (request.method === 'post') {
+        if (request.payload.un === 'dave' && request.payload.pw === 'ncb') {
+          request.yar.set('user', {name: request.payload.un})
+          reply.redirect('/')
+        } else {
+          reply.view('login', {fail: true})
+        }
+      }
+    }
+  })
+
+  server.route({
+    method: 'GET',
+    path: '/auth/logout',
+    handler: function (request, reply) {
+      request.yar.reset()
+      reply.redirect('/')
+    }
+  })
+}
+```
 
 ### Koa
 
-### OAuth
-express and hapi example
+app.keys - keygrip
 
+```sh
+$ cp -fr ../adding-logging/koa-logging koa-authentication
+$ cd koa-authentication
+$ cp -fr ../express-authentication/views views
+$ npm install --save koa-bodyparser koa-generic-session
+```
+
+```js
+const bodyParser = require('koa-bodyparser')
+const session = require('koa-generic-session')
+const index = require('./routes/index')
+const auth = require('./routes/auth')
+```
+
+```js
+app.keys = ['koa has integrated secret management', 'add another key for rotated credentials benefits']
+```
+
+```js
+app.use(session())
+app.use(bodyParser())
+```
+
+```js
+router.use('/', index.routes())
+router.use('/auth', auth.routes())
+
+app.use(router.routes())
+```
+
+routes/auth.js
+
+```js
+const router = require('koa-router')()
+
+router.get('/login', async (ctx) => {
+  await ctx.render('login', {fail: false})
+})
+
+router.post('/login', async (ctx) => {
+  const { session, request } = ctx
+  const { body } = request
+  if (session.user) {
+    ctx.redirect('/')
+    return
+  }
+  if (body.un === 'dave' && body.pw === 'ncb') {
+    session.user = {name: body.un}
+    ctx.redirect('/')
+    return
+  }
+
+  await ctx.render('login', {fail: true})
+})
+
+router.get('/logout', async (ctx, next) => {
+  ctx.session.user = null
+  ctx.redirect('/')
+})
+
+module.exports = router
+```
+
+routes/index.js
+
+```js
+const router = require('koa-router')()
+
+router.get('/', async function (ctx) {
+  const title = 'Koa'
+  ctx.log.info(`rendering index view with ${title}`)
+  const user = ctx.session.user
+  await ctx.render('index', {title, user})
+})
+
+module.exports = router
+```
+
+- notes on memory store
+- notes on koa-session for cookie client-side storage
 
 ### See also
 
+* TBD
