@@ -1,7 +1,7 @@
 # 8 Understanding Microservices
 This chapter covers the following topics
 
-* Building a simple RESTful Microservice
+* Creating a simple RESTful microservice
 * Consuming a Service
 * Setting up a Development Environment
 * Dealing with Configuration
@@ -11,7 +11,7 @@ This chapter covers the following topics
 
 ## Introduction
 
-In recent years, microservices have become increasingly popular - this is for good reason.  
+In recent years, microservices and distributed systems have become increasingly popular.  
 
 Not only does breaking a system into small independent processes suit a single-threaded
 event-loop platform such as Node, but there can be significant advantages in 
@@ -35,7 +35,7 @@ Before diving into let's take a brief moment to review our definition of a micro
 
 The following figure depicts a typical microservice system.
 
-![image](./images/logical.png)
+![](./images/logical.png)
 
 Our reference architecture contains the following elements that are typical to most microservice style systems:
 
@@ -151,7 +151,7 @@ The service should respond with the answer 3.
 We have just built our first RESTful microservice.
 
 > #### `curl` ![](../tip.png)
-> `curl` is a command line HTTP client program that works much like a web browser. If you don't have `curl` available on your system you can test the service by putting the url into your web browser.
+> `curl` is a command line HTTP client program that works much like a web browser. If you don't have `curl` available on our system you can test the service by putting the url into our web browser.
 
 ### How it works
 
@@ -178,16 +178,17 @@ A microservice system is a collection of these co-operating processes. Of course
 
 ### There's more
 
-Let's look alternative ways to create and test a RESTful microservice.
+Let's look at alternative ways to create and test a RESTful microservice.
 
 #### Using the Core HTTP Module
+
 Whilst we have used `restify` to create this simple service, there are several alternative approaches that we could have used such as:
 
 * The Node core `http` module
 * The `Express` framework [http://expressjs.com/](http://expressjs.com/)
 * The `HAPI` framework [https://hapijs.com/](https://hapijs.com/)
 
-Let's create an alternative implementation using the Node core HTTP module. Let's copy the `adderservice` folder to `adderservice-core-http` and and alter the `service.js` code to the following:
+Let's create an alternative implementation using the Node core HTTP module. Let's copy the `micro` folder to `micro-core-http` and alter the `service.js` file in the `micro-core-http/adderservice` folder to the following:
 
 ```js
 const http = require('http')
@@ -219,6 +220,12 @@ function error(code, res) {
 }
 ```
 
+We can start our service, as in the main recipe, with:
+
+```sh
+$ node service.js
+```
+
 We can use `curl` as before to test our service:
 
 ```sh
@@ -226,55 +233,87 @@ $ curl http://localhost:8080/add/1/2
 ```
 
 Whilst using the core `http` module can give us the same results, we
-have to implement more lower level logic, neglecting edge cases or misunderstanding fundamentals can lead to brittle code. The framework support provided by the `restify` module also supplies us with conveniences such as parameter parsing, automated error handling, middleware support and so forth.
+have to implement additional lower level logic. Neglecting edge cases or misunderstanding fundamentals can lead to brittle code. The framework support provided by the `restify` module also supplies us with conveniences such as parameter parsing, automated error handling, middleware support and so forth.
 
 #### Testing Microservices with a Browser 
 
 We don't necessarily need to use the `curl` command to test our microservices, We can test out HTTP GET requests just using a web browser. For example we could open the default browser on our system and type the url into the address bar. Our service will return a response and the browser should render it as text for us. Bear in mind that some browsers will treat the response as a file download depending on how they have been configured.
 
 ### See also
-**TOD DMC**
+
+* TBD
 
 ## Consuming a Service
-In this recipe we are going to create a web application that will consume our microservice. This is the API and client tier in our reference architecture depicted in the figure in the introduction to the chapter. We will be using the Express web framework to do this and also the Express Generator to create an application skeleton.
+
+In this recipe we are going to create a web application layerthat will consume our microservice. This is the API and client tier in our reference architecture depicted in the figure in the introduction to the chapter. 
+
+We will be using the Express web framework to do this and also the Express Generator to create an application skeleton.
+
+> #### Express
+> Fro an introduction to Express see the *Creating an Express Web App* 
+> recipe in **Chapter 7 Working with Web Frameworks**
 
 ### Getting Ready
-This recipe builds on the code from our last recipe `Building a simple RESTful microservice` and we will be using the code from this as a starting point. The code from this recipe is available in the accompanying source code in the directory `source/Building_RESTful_microservice`.
 
-To get ready for this recipe we need to install the `express-generator`. To do this run:
+This recipe builds on the code from our last recipe *Creating a simple RESTful microservice*. We'll be using the `micro` folder from the previous recipe as a starting point. 
+
+> #### Previous Code ... ![](../tip.png)
+> Code from the previous recipe is available in the source files
+> for this chapter.
+
+Let's install the `express-generator`, which we'll be using
+to rapidly generate Express scaffolding, and the `standard` 
+linter (and formatter) which we'll use to reformat the generated
+code the lint rules used in this book.
+
+To do this run:
 
 ```sh
-$ npm install -g express-generator
+$ npm install -g express-generator standard
 ```
 
 Now, let's build our web app.
 
 ### How to do it
-First let's open a command prompt and `cd` into the directory we created in the first recipe.
+
+First let's open a terminal and `cd` into the directory we created in the first recipe.
 
 ```sh
 $ cd micro
 ```
 
-Next generate the application skeleton using the `express` command line tool
+Next we'll generate the application skeleton using the `express` command line tool, and then use `standard --fix` to confirm the code to our lint
+rules:
 
 ```sh
 $ express --view=ejs ./webapp
+$ cd webapp
+$ standard --fix
 ```
 
 This will create a skeletal web application using `ejs` templates in a new directory called `webapp`.
 
 > #### `ejs`.. ![](../info.png)
-> Express supports multiple template engines including Jade, `ejs` and Handlebars. If you would prefer to use a different engine simply supply a different option to the --view switch. More information is available by running ```express --help```
+> The `ejs` module provide EJS templating capabilities. To learn more EJS and template engines see the *Adding a View Layer* recipe in **Chapter 7 Working with Web Frameworks**
 
-Next we need to install the dependencies for our application:
+
+We'll also create a few files, and add an additional dependency:
 
 ```sh
-$ cd webapp
+$ touch routes/add.js views/add.ejs
+$ npm install --save --no-optional restify 
+```
+
+We'll be using `express` for the web application, and `restify`
+(in this case) to create a RESTful client.
+
+To install the rest of our dependencies (as speicifed in the `package.json` that was generated by `express-generator`) we run:
+
+```sh
 $ npm install
 ```
 
-Once this has completed we can run the application:
+Once this has completed we can run the application with the following:
 
 ```sh
 $ npm start
@@ -282,46 +321,50 @@ $ npm start
 
 If we now point a browser to `http://localhost:3000` we should see a page rendered by our application as in the figure below:
 
-![image](./images/fig3.2.png)
+![](./images/fig3.2.png)
 
-Now that we have our web application skeleton its time to wire it up to our microservice. Let's begin by creating a route and a front end to interact with our service. Firstly the route, using your favorite editor create a file `add.js` in the directory `webapp/routes` and add the following code:
+Now that we have our web application skeleton it's time to wire it up to our microservice. 
+
+Let's begin by creating a route and a frontend to interact with our service. 
+
+We'll start with routing. 
+
+The `webapp/routes/add.js` should look like so:
 
 ```js
-var express = require('express')
-var router = express.Router()
-var restify = require('restify')
+const { Router } = require('express')
+const restify = require('restify')
+const router = Router()
 
-
-router.get('/', function (req, res, next) {
+router.get('/', function (req, res) {
   res.render('add', { first: 0, second: 0, result: 0 })
 })
 
 router.post('/calculate', function (req, res, next) {
-    var client = restify.createClient({url: 'http://localhost:8080'})
-    client.get('/add/' + req.body.first + '/' + req.body.second,
-    function (err, serviceReq) {
-      if (err) { console.log(err) }
-
-      serviceReq.on('result', function (err, serviceRes) {
-        if (err) { console.log(err) }
-        serviceRes.body = ''
-        serviceRes.setEncoding('utf8')
-        serviceRes.on('data', function (chunk) {
-          serviceRes.body += chunk
-        })
-        serviceRes.on('end', function () {
-          res.render('add', {first: req.body.first,
-                      second: req.body.second,
-                      result: serviceRes.body.replace(/"+/g, '')})
-        })
-      })
-    })
+  const client = restify.createStringClient({
+    url: 'http://localhost:8080'
   })
+  const {first, second} = req.body
+  client.get(
+    `/add/${first}/${second}`,
+    (err, svcReq, svcRes, result) => {
+      if (err) { 
+        next(err)
+        return 
+      }
+      res.render('add', { first, second, result })
+      next()
+    }    
+  ) 
+})
 
-  module.exports = router
+module.exports = router
+
 ```
 
-Next we need to create a template to provide users of the app with access to the service, so we need to create a file `add.ejs` in the directory `webapp/views` with the following code:
+Next we need to create a template to provide users of the app with access to the service.
+
+Let's make `webapp/views/add.ejs` look as follows:
 
 ```html
 <!DOCTYPE html>
@@ -345,57 +388,84 @@ Next we need to create a template to provide users of the app with access to the
 </html>
 ```
 
-We then need to update the file `webapp/app.js` to wire in the template and route. We need to make the following changes:
+We then need to update the file `webapp/app.js` to wire in the template and route. 
 
-![image](./images/app.js.png)
+Near the top of `webapp/app.js`, underneath where the other routes are required we can insert the following line:
 
-Finally we need to install the `restify` module into our webapp project. To do this run:
-
-```sh
-$ cd webapp
-$ npm install --save restify --no-optional
+```js
+var add = require('./routes/add')
 ```
 
-Now that we have the code changes done, it's time to test our application and service together. to do this open a command prompt and start up the service:
+Finally towards the bottom of the `webapp/app.js` file, we'll mount
+our `add` route at the `/add` path with the following line:
+
+```js
+app.use('/add', add)
+```
+
+Now it's time to test our application and service together! 
+
+We open up one terminal and start our adding service:
 
 ```sh
 $ cd micro/adderservice
 $ node service.js
 ```
 
-Now open a second command prompt and start up the webapp:
+Then we open a second terminal and start the webapp:
 
 ```sh
 $ cd micro/webapp
 $ npm start
 ```
 
-> #### npm start ![](../info.png)
-> the Express Generator adds in a convenience script to `package.json`, in this case a start script. If we open up `package.json` we can see that this simply uses Node to execute the `./bin/www` script under the `webapp` project.
+Now that we have our webapp and service running, open a browser and point it to `http://localhost:3000/add`. 
 
-Now that we have our webapp and service running, open a browser and point it to `http://localhost:3000/add`. This will render the template that we created above and should look as depicted below:
+This will render the template that we created above and should look as depicted below:
 
-![image](./images/addscreen.png)
+![](./images/addscreen.png)
 
-Type a number into each of the input fields and hit the calculate button to verify that the service is called and returns the correct result:
+If we type a number into each of the input fields and hit the calculate button to verify that the service is called and returns the correct result. 
+
+For instance typing "1" in the first input, and "2" in the other and
+pressing the submit button should produce a response as shown in the following image: 
+
+![](./images/addscreen-result.png)
+
 
 ### How it works
+
 The elements of our reference architecture that we have touched on so far are illustrated below:
 
-![image](./images/recip2diagram.png)
+![](./images/recip2diagram.png)
 
-As can been seen we have implemented a front end and a single back end service. When our front end page renders the user is presented with a standard web form. When our use hits submit a standard HTTP post request is made to our API tier, which is implemented using the Express framework.
+We have implemented a frontend web layer with a single backend service. 
 
-We implemented a route in our API tier that uses `restify` to make a connection to our microservice. This route marshals parameters from the original form `POST` request and sends them onto our microservice via a HTTP `GET` request. Once the service has returned a result, our Express application renders it using our Ejs template.
+When our frontend page renders the user is presented with a standard web form. When they press submit a standard HTTP post request is made to our API tier, which is implemented using the Express framework.
 
-Of course, for a small system like this it is hardly worth going to the trouble of building a microservice, however this is just for illustrative purposes. As a system grows in functionality the benefits of this type of architectural approach become more apparent.
+We implemented a route in our API tier that uses `restify` to make a connection to our microservice. This route marshals parameters from the original form `POST` request and sends them onto our microservice via a HTTP `GET` request. Once the service has returned a result, our Express application renders it using our EJS template.
 
-It is also important to note the reason for the API tier (the Express application). Microservice systems tend to be architected in this manner in order to minimize the public API surface area. It is highly recommended that you never expose microservices directly to the client tier, even on protected networks, preferring instead to use this type of API gateway pattern to minimize the attack surface.
+Of course, for a small system like this it is hardly worth going to the trouble. However this is just for illustrative purposes. As a system grows in functionality the benefits of this type of architectural approach become more apparent.
+
+It's also important to note the reason for the API tier (the Express application): minimizing the public API surface area. 
+
+We strongly recommended that microservices are *never* directly exposed to the client tier, even on protected networks. Instead prefer to use an API gateway pattern (like we've built in this recipe) to minimize the attack surface.
 
 The following recipes will go on to build on more elements of our system however before we do so our next recipe will look at how we can configure an effective local development environment.
 
 ### There's more
-So far we have omitted unit and integration testing from our code. Whilst testing is not the foucs of this chapter, robust testing is an absolute requirement for any system. Let's create a quick integration test for our `webapp` and `adderservice`. To do this we will use the `superagent` and `tap` modules. Let's get setup by creating a fresh directory for our tests:
+
+Let's write an integration test for our system
+
+#### Integration testing
+
+So far we have omitted unit and integration testing from our code.
+ 
+Whilst testing is not the focus of this chapter, robust testing is an absolute requirement for any system. 
+
+Let's create a quick integration test for our `webapp` and `adderservice`. To do this we will use the `superagent` and `tap` modules. 
+
+Let's get setup by creating a fresh directory for our tests:
 
 ```sh
 $ cd micro
@@ -430,9 +500,32 @@ test('add test', function (t) {
 > #### TAP ![](../info.png)
 > TAP stands for Test Anything Protocol and has implementations in many languages. Find out more about TAP here: `https://testanything.org/`
 
-Since we installed the `tap` command globally we can run this test using tap, ensuring first that we have our `adderservice` and `webapp` running in another shell:
+To run the integration test, the system needs be running.
+
+Let's open three terminals (each with the working directory set to the `micro` folder).
+
+In the first terminal we run:
 
 ```sh
+$ cd micro/adderservice
+$ node service.js
+```
+
+In the second terminal we run:
+
+```sh
+$ cd micro/webapp
+$ npm start
+```
+
+In the third we're going to run our integration test.
+
+Since we installed the `tap` command globally we can run this test using the `tap` executable which `npm` has installed on our system. We can actually run our tests directly with Node (`tap` doesn't need a test runner) but the `tap` executable provides a more visual UI. 
+
+In our third terminal we can run our test like so:
+
+```sh
+$ cd inttest
 $ tap addtest.js
 addtest.js ............................................ 2/2
 total ................................................. 2/2
@@ -440,15 +533,18 @@ total ................................................. 2/2
   ok
 ```
 
-Our simple test exercises both our frontend `webapp` and also our service. This of course is no sustitute for robust unit testing which should be implemented for all services and front ends.
+Our simple test exercises both our frontend `webapp` and also our `adderservice`. 
+
+This of course is no sustitute for robust unit testing which should be implemented for all services and frontend pieces. On a side note, the `tap` module is excellent for unit testing as well.
 
 ### See also
-**TODO DMC**
+
+* TBD
 
 ## Setting up a development environment
 Microservice systems have many advantages to traditional monolithic systems, however this style of development does present it's own challenges. One of these has been termed Shell Hell. This occurs when we have many microservices to spin up and down on a local development machine in order to run integration and regression testing against the system, as illustrated in the image below:
 
-![image](./images/shellhell.jpg)
+![](./images/shellhell.jpg)
 
 ### Getting Ready
 In order to avoid the problems of shell hell we are going to install and configure `fuge` in this recipie. Fuge is a Node module designed specifically to help with local microservice development, to install it run the following command:
@@ -505,15 +601,15 @@ fuge>
 
 Type help to see the list of available commands:
 
-![image](./images/fuge-help.png)
+![](./images/fuge-help.png)
 
 If we now give `fuge` the ps command it will show us the list of managed processes:
 
-![image](./images/fuge-ps.png)
+![](./images/fuge-ps.png)
 
 We can see from this that `fuge` understands that it is managing our webapp and our adderservice. Let's start these up using the `fuge` shell by issuing the `start all` command:
 
-![image](./images/fuge-run1.png)
+![](./images/fuge-run1.png)
 
 Once we issue the start all command Fuge will spin up an instance of all managed processes. Fuge will trace output from these process to the console and color the output on a per process basis. We can now point our browser to `http://localhost:3000/add` and the system should work as before. Let's now make a change to our service code, say by adding some additional logging. Let's add a `console.log` statement to our respond function, so that our service code looks as follows:
 
@@ -540,12 +636,12 @@ server.listen(8080, function () {
 
 If we now go back to the Fuge shell we can see that Fuge detected this change and has restarted our service for us automatically. If we add some numbers through the `webapp` interface we can also see that our new `console.log` statement is displayed in the Fuge shell.
 
-![image](./images/fuge-restart.png)
+![](./images/fuge-restart.png)
 
 
 Finally let's shutdown our system by issuing the `stop all` command in the Fuge shell. Fuge will stop all managed processes. We can check that this has completed successfully by issuing a `ps` command.
 
-![image](./images/fuge-stopall.png)
+![](./images/fuge-stopall.png)
 
 We can now exit the Fuge shell by typing `exit`.
 
@@ -774,7 +870,7 @@ We can think of this operating in much the same way that an IP network functions
 
 Consider an example system with a consumer process and two services, a user service and a basket service which could occur as part of some larger e-commerce system. As illustrated below the consumer simple dispatches a message asking for a user or basket operation, in this case to create a user or to add something to the basket. The pattern router figures out how to route these messages to the appropriate service based on matching the request - in this case `{role: "user", cmd: "create"` to the appropriate service.
 
-![image](./images/overlay.png)
+![](./images/overlay.png)
 
 The receiving router within the user service then figures out the appropriate handler to call based again on the message pattern. Once the handler has executed a response message is passed through both routers to end up at the initiating call site within the consumer process. This  approach is sometimes known as an overlay network, because it creates a logical network structure over the lower level network fabric.
 
@@ -827,7 +923,7 @@ The container model for software deployment has become synonymous with microserv
 In this recipe and subsequent ones in this chapter we are going to be using prebuilt containers to gain a practical understanding of the benefits of containerization, particularly when applied to a microservice system. We will be building our own container in the deployment chapter later in the book.
 
 ### Getting Ready
-For this recipe we will be using the Docker container engine. Firstly we will need to install this and validate that it is operating correctly. To do this head over to `http://www.docker.com` and install the appropriate binary for your system. Docker supports Linux, Windows and Mac natively.
+For this recipe we will be using the Docker container engine. Firstly we will need to install this and validate that it is operating correctly. To do this head over to `http://www.docker.com` and install the appropriate binary for our system. Docker supports Linux, Windows and Mac natively.
 
 We can check that Docker was installed successfully by opening a shell and running the following:
 
@@ -876,7 +972,7 @@ $ fuge shell fuge/fuge.yml
 fuge> ps
 ```
 
-![image](./images/addmongo.png)
+![](./images/addmongo.png)
 
 The above listing shows `mongo` as type container, Fuge will treat this as a container and run it accordingly as distinct to a process.
 
@@ -990,7 +1086,7 @@ module.exports = function () {
 }
 ```
 
-Now that we have our service, the final thing that we need to do is to add a front end to display the content of our audit log. Firstly `cd` into the `webapp` directory and create two files: `views/audit.ejs` and `routes/audit.js`. Open audit.ejs in an editor and add the following code:
+Now that we have our service, the final thing that we need to do is to add a frontend to display the content of our audit log. Firstly `cd` into the `webapp` directory and create two files: `views/audit.ejs` and `routes/audit.js`. Open audit.ejs in an editor and add the following code:
 
 ```html
 <!DOCTYPE html>
@@ -1100,13 +1196,13 @@ fuge> ps
 > repositories. A container is the running instantiation of an image. We will be applying
 > this terminology consistently.
 
-You should now see `auditservice` listed as type process along with `adderservice`, `webapp` and `mongo`. Issue the `start all` command to Fuge to spin the system up. As before we can now see that Fuge has started our mongo container, both services and our front end:
+You should now see `auditservice` listed as type process along with `adderservice`, `webapp` and `mongo`. Issue the `start all` command to Fuge to spin the system up. As before we can now see that Fuge has started our mongo container, both services and our frontend:
 
-![image](./images/auditservicerun.png)
+![](./images/auditservicerun.png)
 
 If we now point a browser to `http://localhost:3000/audit` a blank audit history is displayed. We can add some history by opening `http://localhost:3000/add` and submitting some calculations. Once this is done open `http://localhost:3000/audit` again and a list of the calculations will be displayed as shown below:
 
-![image](./images/auditlog.png)
+![](./images/auditlog.png)
 
 ### How it works
 In this recipe we introduced Docker containers and worked with the official MondoDB container. We could just as easily have used a MySql container or some other database. It should be clear that using the mongo container was very simple, there was no need for a compilation or installation of binaries on our local machine. The MongoDB container came preconfigured with everything it needed to run already encapsulated.
@@ -1483,7 +1579,7 @@ All of these environment variables will be available to the service process. Not
 
 Let's now run the `zone` command, this should provide us with out put similar to the following:
 
-![image](./images/fuge-zone.png)
+![](./images/fuge-zone.png)
 
 As we can see Fuge is supplying both SRV and A records for discovery which Concordant is able to lookup. It is important to note that in a Kubernetes production environment the same DNS entries will be available for service discovery.
 
@@ -1781,7 +1877,7 @@ $ sh report.sh
 
 Output similar to the following should be displayed:
 
-![image](./images/eventreport.png)
+![](./images/eventreport.png)
 
 ### How it works
 In this recipe we created a queue based microservice that used Redis as a lightweight queueing mechanism. We used a Redis container and discovered this container using DNS. It is interesting to note that in this case, neither the service or consumer end had direct knowledge of each other, rather each simply placed messages onto an intermediary queue.
@@ -1790,9 +1886,9 @@ Our event service again used `concordant` DNS to discover the Redis service as b
 
 The `eventservice` simply records each event into a MongoDB database and provides a simple report function on this database when requested.
 
-Now that we have constructed a system with several services, a front end and an offline reporting tool let's take a look at the overall architecture:
+Now that we have constructed a system with several services, a frontend and an offline reporting tool let's take a look at the overall architecture:
 
-![image](./images/finalsystem.png)
+![](./images/finalsystem.png)
 
 As can be seen, this corresponds very closely to the idealized system architecture that we reviewed at the start of this chapter. We should also note that the system adheres to some key microservice principals:
 
@@ -1813,7 +1909,7 @@ A full discussion of security as pertaining to microservices is outside the scop
 
 * Always use the API gateway pattern and minimize the exposed application surface area
 
-* Never expose internal service details in client code - i.e. front end code that runs in web browsers or on mobile devices. Front end code should communicate via an API only. This means that you should avoid using inherently insecure architectural patterns such as `client side service discovery`.
+* Never expose internal service details in client code - i.e. frontend code that runs in web browsers or on mobile devices. Frontend code should communicate via an API only. This means that you should avoid using inherently insecure architectural patterns such as `client side service discovery`.
 
 * Identify and classify services based on the sensitivity of the data that they handle. Consider the deployment and management policy for services based on this classification.
 
