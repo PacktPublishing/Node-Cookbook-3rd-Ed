@@ -7,7 +7,7 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
-  "author": "Peter Elger <peter.elger@nearform.com>",
+  "author": "Peter Elger",
   "license": "ISC",
   "dependencies": {
     "cli-table": "^0.3.1",

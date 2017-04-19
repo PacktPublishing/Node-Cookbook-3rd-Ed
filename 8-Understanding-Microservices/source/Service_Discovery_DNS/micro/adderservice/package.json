@@ -2,12 +2,12 @@
   "name": "adderservice",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "service.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
-  "author": "Peter Elger <peter.elger@nearform.com>",
+  "author": "Peter Elger",
   "license": "ISC",
   "dependencies": {
     "restify": "^4.3.0"

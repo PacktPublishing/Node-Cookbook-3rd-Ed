@@ -10,51 +10,69 @@ This chapter covers the following topics
 * Adding a queue based service
 
 ## Introduction
-Microservices are very much in vogue at the moment and for good reason. There are many benefits to adopting a microservices architecture such as:
+
+In recent years, microservices have become increasingly popular - this is for good reason.  
+
+Not only does breaking a system into small independent processes suit a single-threaded
+event-loop platform such as Node, but there can be significant advantages in 
+adopting a microservices architecture such as:
 
 * Focus - Each service should do one thing only and do it well. This means that an individual microservice should contain a small amount of code that is easy for an individual developer to reason about.
 
-* Decoupled - Services run in their own process space and are therefore decoupled from the rest of the system. This makes it easy to replace an individual microservice without greatly perturbing the rest of the system.
+* Decoupling - Services run in their own process space and are therefore decoupled from the rest of the system. This makes it easy to replace an individual microservice without greatly perturbing the rest of the system.
 
-* Continuous Delivery / Deployment - Services are individually deployable, this leads to a model whereby deployment can be an ongoing process. thus removing the need for 'Big Bang' deployments.
+* Fine Grained Continuous Delivery / Deployment - Services are individually deployable, this leads to a model whereby deployment can be an ongoing process. thus removing the need for 'Big Bang' deployments.
 
-* Individually scaleable - systems may be scaled at the service level leading to more efficient use of compute resources.
+* Individually scalable - systems may be scaled at the service level leading to more efficient use of compute resources.
 
 * Language independent - microservice systems may be composed of services written in multiple languages, allowing developers to select the most appropriate tool for each specific job.
 
-Of course it is not always appropriate to use microservices, certainly the 'golden hammer' anti-pattern should be avoided at all costs, however it is a powerful approach when applied correctly. In this chapter we will learn how to construct a simple RESTful microservice and also how this might be consumed. We will also look at how to set up a clean local development environment using the Fuge toolkit and then look at how to build services that communicate over protocols other than simple HTTP. Finally we will build in a simple service discovery mechanism to allow us to consume our services without hard coding.
+Of course it is not always appropriate to use microservices, certainly the 'golden hammer' anti-pattern should be avoided at all costs. However it is a powerful approach when applied correctly. 
 
-Before diving into code, however, we should take a moment to review what we mean by a microservice and how this concept plays into a reference architectural frame. The following figure depicts a typical microservice system.
+In this chapter we will learn how to construct a simple RESTful microservice as well as how this service might be consumed. We will also look at how to set up a local development environment using the Fuge toolkit. Then we'll advance to building services that communicate over protocols other than simple HTTP. Finally we will create a simple service discovery mechanism to allow us to consume our services without hard coding system configuration into each service.
+
+Before diving into let's take a brief moment to review our definition of a microservice and how this concept plays into a reference architectural frame. 
+
+The following figure depicts a typical microservice system.
 
 ![image](./images/logical.png)
 
 Our reference architecture contains the following elements that are typical to most microservice style systems:
 
-* Clients - typically web web based or mobile applications, make HTTP connections to an API layer.
+* Clients - typically web based or mobile applications, make HTTP connections to an API layer.
 
 * Static assets - such as images, style sheets and other elements that are used to render the user interface.
 
 * API layer - This is usually a thin layer that provides the routing between client requests and microservices that ultimately respond to these requests.
 
-* Service Discovery - Some mechanism for discovering and routing to microservices. This can be as simple as a shared configuration file or a more dynamic mechanism such as DNS
+* Service Discovery - A mechanism for discovering and routing to microservices. This can be as simple as a shared configuration file or a more dynamic mechanism such as DNS
 
 * Direct response services - These types of services are typically reached via a point to point protocol such as HTTP or raw TCP and will usually perform a distinct action and return a result.
 
-* Async services - These types of services are typically invoked via some bus based technology such as RabbitMQ or Apache Kafka and may or may not return a response to the caller.
+* Async services - These types of services are typically invoked via a bus based technology such as RabbitMQ or Apache Kafka. These may or may not return a response to the caller.
 
-* Data sources and External APIs - Services will usually interact with some data source or external system in order to generate responses to requests
+* Data sources and External APIs - Services will usually interact with one or more data sources or external systems in order to generate responses to requests
 
 Based on this logical architecture we will use the following definition for a microservice:
 
 *A microservice is a small, highly cohesive unit of code that has responsibility for a small functional area of a system. It should be independently deployable and should be of a size that it could be rewritten by a single developer in two weeks at maximum.*
 
+To break this down further, a microservice has the following qualities:
+
+* Limited, focused responsibility
+* Highly cohesive, tightly scoped functionality
+* Independently deployable
+* Small enough to be rewritten by a single developer in under two weeks
+
 In the following recipes we will look at how microservices operate in the context of an example system, how to set up an effective development environment for this style of coding and also look microservice messaging and communication protocols.
 
 ## Creating a simple RESTful microservice
-In this recipe we will build a simple microservice using the `restify` module. Restify is an easy to use framework that is designed to help us rapidly build services that can be consumed over HTTP. Once we have built our first service we will test our service using the `curl` command.
+In this recipe we will build a simple microservice using the `restify` module. Restify is an easy to use middleware-centric framework (similar in API to Express) that is designed to help us rapidly build services that can be consumed over HTTP. 
+
+Once we have built our first service we will test our service using the `curl` command.
 
 ### Getting Ready
-To get started open a command prompt and create a fresh empty directory, let's call it `micro`.
+To get let's create a fresh empty directory we'll call it `micro`.
 
 ```sh
 $ mkdir micro
@@ -62,15 +80,21 @@ $ cd micro
 ```
 
 ### How to do it
-Our microservice will add two numbers together. The service is simply a Node module, so let's go ahead and create a fresh module in a new `adderservice` directory, run:
+
+We're going to create a service that adds two numbers together. 
+
+A service is simply a Node process, so let's go ahead and create an `adderservice` folder inside our `micro` directory, initialize our new folder as a package and create a `service.js` file:
 
 ```sh
 $ mkdir adderservice
 $ cd adderservice
 $ npm init -y
+$ touch service.js
 ```
 
-This will create a fresh `package.json` for us. Next let's add in the `restify` module for our service run:
+This will create a fresh `package.json` for us. 
+
+Next let's add in the `restify` module for our service with the followiung command:
 
 ```sh
 npm install restify --save --no-optional
@@ -81,63 +105,80 @@ This will install the `restify` module and also add the dependency to `package.j
 > #### --no-optional.. ![](../info.png)
 > By default `restify` installs DTrace probes, this can be disabled during install with the --no-optional flag. Whilst DTrace is great not all systems support it which is why we have chosen to disable it in this example. You can find out more about dtrace here: http://dtrace.org/blogs/about/
 
-Now it's time to actually write our service. Using your favorite editor create a file `service.js` in the `adderservice` folder. Add the following code:
+Now it's time to actually write our service. Using our favorite editor 
+let's add the following code to the `service.js` file:
 
-```javascript
-var restify = require('restify')
+```js
+const restify = require('restify')
 
 function respond (req, res, next) {
-  var result = parseInt(req.params.first, 10) +
-               parseInt(req.params.second, 10)
-  res.send('' + result)
+  const result = (parseInt(req.params.first, 10) + 
+    parseInt(req.params.second, 10)).toString()
+  res.send(result)
   next()
 }
 
-var server = restify.createServer()
+const server = restify.createServer()
 server.get('/add/:first/:second', respond)
 
-server.listen(8080, function () {
+server.listen(8080, () => {
   console.log('%s listening at %s', server.name, server.url)
 })
 ```
 
-Once you have added the code and saved the file we can run and test our service. In the command prompt `cd` to the service folder and run the service as follows:
+To see if everything is working we'll start the `service.js` file:
 
 ```sh
-$ cd micro/adderservice
 $ node service.js
 ```
 
-The service gives the following output:
+Which should give the following output:
 
 ```sh
 restify listening at http://[::]:8080
 ```
 
-Let's test our service using `curl`. Open a fresh command window and type the following:
+Let's test our service using `curl`. 
+
+Open a fresh terminal and type the following:
 
 ```sh
-curl http://localhost:8080/add/1/2
+$ curl http://localhost:8080/add/1/2
 ```
 
-The service should respond with the answer 3. We have just built our first RESTful microservice.
+The service should respond with the answer 3. 
+
+We have just built our first RESTful microservice.
 
 > #### `curl` ![](../tip.png)
 > `curl` is a command line HTTP client program that works much like a web browser. If you don't have `curl` available on your system you can test the service by putting the url into your web browser.
 
 ### How it works
-When we executed the microservice, `restify` opened up tcp port 8080 and began listening for requests. The `curl` command opened a socket on local host and connected to port 8080. `curl` then sent a HTTP `GET` request for the url `/add/1/2`. In the code we had told `restify` to service `GET` requests matching a specific url pattern:
 
-```javascript
+When we executed the microservice, `restify` opened up tcp port 8080 and began listening for requests. The `curl` command opened a socket on localhost and connected to port 8080. The `curl` tool then sent an HTTP `GET` request for the url `/add/1/2`. 
+
+Our code configured `restify` to serve `GET` requests matching a specific url pattern:
+
+```js
 server.get('/add/:first/:second', respond)
 ```
 
-The :first, :second parts of this tell `restify` to match path elements in these positions to parameters. You can see this working in the respond function where we were able to access the parameters using the form `req.params.first`
+The `:first` and `:second` placeholders instruct `restify` to match path elements in these positions to parameters with are added to `req.params`. We can see this working in the respond function where we were able to access the parameters using the form `req.params.first`
 
 Finally our service sent a response using the `res.send` function.
 
+> #### Restify and Express ![](../info.png)
+> Restify and Express have very similar API's. We can learn more about 
+> `req.params` and `res.send` in the *Creating an Express Web App* 
+> recipe in **Chapter 7 Working with Web Frameworks** 
+
+Whilst this is a trivial service it should serve to illustrate the fact that a microservice is really nothing more than a Node module that runs as an independent process. 
+
+A microservice system is a collection of these co-operating processes. Of course it gets more complicated in a real system where you have lots of services and have to manage problems such as service discovery and deployment, however keep in mind that the core concept is really very simple.
+
 ### There's more
-Whilst this is a trivial service it should serve to illustrate the fact that a microservice is really nothing more than a Node module that runs as an independent process. A microservice system is a collection of these co-operating processes. Of course it gets more complicated in a real system where you have lots of services and have to manage problems such as service discovery and deployment, however keep in mind that the core concept is really very simple.
+
+Let's look alternative ways to create and test a RESTful microservice.
 
 #### Using the Core HTTP Module
 Whilst we have used `restify` to create this simple service, there are several alternative approaches that we could have used such as:
@@ -146,30 +187,50 @@ Whilst we have used `restify` to create this simple service, there are several a
 * The `Express` framework [http://expressjs.com/](http://expressjs.com/)
 * The `HAPI` framework [https://hapijs.com/](https://hapijs.com/)
 
-Let's create an alternative implementation using the Node core HTTP module. Create a file in the `adderservice` directory called `service-core.js` and add the following code:
+Let's create an alternative implementation using the Node core HTTP module. Let's copy the `adderservice` folder to `adderservice-core-http` and and alter the `service.js` code to the following:
 
-```javascript
-var http = require('http')
+```js
+const http = require('http')
 
-function respond (req, res, next) {
-  var params = req.url.split('/')
-  var result = parseInt(params[2], 10) + parseInt(params[3], 10)
-  res.end('' + result)
-}
-
-var server = http.createServer((req, res) => {
-  respond(req, res)
-})
+const server = http.createServer(respond)
 
 server.listen(8080, function () {
   console.log('listening on port 8080')
 })
+
+function respond (req, res) {
+  const [cmd, first, second] = req.url.split('/').slice(1)
+  const notFound = cmd !== 'add' || 
+    first === undefined || 
+    second === undefined
+
+  if (notFound) {
+    error(404, res)
+    return
+  }
+
+  const result = parseInt(first, 10) + parseInt(second, 10)
+  res.end(result)
+}
+
+function error(code, res) {
+  res.statusCode = code
+  res.end(http.STATUS_CODES[code])
+}
 ```
 
-Use the curl command as before to check that the service returns the same result. Whilst the core implementation works in the same way it is far more brittle than the `restify` implementation in that it lacks the framework support for parameter parsing, error handling and so on.
+We can use `curl` as before to test our service:
 
-#### Viewing in a browser
-We don't necessarily need to use the curl command to test our microservices, We can test out HTTP get requests just using a web browser. For example we could open the default browser on our system and type the url into the address bar. Our service will return a response and the browser should render it as text for us. Bear in mind that some browsers will treat the response as a file download depending on how they have been configured.
+```sh
+$ curl http://localhost:8080/add/1/2
+```
+
+Whilst using the core `http` module can give us the same results, we
+have to implement more lower level logic, neglecting edge cases or misunderstanding fundamentals can lead to brittle code. The framework support provided by the `restify` module also supplies us with conveniences such as parameter parsing, automated error handling, middleware support and so forth.
+
+#### Testing Microservices with a Browser 
+
+We don't necessarily need to use the `curl` command to test our microservices, We can test out HTTP GET requests just using a web browser. For example we could open the default browser on our system and type the url into the address bar. Our service will return a response and the browser should render it as text for us. Bear in mind that some browsers will treat the response as a file download depending on how they have been configured.
 
 ### See also
 **TOD DMC**
@@ -225,7 +286,7 @@ If we now point a browser to `http://localhost:3000` we should see a page render
 
 Now that we have our web application skeleton its time to wire it up to our microservice. Let's begin by creating a route and a front end to interact with our service. Firstly the route, using your favorite editor create a file `add.js` in the directory `webapp/routes` and add the following code:
 
-```javascript
+```js
 var express = require('express')
 var router = express.Router()
 var restify = require('restify')
@@ -348,7 +409,7 @@ $ npm install -g tap
 
 Next let's create a test script in a file `addtest.js`:
 
-```javascript
+```js
 var request = require('superagent')
 var test = require('tap').test
 
@@ -456,7 +517,7 @@ We can see from this that `fuge` understands that it is managing our webapp and 
 
 Once we issue the start all command Fuge will spin up an instance of all managed processes. Fuge will trace output from these process to the console and color the output on a per process basis. We can now point our browser to `http://localhost:3000/add` and the system should work as before. Let's now make a change to our service code, say by adding some additional logging. Let's add a `console.log` statement to our respond function, so that our service code looks as follows:
 
-```javascript
+```js
 var restify = require('restify')
 
 function respond (req, res, next) {
@@ -572,7 +633,7 @@ This recipe extends the code from our last recipe `Setting up a Development Envi
 ### How to do it
 Firstly let's update our `adderservice`. This code is a little tangled at the moment in that the service logic is wrapped up with the `restify` framework code. In addition the port number that this service listens on is hardcoded. To fix this, firstly create a file `wiring.js` in the directory `micro/adderservice` and add the following code to it:
 
-```javascript
+```js
 var restify = require('restify')
 
 module.exports = function (service) {
@@ -595,7 +656,7 @@ module.exports = function (service) {
 
 Next change the code in the file `service.js` and remove the `restify` code from it as below:
 
-```javascript
+```js
 module.exports = function () {
 
   function add (args, cb) {
@@ -611,7 +672,7 @@ module.exports = function () {
 
 Finally for this service, we need to connect the service logic to the wiring that exposes it, to do this add a file `index.js` to the service and add the code below:
 
-```javascript
+```js
 var wiring = require('./wiring')
 var service = require('./service')()
 wiring(service)
@@ -619,7 +680,7 @@ wiring(service)
 
 That takes care of the service. Let's now turn our attention to the `webapp`. Modify the code in the file `micro/webapp/routes/add.js` so that it looks as below:
 
-```javascript
+```js
 var express = require('express')
 var router = express.Router()
 var restify = require('restify')
@@ -668,7 +729,7 @@ The system should start up as before. If we open up a browser and point it to `h
 ### How it works
 Whilst we have only made minor code changes to the system, organizationally these changes are important. Our first change was to remove any hard coded service configuration information from the code. In the file `micro/adderservice/wiring.js`, we changed the listen code to:
 
-```javascript
+```js
   server.listen(process.env.ADDERSERVICE_SERVICE_PORT, '0.0.0.0',
   function () {
     console.log('%s listening at %s', server.name, server.url)
@@ -731,7 +792,7 @@ $ npm install tap --save-dev
 
 Next create a `test` directory and a file `addtest.js` inside it. Add the following code:
 
-```javascript
+```js
 var test = require('tap').test
 var service = require('../service')()
 
@@ -842,7 +903,7 @@ $ npm install mongodb --save
 
 Next let's add in our wiring file and and service entry point. Firstly create a file `index.js` and add the following code:
 
-```javascript
+```js
 var wiring = require('./wiring')
 var service = require('./service')()
 wiring(service)
@@ -850,7 +911,7 @@ wiring(service)
 
 Secondly create a file `wiring.js` and add this code to it:
 
-```javascript
+```js
 var restify = require('restify')
 
 module.exports = function (service) {
@@ -887,7 +948,7 @@ As we can see the audit service will support two operations, one to append to ou
 
 Create a file `service.js` and add the following code to it:
 
-```javascript
+```js
 var MongoClient = require('mongodb').MongoClient
 var url = 'mongodb://' + process.env.MONGO_SERVICE_HOST + ':' +
           process.env.MONGO_SERVICE_PORT + '/audit'
@@ -952,7 +1013,7 @@ Now that we have our service, the final thing that we need to do is to add a fro
 
 Next add the following code to `routes/audit.js`:
 
-```javascript
+```js
 var express = require('express')
 var router = express.Router()
 var restify = require('restify')
@@ -970,7 +1031,7 @@ router.get('/', function (req, res, next) {
 
 Now that we have our view and a route to exercise it we need to add the route into the `webapp`. To do this open the file `app.js` and hook the audit route in a similar manner to the add route by adding the following two lines at the appropriate point:
 
-```javascript
+```js
 var audit = require('./routes/audit');
 .
 .
@@ -979,7 +1040,7 @@ app.use('/audit', audit);
 
 So we now have an audit route that will display our audit log, the last thing we need to do is to call the audit service to log entries each time a calculation occurs, to do this open the file `routes/add.js` and modify it by adding a call to the audit service as shown below:
 
-```javascript
+```js
 var express = require('express')
 var router = express.Router()
 var restify = require('restify')
@@ -1058,7 +1119,7 @@ We used Fuge to run both our container and also our system as processes. Whilst 
 
 We connected to the Mongo container using this url:
 
-```javascript
+```js
 'mongodb://' + process.env.MONGO_SERVICE_HOST + ':' +
                process.env.MONGO_SERVICE_PORT + '/audit'
 ```
@@ -1133,7 +1194,7 @@ Once a microservice system begins to grow past a few services we typically run i
 
 So far in this chapter we have been using environment variables to connect our services together, these variables have been generated for us by the Fuge tool. The astute reader may have wondered as to the format of the variables, for instance in the last recipe we used variables of the form:
 
-```javascript
+```js
 var addClient = restify.createJsonClient({url: 'http://' +
                 process.env.ADDERSERVICE_SERVICE_HOST + ':' +
                 process.env.ADDERSERVICE_SERVICE_PORT})
@@ -1162,7 +1223,7 @@ $ npm install --save concordant
 
 Next let's make the code changes. In the `webapp` directory create a file `helper.js` that contains the following code:
 
-```javascript
+```js
 var restify = require('restify')
 var conc = require('concordant')()
 
@@ -1185,7 +1246,7 @@ module.exports = function () {
 
 Next open the file `webapp/routes/add.js`. We need to edit the following lines:
 
-```javascript
+```js
 var addClient = restify.createJsonClient({url: 'http://' +
                 process.env.ADDERSERVICE_SERVICE_HOST + ':' +
                 process.env.ADDERSERVICE_SERVICE_PORT})
@@ -1196,7 +1257,7 @@ var auditClient = restify.createJsonClient({url: 'http://' +
 
 We also need to require our `helper.js` module, edit the file so that it looks like the code below:
 
-```javascript
+```js
 var express = require('express')
 var router = express.Router()
 var helper = require('../helper')()
@@ -1237,7 +1298,7 @@ module.exports = router
 
 We also need to modify the file `routes/audit.js` in a similar manner:
 
-```javascript
+```js
 var express = require('express')
 var router = express.Router()
 var helper = require('../helper')()
@@ -1265,7 +1326,7 @@ $ npm install --save concordant
 
 Then edit the file `micro/auditservice/service.js` to discover our MongoSB container using DNS:
 
-```javascript
+```js
 var MongoClient = require('mongodb').MongoClient
 var conc = require('concordant')()
 
@@ -1356,7 +1417,7 @@ Under the hood the  `concordant` module firstly performs an `SRV` query, this re
 
 If we look at the code in the Audit service, we can see that the service is using the following code to resolve a hostname and port number for the `mongodb` database:
 
-```javascript
+```js
   conc.dns.resolve('_main._tcp.mongo.micro.svc.cluster.local',
   function (err, result) {
     url = 'mongodb://' + result[0].host + ':' +
@@ -1456,7 +1517,7 @@ $ npm install --save concordant
 
 Now, following the same pattern as before, let's create our `index.js` file and add the following code:
 
-```javascript
+```js
 var wiring = require('./wiring')
 var service = require('./service')()
 wiring(service)
@@ -1464,7 +1525,7 @@ wiring(service)
 
 Next let's add our wiring, create a file `wiring.js` and add the following:
 
-```javascript
+```js
 var conc = require('concordant')()
 var Redis = require('redis')
 var QNAME = 'eventservice'
@@ -1511,7 +1572,7 @@ module.exports = function (service) {
 
 Now let's add our implementation, create a file `service.js` and add the code below:
 
-```javascript
+```js
 var MongoClient = require('mongodb').MongoClient
 var conc = require('concordant')()
 
@@ -1576,7 +1637,7 @@ module.exports = function () {
 
 Lastly we need to add our index file and install dependencies. Create a file `index.js` and add the following code:
 
-```javascript
+```js
 var wiring = require('./wiring')
 var service = require('./service')()
 wiring(service)
@@ -1584,7 +1645,7 @@ wiring(service)
 
 That takes care of our events service, which is exposed over a Redis queue. Next we have to hook this into our web application. We are going to do this by adding a small piece of middleware to our express server. Firstly create a file `webapp/eventLogger.js` and add this code to it:
 
-```javascript
+```js
 var conc = require('concordant')()
 var Redis = require('redis')
 var QNAME = 'eventservice'
@@ -1616,7 +1677,7 @@ module.exports = function () {
 
 Next we need to hook this into our application as a piece of middleware, open the file `webapp/app.js` and add the following code to it:
 
-```javascript
+```js
 var evt = require('./eventLogger')()
 
   app.use(function (req, res, next) {
@@ -1644,7 +1705,7 @@ $ npm install --save concordant
 
 Next create a file `index.js` and add the following code:
 
-```javascript
+```js
 var conc = require('concordant')()
 var Redis = require('redis')
 var CliTable = require('cli-table')
