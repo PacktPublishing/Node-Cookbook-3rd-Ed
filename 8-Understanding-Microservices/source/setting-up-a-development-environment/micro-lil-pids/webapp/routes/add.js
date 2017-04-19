@@ -14,7 +14,7 @@ router.post('/calculate', function (req, res, next) {
   client.get(
     `/add/${first}/${second}`,
     (err, svcReq, svcRes, result) => {
-      if (err) { 
+      if (err) {
         next(err)
         return 
       }

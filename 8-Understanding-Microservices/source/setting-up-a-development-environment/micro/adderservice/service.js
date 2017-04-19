@@ -5,6 +5,7 @@ const restify = require('restify')
 function respond (req, res, next) {
   const result = (parseInt(req.params.first, 10) + 
     parseInt(req.params.second, 10)).toString()
+  console.log('adding numbers!') 
   res.send(result)
   next()
 }

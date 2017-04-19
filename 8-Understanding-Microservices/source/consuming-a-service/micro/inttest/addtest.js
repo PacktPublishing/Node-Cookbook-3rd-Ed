@@ -1,14 +1,16 @@
-var request = require('superagent')
-var test = require('tap').test
+'use strict'
 
-test('add test', function (t) {
+const request = require('superagent')
+const { test } = require('tap')
+
+test('add test', (t) => {
   t.plan(2)
 
   request
     .post('http://localhost:3000/add/calculate')
     .send('first=1')
     .send('second=2')
-    .end(function (err, res) {
+    .end((err, res) => {
       t.equal(err, null)
       t.ok(/result = 3/ig.test(res.text))
     })

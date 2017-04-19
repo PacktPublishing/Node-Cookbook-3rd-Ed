@@ -296,7 +296,6 @@ This will create a skeletal web application using `ejs` templates in a new direc
 > #### `ejs`.. ![](../info.png)
 > The `ejs` module provide EJS templating capabilities. To learn more EJS and template engines see the *Adding a View Layer* recipe in **Chapter 7 Working with Web Frameworks**
 
-
 We'll also create a few files, and add an additional dependency:
 
 ```sh
@@ -353,13 +352,11 @@ router.post('/calculate', function (req, res, next) {
         return 
       }
       res.render('add', { first, second, result })
-      next()
     }    
   ) 
 })
 
 module.exports = router
-
 ```
 
 Next we need to create a template to provide users of the app with access to the service.
@@ -432,7 +429,6 @@ pressing the submit button should produce a response as shown in the following i
 
 ![](./images/addscreen-result.png)
 
-
 ### How it works
 
 The elements of our reference architecture that we have touched on so far are illustrated below:
@@ -480,17 +476,17 @@ $ npm install -g tap
 Next let's create a test script in a file `addtest.js`:
 
 ```js
-var request = require('superagent')
-var test = require('tap').test
+const request = require('superagent')
+const { test } = require('tap')
 
-test('add test', function (t) {
+test('add test', (t) => {
   t.plan(2)
 
   request
     .post('http://localhost:3000/add/calculate')
     .send('first=1')
     .send('second=2')
-    .end(function (err, res) {
+    .end((err, res) => {
       t.equal(err, null)
       t.ok(/result = 3/ig.test(res.text))
     })
@@ -542,28 +538,42 @@ This of course is no sustitute for robust unit testing which should be implement
 * TBD
 
 ## Setting up a development environment
-Microservice systems have many advantages to traditional monolithic systems, however this style of development does present it's own challenges. One of these has been termed Shell Hell. This occurs when we have many microservices to spin up and down on a local development machine in order to run integration and regression testing against the system, as illustrated in the image below:
+
+Microservice systems have many advantages over traditional monolithic systems. However this style of development does present it's own challenges. 
+
+One of these has been termed Shell Hell. This occurs when we have many microservices to spin up and down on a local development machine in order to run integration and regression testing against the system, as illustrated in the image below:
 
 ![](./images/shellhell.jpg)
 
+In this recipe, we're going to investigate a solution to this problem
+in the form of a microservice development environment.
+
 ### Getting Ready
-In order to avoid the problems of shell hell we are going to install and configure `fuge` in this recipie. Fuge is a Node module designed specifically to help with local microservice development, to install it run the following command:
+
+Fuge is a toolkit written in Node. 
+
+It's designed specifically to help with local microservice development
+
+Let's install Fuge with the following command:
 
 ```sh
-npm install -g fuge
+$ npm install -g fuge
 ```
 
-This recipe builds on the code from our last recipe `Consuming a Service` and we will be using from this as our starting point. The code is available in the accompanying source under the directory `source/Consuming_Service`.
+Our `micro` folder from the previous recipe *Consuming a Service* is our starting point for this recipe.
 
 ### How to do it
-Fuge needs a simple configuration file in order to take control of our development system, let's write it now. Firstly we need to create a directory called `fuge` at the same level as our `webapp` and service directories.
+
+Fuge needs a simple configuration file in order to take control of our development system, let's write it now. 
+
+We need to create a directory called `fuge` at the same level as our `webapp` and service directories.
 
 ```sh
 $ cd micro
 $ mkdir fuge
 ```
 
-Next we need to create a file `fuge.yml` in this directory and add the following code:
+Next we need to create a file `fuge.yml` in this directory and add the following configuration code:
 
 ```
 fuge_global:
@@ -587,78 +597,238 @@ webapp:
     - http=3000
 ```
 
-Fuge will provide us with an execution shell for our apps and services. To start this up run the following command:
+Fuge will provide us with an execution shell for our apps and services. 
+
+We can enter the fuge shell environment with the following:
 
 ```sh
 $ fuge shell fuge.yml
 ```
 
-Fuge will read this configuration file and provide us with a command prompt:
+Fuge will read this configuration file and provide a command prompt,
+as shown in the following image.
 
-```sh
-fuge>
-```
+![](./images/fuge-shell.png)
 
-Type help to see the list of available commands:
+Type `help` and hit return to see the list of available commands,
+the below figure shows the help output.
 
 ![](./images/fuge-help.png)
 
-If we now give `fuge` the ps command it will show us the list of managed processes:
+Let's try the `ps` command:
 
 ![](./images/fuge-ps.png)
 
-We can see from this that `fuge` understands that it is managing our webapp and our adderservice. Let's start these up using the `fuge` shell by issuing the `start all` command:
+This shows us an a list of managed processes based on our the
+earlier configuration.
+
+We can see that `fuge` understands that it's managing our `webapp` 
+and our `adderservice`. 
+
+Let's start both with the `start all` command (still in the Fuge shell):
 
 ![](./images/fuge-run1.png)
 
-Once we issue the start all command Fuge will spin up an instance of all managed processes. Fuge will trace output from these process to the console and color the output on a per process basis. We can now point our browser to `http://localhost:3000/add` and the system should work as before. Let's now make a change to our service code, say by adding some additional logging. Let's add a `console.log` statement to our respond function, so that our service code looks as follows:
+Once we issue the `start all` command Fuge will spin up an instance 
+of each managed process and trace STDOUT and STDERR output from these 
+processes into the shell console, coloring the output on a per process basis. 
+
+We can now point our browser to `http://localhost:3000/add` and the system 
+should work exactly as in the previous recipe.
+
+Let's now make a change to our `adderservice` code, say by adding some 
+additional logging. 
+
+We'll add a `console.log` statement to our `respond` function, so that 
+our service code looks as follows:
 
 ```js
-var restify = require('restify')
+const restify = require('restify')
 
 function respond (req, res, next) {
-  var result = parseInt(req.params.first, 10) +
-               parseInt(req.params.second, 10)
-
-  // add some logging...
+  const result = (parseInt(req.params.first, 10) + 
+    parseInt(req.params.second, 10)).toString()
   console.log('adding numbers!')
-  res.send('' + result)
+  res.send(result)
   next()
 }
 
-var server = restify.createServer()
+const server = restify.createServer()
 server.get('/add/:first/:second', respond)
 
-server.listen(8080, function () {
+server.listen(8080, () => {
   console.log('%s listening at %s', server.name, server.url)
 })
+
 ```
 
-If we now go back to the Fuge shell we can see that Fuge detected this change and has restarted our service for us automatically. If we add some numbers through the `webapp` interface we can also see that our new `console.log` statement is displayed in the Fuge shell.
+If we now go back to the Fuge shell we can see that the change
+was detected and our `adderservice` has been restarted automatically. 
+
+If we add some numbers through the `webapp` interface we can also see
+that our new `console.log` statement is displayed in the Fuge shell.
+
+The following image shows us loading the webapp, the `adderservice` 
+restarting in response to our change, and then new log message occuring
+after we fill out the HTML form and hit submit:
 
 ![](./images/fuge-restart.png)
 
-
-Finally let's shutdown our system by issuing the `stop all` command in the Fuge shell. Fuge will stop all managed processes. We can check that this has completed successfully by issuing a `ps` command.
+Now we'll shutdown our system by issuing the `stop all` command 
+in the Fuge shell. Fuge will stop all managed processes. We can
+check that this has completed successfully by issuing a `ps` command.
 
 ![](./images/fuge-stopall.png)
 
 We can now exit the Fuge shell by typing `exit`.
 
 ### How it works
-Building a microservice system of any significant size comes with challenges, one of the key challenges is managing a number of discreet processes in development. Tools like Fuge can help us to manage this complexity and accelerate our development experience.
 
-Under the hood Fuge reads its configuration file to determine what processes it needs to manage it then provides an execution environment for those processes. Fuge also watches our code for changes and will automatically restart a service as changes are made. This is very useful when developing systems with a significant number of microservices as Fuge takes care of a lot of the grunt process management work for us.
+Building a microservice system of any significant size comes with challenges. One of the key challenges is managing a number of discrete processes in development. Tools like Fuge can help us to manage this complexity and accelerate our development experience.
 
-Fuge can also manage Docker containers locally for us and that will be a subject for one of our later recipes.
+Under the hood Fuge reads its configuration file to determine what processes it needs to manage. Using standard Node interfaces (like `process.stdin` and `process.stdout`) along with a variety of modules (such as `chokidar`, `chalk` and `ps-tree` and much more) Fuge provides an interactive execution environment for those processes and watches our code for changes, automatically reloading a service when a change occurs. 
+
+Not only is this highly useful when developing systems with a significant number of microservices, it's also requires no service specific configuration on a
+developers part. This is modus operandi that Fuge embraces: enhanced developer experience of microservice systems.
+
+> #### Fuge and Docker ![](../tip.png)
+> Fuge can also manage Docker containers locally for us, alongside the Node processes. This is the subject of a a recipe later in this chapter, *Using Containerized Infrastructure*
 
 It should be noted that Fuge is a development tool, something that is used locally. Fuge should not be used for running microservices in a production environment.
 
+> #### Microservices and Node in Production ![](../info.png)
+> Take a look at **Chapter 11 Deploying Systems** for information on 
+> deploying distributed Node systems.
+
 ### There's more
-As we saw by running the `help` command Fuge has a number of other useful commands let's try a few of them out.
+
+As we saw by running the `help` command Fuge has a number of other useful commands. Let's try a few of them out. For the minimalist,
+we'll also take a look a lightweight alternative to Fuge.
+
+### A minimal alternative to fuge
+
+If all we want is to an easy to start services and tail processes logs with a color scheme, and we're willing to forgo the watch and reload functionality, manage docker containers separately and avoid other bundled functionality then
+the `lil-pids` may be of use to us. 
+
+Let's install `lil-pids` so we can check it out:
+
+```sh
+$ npm install -g lil-pids
+```
+
+Let's copy our system, the `micro` folder, to a new folder called
+`micro-lil-pids`, remove the `fuge` folder and create a file called
+`services`:
+
+```sh
+$ cp -fr micro micro-lil-pids
+$ cd micro-lil-pids
+$ rm -fr fuge
+$ touch services
+```
+
+In our `services` file we'll add the following:
+
+```sh
+cd webapp && npm start
+cd adderservice && node service
+```
+
+We can now start our system with:
+
+```sh
+$ lil-pids services
+```
+
+The folllowing image shows us starting the system with `lil-pids`,
+loading the `/add` route in a browser, and submitting a POST request
+via the HTML form:
+
+![](images/lil-pids.png)
+
+### Debug Command
+
+Fuge allows us to start a Node process in debug mode. 
+
+The `process` type in the Fuge configuration file (`fuge/fuge.yml`) indicates
+any type of exectuable process that can be be run on the OS (Fuge is programming
+language independent). 
+
+To enable Node debugging, Fuge must be explicitly told that a service is a Node process. 
+
+For exploration purposes, let's copy the `micro/fuge/fuge.yml` to `micro/fuge/fuge2.yml`.
+
+```sh
+$ cd micro/fuge
+$ cp fuge.yml fuge2.yml
+```
+
+Then in `fuge2.yml` we'll change the `type` field for the `adderservice`  to `node` as below:
+
+```
+adderservice:
+  type: node
+  path: ../adderservice
+  run: 'node service.js'
+  ports:
+    - http=8080
+```
+
+Now we'll start up the Fuge shell with the new configuration file,
+assuming our current working directory is `micro/fuge` we can start
+the fuge shell with:
+
+```sh
+$ fuge shell fuge2.yml
+```
+
+In the shell, let's run following command:
+
+```sh
+fuge> debug adderservice
+```
+
+We should see that the debugger is starting and the process should output
+a URL, similar to the following image.
+
+![](images/fuge-debug.png)
+
+When we copy and paste the provided url into Chrome the Chrome's developer tools will open allowing us to navigate to the `adderservice` code and debug it.
+
+> #### Debugging Node processes ![](../info.png)
+> We discuss debugging Node with Chrome Devtools in depth in the 
+> the first chapter of this book **Chapter 1 Debugging Processes**, 
+> see the very first recipe *Debugging Node with Chrome Devtools*.
+
+### Shell Passthrough
+
+Commands that Fuge does not recognise are passed through to the shell for execution. 
+
+For example we can try the following:
+
+```sh
+fuge> start all
+fuge> ps
+fuge> ps aux | grep -i node
+fuge> netstat -an | grep -i listen
+```
+
+This can be very useful during a development session and saves having to switch shells for simple one liners!
 
 ### Apply Command
-The `apply` command allows us to execute any shell command in the directory of each named service. This sometimes come in very useful, but should be used carefully. Spin up the fuge shell as before and run:
+
+The `apply` command allows us to execute any shell command in every directory of each named service. 
+
+This sometimes come in very useful, but should be used carefully. 
+
+We can try this by spinning up the fuge shell:
+
+```sh
+$ fuge shell fuge.yml # assuming working dir is micro/fuge
+```
+
+Then, in the shell we can use `apply` to (for instance) output 
+the directory contents of every registered service:
 
 ```sh
 fuge> apply ls -l
@@ -678,47 +848,16 @@ drwxr-xr-x   5 pelger  staff   170 24 Mar 13:33 routes
 drwxr-xr-x   5 pelger  staff   170 24 Mar 13:33 views
 ```
 
-The utillity of this becomes apparent once we have a larger (greater than 5) number of services, particularly if they are using different git repositories. For example running `apply git status` will give us an immediate view of the current changes on our local system. Another useful example is `apply npm test` to run all of the unit tests in one go across our system.
+The utillity of this becomes apparent once we have a larger (greater than 5) number of services, particularly if they are using separate git repositories.
 
-### Debug Command
-Fuge allows us to start a node.js process in debug mode. To enable this we need to tell fuge that a service is a node.js process. Open up the file `micro/fuge/fuge.yml` and change the `type` field to `node` as below:
-
-```
-adderservice:
-  type: node
-  path: ../adderservice
-  run: 'node service.js'
-  ports:
-    - http=8080
-```
-
-Now start up the Fuge shell again and run the following:
-
-```sh
-fuge> debug adderservice
-[adderservice - 7115]: Debugger listening on port 9229.
-[adderservice - 7115]: Warning: This is an experimental feature and could change at any time.
-[adderservice - 7115]: To start debugging, open the following URL in Chrome:
-[adderservice - 7115]:     chrome-devtools://devtools/remote/serve_file/@60cd6e859b9f557d2312f5bf532f6aec5f284980/inspector.html?experiments=true&v8only=true&ws=127.0.0.1:9229/4dacb476-3942-4ed2-b281-7659feca6fe3
-[adderservice - 7115]: restify listening at http://[::]:8080
-```
-
-Copy and paste the provided `url` into Chrome and the developer tools will open allowing us to navigate to the `adderservice` code and debug it.
-
-### Shell Passthrough
-Commands that Fuge does not recognise are passed through to the shell for execution, for example try the following:
-
-```sh
-fuge> start all
-fuge> ps
-fuge> ps aux | grep -i node
-fuge> netstat -an | grep -i listen
-```
-
-This can be very useful during a development session and saves having to switch shells for simple one liners!
+ For example running `apply git status` will give us an immediate view of the current changes on our local system. 
+ 
+ Another useful example is `apply npm test` to run all of the unit tests in one go across our system, and `apply npm install` if we've checked out a fresh
+ system and want to install the dependencies of each service.
 
 ### See also
-**TODO DMC**
+
+* TBD
 
 ## Dealing with Configuration
 In this recipe we are going to improve our service and calling code by removing hard coded urls and port numbers. We will also switch to the `restify` JSON client as a more natural way to invoke and receive data from our services.
