@@ -10,7 +10,7 @@ adderservice:
   path: ../adderservice
   run: node index.js
   ports:
-    - main=8080
+    - http=8080
 webapp:
   type: process
   path: ../webapp

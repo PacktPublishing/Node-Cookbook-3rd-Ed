@@ -4,7 +4,7 @@ This chapter covers the following topics
 * Creating a simple RESTful microservice
 * Consuming a Service
 * Setting up a Development Environment
-* Dealing with Configuration
+* Standardizing services boilerplate
 * Using Containerized Infrastructure
 * Service discovery with DNS
 * Adding a queue based service
@@ -174,7 +174,7 @@ Finally our service sent a response using the `res.send` function.
 
 Whilst this is a trivial service it should serve to illustrate the fact that a microservice is really nothing more than a Node module that runs as an independent process. 
 
-A microservice system is a collection of these co-operating processes. Of course it gets more complicated in a real system where you have lots of services and have to manage problems such as service discovery and deployment, however keep in mind that the core concept is really very simple.
+A microservice system is a collection of these cooperating processes. Of course it gets more complicated in a real system where you have lots of services and have to manage problems such as service discovery and deployment, however keep in mind that the core concept is really very simple.
 
 ### There's more
 
@@ -859,88 +859,95 @@ The utillity of this becomes apparent once we have a larger (greater than 5) num
 
 * TBD
 
-## Dealing with Configuration
-In this recipe we are going to improve our service and calling code by removing hard coded urls and port numbers. We will also switch to the `restify` JSON client as a more natural way to invoke and receive data from our services.
+## Standardizing service boilerplate
+
+As a system grows, any hard coded values will cause inflexibility
+and cause friction and drag on development, maintenance and operations.
+
+Additionally, introducing a standard data format for communication between
+services avoids having to create specific (and likely, brittle) 
+API contracts between services.
+
+We recommend keeping service logic (which often represents business logic) separate from implementation logic. This allows us to switch out the implementation piece, without disrupting the business logic or service logic portion.
+
+In this recipe we are going to improve the internal structure of our 
+`adderservice`, decoupling service logic from `restify` framework housing.
+We're going to remove hard coded urls and port numbers and switch to using 
+JSON as the transmission format between services.
+
+Our `adderservice` will then become the canonical template for any 
+other services we may create.
 
 ### Getting Ready
-This recipe extends the code from our last recipe `Setting up a Development Environment` and we will be using the code from this as a starting point. The code is available in the accompanying source in the directory `source/Development_Environment`. Starting from this point, let's dive in and fix the code!
+
+This recipe extends the code from our last recipe *Setting up a development environment*. We'll be working on the same `micro` folder we've been building
+throughout this chapter. Let's dive in!
 
 ### How to do it
-Firstly let's update our `adderservice`. This code is a little tangled at the moment in that the service logic is wrapped up with the `restify` framework code. In addition the port number that this service listens on is hardcoded. To fix this, firstly create a file `wiring.js` in the directory `micro/adderservice` and add the following code to it:
+
+Let's begin by updating our `adderservice`.  
+
+We'll going to add an `index.js` and `wiring.js` file in the `micro/adderservice` folder: 
+
+```sh
+$ cd micro/adderservice
+$ touch index.js wiring.js
+```
+
+Our `wiring.js` file should have the following code:
 
 ```js
-var restify = require('restify')
+module.exports = wiring 
 
-module.exports = function (service) {
-  var server = restify.createServer()
+function wiring (service) {
+  const server = restify.createServer()
 
-  server.get('/add/:first/:second', function (req, res, next) {
-    service.add(req.params, function (err, result) {
-      if (err) { return res.send(err) }
-      res.send(200, {result: result})
+  server.get('/add/:first/:second', (req, res, next) => {
+    service.add(req.params, (err, result) => {
+      if (err) { 
+        res.send(err)
+        next()
+        return 
+      }
+      res.send(200, result)
       next()
     })
   })
 
-  server.listen(process.env.ADDERSERVICE_SERVICE_PORT, '0.0.0.0',
-  function () {
+  server.listen(ADDERSERVICE_SERVICE_PORT, '0.0.0.0', () => {
     console.log('%s listening at %s', server.name, server.url)
   })
 }
 ```
 
-Next change the code in the file `service.js` and remove the `restify` code from it as below:
+Next we'll change the code in the file `service.js` and remove the `restify` code from it as below:
 
 ```js
-module.exports = function () {
+module.exports = service
 
+function service () {
   function add (args, cb) {
-    var result = parseInt(args.first, 10) + parseInt(args.second, 10)
-    cb(null, result)
+    const {first, second} = args
+    const result = (parseInt(first, 10) + parseInt(second, 10))
+    cb(null, {result: result.toString()})
   }
 
-  return {
-    add: add
-  }
+  return { add }
 }
 ```
 
-Finally for this service, we need to connect the service logic to the wiring that exposes it, to do this add a file `index.js` to the service and add the code below:
+Our `index.js` file ties together the wiring and service logic like so:
 
 ```js
-var wiring = require('./wiring')
-var service = require('./service')()
+const wiring = require('./wiring')
+const service = require('./service')()
 wiring(service)
 ```
 
-That takes care of the service. Let's now turn our attention to the `webapp`. Modify the code in the file `micro/webapp/routes/add.js` so that it looks as below:
+Since the `index.js` file is now the entry point for the `adderservice`, 
+we need to update the `micro/fuge/fuge.yml` configuration so it runs `index.js` instead of `service.js` 
 
-```js
-var express = require('express')
-var router = express.Router()
-var restify = require('restify')
-
-router.get('/', function (req, res, next) {
-  res.render('add', { first: 0, second: 0, result: 0 })
-})
-
-router.post('/calculate', function (req, res, next) {
-  var addClient = restify.createJsonClient({url: 'http://' +
-    process.env.ADDERSERVICE_SERVICE_HOST + ':' +
-    process.env.ADDERSERVICE_SERVICE_PORT})
-
-  addClient.get('/add/' + req.body.first + '/' + req.body.second,
-  function (err, serviceReq, serviceRes, resultObj) {
-    if (err) { console.log(err) }
-    res.render('add', {first: req.body.first, second: req.body.second,
-                       result: resultObj.result})
-  })
-})
-
-module.exports = router
-```
-
-Finally we need to update our Fuge configuration. Edit the file `micro/fuge/fuge.yml` and update the section for the `adderservice` so that it now starts by running `index.js` as below:
+In `micro/fuge/fuge.yml` let's update the section `run` field of the `adderservice` section like so:
 
 ```
 adderservice:
@@ -951,6 +958,46 @@ adderservice:
     - main=8080
 ```
 
+That takes care of the `adderservice`. 
+
+Let's now turn our attention to the `webapp`. 
+
+We'll modify our code in the file `micro/webapp/routes/add.js` so that it looks as below:
+
+```js
+const { Router } = require('express')
+const restify = require('restify')
+const router = Router()
+
+const {
+  ADDERSERVICE_SERVICE_HOST, 
+  ADDERSERVICE_SERVICE_PORT
+} = process.env
+
+router.get('/', function (req, res) {
+  res.render('add', { first: 0, second: 0, result: 0 })
+})
+
+router.post('/calculate', function (req, res, next) {
+  const client = restify.createJSONClient({
+    url: `http://${ADDERSERVICE_SERVICE_HOST}:${ADDERSERVICE_SERVICE_PORT}`
+  })
+  const { first, second } = req.body
+  client.get(
+    `/add/${first}/${second}`,
+    (err, svcReq, svcRes, data) => {
+      if (err) { 
+        next(err)
+        return 
+      }
+      const { result } = data
+      res.render('add', { first, second, result })
+    }    
+  ) 
+})
+
+module.exports = router
+```
 We should be good to go now, so let's start our updated system:
 
 ```sh
@@ -962,16 +1009,26 @@ fuge> start all
 The system should start up as before. If we open up a browser and point it to `http://localhost:3000` we should be able to add numbers in exactly the same way as before.
 
 ### How it works
-Whilst we have only made minor code changes to the system, organizationally these changes are important. Our first change was to remove any hard coded service configuration information from the code. In the file `micro/adderservice/wiring.js`, we changed the listen code to:
+
+Whilst we have only made minor code changes to the system, organizationally these changes are important. 
+
+We removed any hard coded service configuration information from the code. 
+
+In the file `micro/adderservice/wiring.js`, we take the port assignment from
+an environment variable (ADDERSERVICE_SERVICE_PORT is destructured from the 
+`process.env` near the top of `wiring.js`):
 
 ```js
-  server.listen(process.env.ADDERSERVICE_SERVICE_PORT, '0.0.0.0',
-  function () {
+  server.listen(ADDERSERVICE_SERVICE_PORT, '0.0.0.0', () => {
     console.log('%s listening at %s', server.name, server.url)
   })
 ```
 
-This means that the port that the service is listening on is now supplied by the environment. Whilst it might be fine to hard code this information for a small system, it quickly becomes unmanageable in a larger system so this approach to service configuration is important. Of course when we start the `adderservice` the environment needs to be set up correctly otherwise our process will fail to start. The Fuge shell provides this environment variable for us. To see this start the Fuge shell as before and run the `info` command:
+This means that the port which the service is listening on is now supplied by the environment. Whilst it might be fine to hard code this information for a small system, it quickly becomes unmanageable in a larger system so this approach to service configuration is important. 
+
+Of course when we start the `adderservice` the environment needs to be set up correctly otherwise our process will fail to start. 
+
+The Fuge shell provides this environment variable for us. To see this start the Fuge shell as before and run the `info` command:
 
 ```sh
 fuge> info adderservice full
@@ -984,67 +1041,320 @@ ADDERSERVICE_PORT_8080_TCP_PORT=8080
 ADDERSERVICE_PORT_8080_TCP_ADDR=127.0.0.1
 ```
 
-We can see that the port setting is provided by Fuge to the `adderservice` process along with a number of other environment variables. It should be noted that Fuge uses a specific format for the environment variables that it injects into a process, following the same format as deployment tools like Kubernetes and Docker Swarm. We will explore this more in the chapter on deployment but for now it is important to realize that there is a specific non-random naming convention in play!
+We can see that the port setting is provided by Fuge to the `adderservice` process along with a number of other environment variables. It should be noted that Fuge uses a specific format for the environment variables that it injects into a process, following the same format as deployment tools like Kubernetes and Docker Swarm. We will explore this more in the **Chapter 11 Deploying Systems** but for now it is important to realize that there is a specific non-random naming convention in play!
 
 > #### Environment Configuration ![](../tip.png)
-> Microservices should pick up any required configuration information from their environment. This should never be hardcoded.
+> Microservices should pick up any required configuration information from their environment. This should never be hard-coded.
 
-Our second change was to separate the service logic from the framework logic in the `adderservice`. If we look again at the file `micro/adderservice/service.js` we can see that it has no external dependencies and is therefore independent of the calling context. By this we mean that it would be perfectly possible to replace our `wiring.js` file with a similar one that used `express` instead of `restify` and our service logic would remain unchanged. This is an important principle to observe when building microservice systems, namely that a service should run independently of the context that it is called in.
+We separated the service logic from the framework logic in the `adderservice`.
+
+If we look again at the file `micro/adderservice/service.js` we can see that it has no external dependencies and is therefore independent of the calling context. 
+
+> #### 12 Factor Apps ![](../info.png)
+> The code changes in the recipe are broadly inline with the principles outlined in the "12 Factor App" philosophy. See <https://12factor.net/> for more information
+
+By this we mean that it would be perfectly possible to replace our `wiring.js` file with a similar one that used `express` instead of `restify` and our service logic would remain unchanged. This is an important principle to observe when building microservice systems, namely that a service should run independently of the context that it is called in.
 
 > #### Execution Independent ![](../tip.png)
 > Microservice business logic should execute independent of the context in which it is called. Put another way a microservice should not know anything about the context that it is executing in.
 
-The code changes in the recipe are broadly inline with the principles outlined in the `12 factor app`. If you are not familiar with these you can read about them in more detail here here: `https://12factor.net/`
+We also altered our system so it communicates using JSON. 
+
+We did this by making our `add` function in `micro/adderservice/service.js` invoke its callback with an object containin a key (`result`) instead of passing the result as a string. This is then passed into `res.send` in `micro/adderservice/wiring.js`. At this point `restify` recognizes that `res.send` was passed an object and serializes it to send it as a response. 
+
+On the counterpart API side, in the `micro/webapp/routes/add.js` file, 
+we switch from using `restify.createStringClient` to using `restify.createJSONClient` which makes an HTTP requests, buffers the 
+data into a single string and then deserializes the string (which is
+expected to be a JSON string) into a JavaScript object. 
 
 ### There's more
-Throughout this chapter we are using `restify` as our tool to create `REST` based interfaces to our microservices. However it should be stressed that this is just one approach to creating point to point connections to services, there are of course several other approaches that one might use. It is of course perfectly possible to use other HTTP based frameworks to accomplish the same end, however there are other approaches which are certainly worth considering.
 
-#### The Seneca Framework
-The Seneca framework `http://senecajs.org` provides an interesting approach to microservice construction. Rather than using explicit point to point connections, Seneca provides is layered over two key ideas: Pattern matching and transport independence. This means that rather than explicitly wiring service together, using Seneca, we define a pattern routing network overlay and allow this network overlay determine how services are invoked.
-
-We can think of this operating in much the same way that an IP network functions except that in place of IP addresses Seneca uses patterns to route messages to services. In a Seneca based microservice system every participating entity has a pattern routing table at its core.
-
-> #### Pattern Routing ![](../tip.png)
-> Seneca  uses pattern routing to build an overlay network for message passing that is independent of the underlying transport mechanisms.
-
-Consider an example system with a consumer process and two services, a user service and a basket service which could occur as part of some larger e-commerce system. As illustrated below the consumer simple dispatches a message asking for a user or basket operation, in this case to create a user or to add something to the basket. The pattern router figures out how to route these messages to the appropriate service based on matching the request - in this case `{role: "user", cmd: "create"` to the appropriate service.
-
-![](./images/overlay.png)
-
-The receiving router within the user service then figures out the appropriate handler to call based again on the message pattern. Once the handler has executed a response message is passed through both routers to end up at the initiating call site within the consumer process. This  approach is sometimes known as an overlay network, because it creates a logical network structure over the lower level network fabric.
-
-Frameworks such as Seneca can help in taking out a lot of the boilerplate work associated with microservice construction, however you should carefully consider the requirements of the system you are constructing and the costs / benefits of adoption of any framework before diving in!
+Let's take a look at another approach to microservice communication (in the form of pattern routing) and unit testing a service.
 
 #### Unit Testing
+
+We've previously looked at integration testing but have yet to define what unit tests could look like in our `adderservice` (which is essentially becoming a service template). 
+
 An additional benefit of this reorganization is that we have made our service code much simpler to test. Previously our service code was tightly coupled to the `restify` module which would have required us to call our service over a HTTP interface, even for a unit test. Happily we can now write a much simpler unit test.
 
-Firstly lets install `tap`:
+Firstly lets install `tap` in our `adderservice` folder, and create a `test`  folder with an `index.js` file:
 
 ```sh
 $ cd micro/adderservice
 $ npm install tap --save-dev
+$ mkdir test
+$ touch test/index.js
 ```
 
-Next create a `test` directory and a file `addtest.js` inside it. Add the following code:
+Let's write our `test/index.js` like so:
 
 ```js
-var test = require('tap').test
-var service = require('../service')()
+const {test} = require('tap')
+const service = require('../service')()
 
-test('test add', function (t) {
+test('test add', (t) => {
   t.plan(2)
 
-  service.add({first: 1, second: 2}, function (err, result) {
-    t.equal(err, null)
-    t.equal(result, 3)
+  service.add({first: 1, second: 2}, (err, answer) => {
+    t.error(err)
+    t.same(answer, {result: 3})
   })
 })
 ```
 
-We can execute the test by running `tap addtest.js`. Of course this is a very simplistic test, however the point is that the unit test is not in anyway concerned with how the service is exposed. Becuse we extracted the wiring logic into `wiring.js` we can test out service logic independent of context.
+Let's change the `test` field in the `micro/adderservice/package.json` to:
+
+```json
+  "test": "tap test"
+```
+
+We can now run unit tests with:
+
+```sh
+$ npm test
+```
+
+Since `tap` is installed as a development dependency of our service,
+the `package.json` test field, when executed with `npm test` will 
+have access to the `tap` executable.
+
+Of course this is a very simplistic test, however the point is that the unit test is not in anyway concerned with how the service is exposed. Becuse we extracted the wiring logic into `wiring.js` we can test out service logic independent of context.
+
+#### Pattern Routing
+
+Throughout this chapter we are using `restify` as our tool to create `REST` based interfaces to our microservices. However it should be stressed that this is just one approach to creating point to point connections to services.
+
+Let's explore an innovative alternative in the form of a persistent TCP connection, combined with pattern based routing.
+
+> #### Streams ![](../info.png)
+> This section employs advanced techniques and stream
+> utility libraries. Without a fundamental understanding of 
+> streams and the streams ecosystem the following code and its 
+> explanation may prove difficult to comprehend. 
+> See **Chapter 4 Using Streams** for background reading. 
+
+We'll start by copying the `micro` folder from the main recipe to 
+`micro-pattern-routing`.
+
+```sh
+$ cp -fr micro micro-pattern-routing
+$ cd micro-pattern-routing
+```
+
+Now in the `adderservice` folder, we'll uninstall `restify` and 
+install the `net-object-stream`, `pump`, `through2` and `bloomrun`
+modules: 
+
+```sh
+$ cd adderservice
+$ npm uninst --save restify
+$ npm install --save net-object-stream pump through2 bloomrun
+```
+
+The dependencies at the top of our `micro/adderservice/wiring.js`
+file should look like so:
+
+```js
+const net = require('net')
+const nos = require('net-object-stream')
+const through = require('through2')
+const pump = require('pump')
+const bloomrun = require('bloomrun')
+```
+
+Notice how `restify` has been removed, and our newly installed dependencies,
+plus the core `net` module are being required.
+
+Next let's rewrite the `wiring` function as follows:
+
+```js
+function wiring (service) {
+  const patterns = createPatternRoutes(service)
+  const matcher = createMatcherStream(patterns)
+
+  const server = net.createServer((socket) => {
+    socket = nos(socket)
+    pump(socket, matcher, socket, failure)
+  })
+
+  server.listen(ADDERSERVICE_SERVICE_PORT, '0.0.0.0', () => {
+    console.log('server listening at', ADDERSERVICE_SERVICE_PORT)
+  })
+}
+```
+
+Our `wiring` function references three other functions, `createPatternRoutes`,
+`createMatcherStream` and `failure` (which is passed as the last argument
+to `pump` in the `net.createServer` connection listener function).
+
+Let's add these three functions to the bottom of `wiring.js`:
+
+```js
+function createPatternRoutes (service) {
+  const patterns = bloomrun()
+
+  patterns.add({role: 'adder', cmd: 'add'}, service.add)
+
+  return patterns
+}
+
+function createMatcherStream (patterns) {
+  return through.obj((object, enc, cb) => {
+    const match = patterns.lookup(object)
+    if (match === null) {
+      cb()
+      return
+    }
+    match(object, (err, data) => {
+      if (err) {
+        cb(null, {status: 'error', err: err})
+        return
+      }
+      cb(null, data)
+    })
+  })
+}
+
+function failure (err) {
+  if (err) console.error('Server error', err)
+  else console.error('Stream pipeline ended')
+}
+``` 
+
+Our `adderservice` has now been converted to have a TCP interface with a
+serialization protocol as defined by the `net-object-stream` module.
+
+So let's update the `micro/webapp/routes/add.js` to use this interface.
+
+We need to install `net-object-stream` into the `webapp` folder:
+
+```sh
+$ cd ../webapp # assuming we're in the micro/adderservice folder
+$ npm install --save net-object-stream
+```
+
+We'll alter the dependencies at the top of `micro/webapp/routes/add.js`
+to look as follows:
+
+```js
+const { Router } = require('express')
+const restify = require('restify')
+const net = require('net')
+const nos = require('net-object-stream')
+const router = Router()
+```
+
+We've added the core `net` module and the recently installed `net-object-stream` module.
+
+Let's create small utility function that creates and caches 
+a TCP client wrapped in a `net-object-stream` interface:
+
+```js
+function createClient (ns, opts) {
+  return createClient[ns] || (createClient[ns] = nos(net.connect(opts)))
+}
+```
+
+The first time this function is called (with a particular namespace (`ns`))
+a TCP connection is created, each subsequent call will return the same connection.
+
+Finally we'll up our `/calculate` route like so:
+
+```js
+router.post('/calculate', function (req, res, next) {
+  const client = createClient('calculate', {
+    host: ADDERSERVICE_SERVICE_HOST,
+    port: ADDERSERVICE_SERVICE_PORT
+  })
+
+  const role = 'adder'
+  const cmd = 'add'
+  const { first, second } = req.body
+  client.once('data', (data) => {
+    const { result } = data
+    res.render('add', { first, second, result })
+  })
+  client.write({role, cmd, first, second})
+})
+```
+
+Now if we start our system:
+
+```sh
+$ cd ../fuge # assuming we're in the webapp folder
+$ fuge fuge.yml
+fuge> start all
+```
+
+We should be able to follow the same steps as in the recipe.
+
+This alternative implementation uses a persistent TCP connection and
+sends JSON objects back and forth over the connection. Pattern matching
+is applied to these objects to determine which action to take based
+on the incoming object. 
+
+Two notable modules make this possible (and easy). The `net-object-stream`
+module and the `bloomrun` module.
+
+The `net-object-stream` module wraps a binary stream in an object
+stream. On the writable side it serializes objects (as JSON, by default) written to the stream, passing them to the underlying binary stream. It prefixes each data payload with a binary header that indicates the payload's length. On the readable side, it converts incoming data, detecting and processing the payload headers in order to deserialize, then
+emits the resulting object. 
+
+This effectively allows us to transparently read and write objects to a
+TCP socket (and other streams, the name `net-object-stream` is something of a misnomer).
+
+The `bloomrun` module performs object pattern matching, which essentially means
+matching keys and values in one object against those in another. For instance,
+in the `createPatternRoutes` function we create an instance of `bloomrun`, named
+`patterns`. Then we add a pattern `{role: 'adder', cmd: 'add'}` with the `patterns.add` method.
+
+To explain how the pattern matching works, let's consider the following scenario.
+
+Say we fill out the HTML form with the first input set to 1 and the seocnd input set to 3 and hit submit. The `/calculate` route handler in `micro/webapp/routes/add.js` creates an object of the form `{role: 'adder', cmd: 'add', first: 1, second: 3}`, which is then written to the
+objectified TCP connection (the TCP client is wrapped by `nos`, an instance of `net-object-stream`). 
+
+When the `adderservice` receives a connection, the `socket` stream is also objectified (passed to the `nos` function and reassigned back as the `socket`
+reference). 
+
+Then we use the `pump` module to pipe from the `socket` (object) stream to
+our `matcher` stream and back to the `socket` stream.
+
+The `matcher` stream is created via the `createMatcherStream` function. This returns a transform object stream (using `through.obj`). 
+
+This means as each serialized object comes through the TCP connection, it's parsed and passed on to the `matcher` stream and the function passed to `through.obj` recieves the object (as `object`) and passes it to `patterns.lookup`.
+
+The `pattern.lookup` function checks the incoming object (`{role: 'adder', cmd: 'add', first: 1, second: 3}`) and finds that there is a match (`{role: 'adder', cmd: 'add'}`). Every property in the pattern object (`{role: 'adder', cmd: 'add'}`) has to be matched by the query object (`{role: 'adder', cmd: 'add', first: 1, second: 3}`) but a match will still occur if the query object has additional keys that aren't specified in the pattern object.
+
+If there was no match, `patterns.lookup` would return `null`, in which case we do nothing. 
+
+Since there is a match, the function we passed as the second argument to 
+`pattern.add` is returned and stored as `match`. For our given inputs this will be the `service.add` function as defined in the `micro/adderservice/service.js` file. 
+
+So when we call the `match` function with the incoming object, the `service.add` function adds the `first` and `second` properties of the object (one plus three) together and invokes the callback function with the answer, in this case it would be `{result: 4}`. Back in `wiring.js` the `through.obj` callback (`cb`) is then called and passed that object.
+Since the `matcher` stream is piped back to the objectified `socket` stream, 
+this object (`{result: 4}`) will be serialized by `net-object-stream` and sent back accross the wire to the `webapp` server, where it's deserialized and emitted. We listen to the `data` event in the `/calculate` route handler of `webapp/routes/add.js` and then render a response, passing the `result` object in for the template state.
+
+We should note here, that this is not production ready code, it's purely 
+for demonstration purposes of a concept. We would need to implement 
+reconnection strategies, parse error handling, and a variety of other
+details before this could be production worthy. 
+
+> #### Experimental Frameworks that use Pattern Routing ![](../info.png)
+> The Seneca (http://senecajs.org) and more minimal Mu (http://npm.im/mu)
+> provide a pattern routing layer plus transport independence which
+> leads to minimal configuration services and facilitates organically evolving 
+> microservice systems. 
+> Frameworks such as Seneca and Mu can help in taking out a lot of the 
+> boilerplate work associated with microservice construction. However we should 
+> carefully consider the requirements of the system we are constructing and the 
+> costs / benefits of adoption of any framework. It should be emphasised that 
+> while Seneca and Mu incorporate a highly intriguing approach to Microservice 
+> systems, we would consider the implementations to be experimental and outside 
+> the remit of large scale production use, at the time of writing.
 
 ### See also
-**TOD DMC**
+
+* TBD
 
 ## Using Containerized Infrastructure
 Container technology has recently gained rapid adoption within the industry and for good reason. Containers provide a powerful abstraction and isolation mechanism to that can lead to robust and repeatable production deployments.
@@ -1076,7 +1386,7 @@ This command will pull the `hello-world` image from Docker Hub - a central repos
 > Docker was originally built for Linux based operating systems. Until recently running docker on Mac or Windows required the use of a virtual machine using either > VirtualBox or VMWare, however Docker is now available natively on both Mac and Windows. This requires a recent version of OSX or Windows so be sure to check the
 > prerequisites when installing Docker.
 
-Now that we have Docker installed we can press ahead. In this recipe we will be adding a new microservice that stores data into a MongoDB container to our microservice system from the last recipe `Dealing with Configuration`. If you skipped this recipe, the code is available in the accompanying source in the directory `source/Dealing_With_Configuration`.
+Now that we have Docker installed we can press ahead. In this recipe we will be adding a new microservice that stores data into a MongoDB container to our microservice system from the last recipe `Standardizing services configuration, internal structure and data formatboilerplate the code is available in the accompanying source in the directory `source/Dealing_With_Configuration`.
 
 ### How to do it
 Firstly we need to pull the MongoDB container. We can do this using Docker to pull the official Docker MongoDB container, to do this run:
