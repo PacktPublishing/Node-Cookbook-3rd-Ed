@@ -103,7 +103,7 @@ npm install restify --save --no-optional
 This will install the `restify` module and also add the dependency to `package.json`
 
 > #### --no-optional.. ![](../info.png)
-> By default `restify` installs DTrace probes, this can be disabled during install with the --no-optional flag. Whilst DTrace is great not all systems support it which is why we have chosen to disable it in this example. You can find out more about dtrace here: http://dtrace.org/blogs/about/
+> By default `restify` installs DTrace probes, this can be disabled during install with the --no-optional flag. Whilst DTrace is great not all systems support it which is why we have chosen to disable it in this example. We can find out more about dtrace here: http://dtrace.org/blogs/about/
 
 Now it's time to actually write our service. Using our favorite editor 
 let's add the following code to the `service.js` file:
@@ -151,7 +151,7 @@ The service should respond with the answer 3.
 We have just built our first RESTful microservice.
 
 > #### `curl` ![](../tip.png)
-> `curl` is a command line HTTP client program that works much like a web browser. If you don't have `curl` available on our system you can test the service by putting the url into our web browser.
+> `curl` is a command line HTTP client program that works much like a web browser. If we don't have `curl` available on our system we can test the service by putting the url into our web browser.
 
 ### How it works
 
@@ -174,7 +174,7 @@ Finally our service sent a response using the `res.send` function.
 
 Whilst this is a trivial service it should serve to illustrate the fact that a microservice is really nothing more than a Node module that runs as an independent process. 
 
-A microservice system is a collection of these cooperating processes. Of course it gets more complicated in a real system where you have lots of services and have to manage problems such as service discovery and deployment, however keep in mind that the core concept is really very simple.
+A microservice system is a collection of these cooperating processes. Of course it gets more complicated in a real system where we have lots of services and have to manage problems such as service discovery and deployment, however keep in mind that the core concept is really very simple.
 
 ### There's more
 
@@ -250,7 +250,7 @@ In this recipe we are going to create a web application layerthat will consume o
 We will be using the Express web framework to do this and also the Express Generator to create an application skeleton.
 
 > #### Express
-> Fro an introduction to Express see the *Creating an Express Web App* 
+> For an introduction to Express see the *Creating an Express Web App* 
 > recipe in **Chapter 7 Working with Web Frameworks**
 
 ### Getting Ready
@@ -318,7 +318,7 @@ Once this has completed we can run the application with the following:
 $ npm start
 ```
 
-If we now point a browser to `http://localhost:3000` we should see a page rendered by our application as in the figure below:
+If we now point a browser to http://localhost:3000 we should see a page rendered by our application as in the figure below:
 
 ![](./images/fig3.2.png)
 
@@ -416,7 +416,7 @@ $ cd micro/webapp
 $ npm start
 ```
 
-Now that we have our webapp and service running, open a browser and point it to `http://localhost:3000/add`. 
+Now that we have our webapp and service running, open a browser and point it to http://localhost:3000/add. 
 
 This will render the template that we created above and should look as depicted below:
 
@@ -494,7 +494,7 @@ test('add test', (t) => {
 ```
 
 > #### TAP ![](../info.png)
-> TAP stands for Test Anything Protocol and has implementations in many languages. Find out more about TAP here: `https://testanything.org/`
+> TAP stands for Test Anything Protocol and has implementations in many languages. Find out more about TAP here: https://testanything.org/
 
 To run the integration test, the system needs be running.
 
@@ -575,7 +575,7 @@ $ mkdir fuge
 
 Next we need to create a file `fuge.yml` in this directory and add the following configuration code:
 
-```
+```yaml
 fuge_global:
   tail: true
   monitor: true
@@ -594,7 +594,7 @@ webapp:
   path: ../webapp
   run: 'npm start'
   ports:
-    - http=3000
+    - main=3000
 ```
 
 Fuge will provide us with an execution shell for our apps and services. 
@@ -633,7 +633,7 @@ Once we issue the `start all` command Fuge will spin up an instance
 of each managed process and trace STDOUT and STDERR output from these 
 processes into the shell console, coloring the output on a per process basis. 
 
-We can now point our browser to `http://localhost:3000/add` and the system 
+We can now point our browser to http://localhost:3000/add and the system 
 should work exactly as in the previous recipe.
 
 Let's now make a change to our `adderservice` code, say by adding some 
@@ -765,13 +765,13 @@ $ cp fuge.yml fuge2.yml
 
 Then in `fuge2.yml` we'll change the `type` field for the `adderservice`  to `node` as below:
 
-```
+```yaml
 adderservice:
   type: node
   path: ../adderservice
   run: 'node service.js'
   ports:
-    - http=8080
+    - main=8080
 ```
 
 Now we'll start up the Fuge shell with the new configuration file,
@@ -941,6 +941,7 @@ Our `index.js` file ties together the wiring and service logic like so:
 ```js
 const wiring = require('./wiring')
 const service = require('./service')()
+
 wiring(service)
 ```
 
@@ -949,7 +950,7 @@ we need to update the `micro/fuge/fuge.yml` configuration so it runs `index.js` 
 
 In `micro/fuge/fuge.yml` let's update the section `run` field of the `adderservice` section like so:
 
-```
+```yaml
 adderservice:
   type: process
   path: ../adderservice
@@ -998,6 +999,7 @@ router.post('/calculate', function (req, res, next) {
 
 module.exports = router
 ```
+
 We should be good to go now, so let's start our updated system:
 
 ```sh
@@ -1006,7 +1008,7 @@ $ fuge shell fuge/fuge.yml
 fuge> start all
 ```
 
-The system should start up as before. If we open up a browser and point it to `http://localhost:3000` we should be able to add numbers in exactly the same way as before.
+The system should start up as before. If we open up a browser and point it to http://localhost:3000 we should be able to add numbers in exactly the same way as before.
 
 ### How it works
 
@@ -1258,7 +1260,7 @@ function createClient (ns, opts) {
 The first time this function is called (with a particular namespace (`ns`))
 a TCP connection is created, each subsequent call will return the same connection.
 
-Finally we'll up our `/calculate` route like so:
+Finally we'll alter our `/calculate` route like so:
 
 ```js
 router.post('/calculate', function (req, res, next) {
@@ -1316,12 +1318,12 @@ objectified TCP connection (the TCP client is wrapped by `nos`, an instance of `
 When the `adderservice` receives a connection, the `socket` stream is also objectified (passed to the `nos` function and reassigned back as the `socket`
 reference). 
 
-Then we use the `pump` module to pipe from the `socket` (object) stream to
+Then we use the `pump` module to pipe from the `socket` stream to
 our `matcher` stream and back to the `socket` stream.
 
 The `matcher` stream is created via the `createMatcherStream` function. This returns a transform object stream (using `through.obj`). 
 
-This means as each serialized object comes through the TCP connection, it's parsed and passed on to the `matcher` stream and the function passed to `through.obj` recieves the object (as `object`) and passes it to `patterns.lookup`.
+This means as each serialized object comes through the TCP connection, it's parsed and passed on to the `matcher` stream. The function passed to `through.obj` receives the object (as `object`) and passes it to `patterns.lookup`.
 
 The `pattern.lookup` function checks the incoming object (`{role: 'adder', cmd: 'add', first: 1, second: 3}`) and finds that there is a match (`{role: 'adder', cmd: 'add'}`). Every property in the pattern object (`{role: 'adder', cmd: 'add'}`) has to be matched by the query object (`{role: 'adder', cmd: 'add', first: 1, second: 3}`) but a match will still occur if the query object has additional keys that aren't specified in the pattern object.
 
@@ -1332,18 +1334,18 @@ Since there is a match, the function we passed as the second argument to
 
 So when we call the `match` function with the incoming object, the `service.add` function adds the `first` and `second` properties of the object (one plus three) together and invokes the callback function with the answer, in this case it would be `{result: 4}`. Back in `wiring.js` the `through.obj` callback (`cb`) is then called and passed that object.
 Since the `matcher` stream is piped back to the objectified `socket` stream, 
-this object (`{result: 4}`) will be serialized by `net-object-stream` and sent back accross the wire to the `webapp` server, where it's deserialized and emitted. We listen to the `data` event in the `/calculate` route handler of `webapp/routes/add.js` and then render a response, passing the `result` object in for the template state.
+this object (`{result: 4}`) will be serialized by `net-object-stream` and sent back accross the wire to the `webapp` server, where it's deserialized and emitted. We listen to the `data` event in the `/calculate` route handler of `webapp/routes/add.js` and then render a response, passing the `result` object in as the template state.
 
-We should note here, that this is not production ready code, it's purely 
-for demonstration purposes of a concept. We would need to implement 
+We should note here, that this is not production ready code. It's purely 
+for conceptual demonstration purposes. We would need to implement 
 reconnection strategies, parse error handling, and a variety of other
 details before this could be production worthy. 
 
 > #### Experimental Frameworks that use Pattern Routing ![](../info.png)
 > The Seneca (http://senecajs.org) and more minimal Mu (http://npm.im/mu)
-> provide a pattern routing layer plus transport independence which
-> leads to minimal configuration services and facilitates organically evolving 
-> microservice systems. 
+> frameworks provide a pattern routing layer plus transport independence
+> abstractions. This leads to minimal configuration services and 
+> facilitates organically evolving microservice systems. 
 > Frameworks such as Seneca and Mu can help in taking out a lot of the 
 > boilerplate work associated with microservice construction. However we should 
 > carefully consider the requirements of the system we are constructing and the 
@@ -1356,12 +1358,13 @@ details before this could be production worthy.
 
 * TBD
 
-## Using Containerized Infrastructure
-Container technology has recently gained rapid adoption within the industry and for good reason. Containers provide a powerful abstraction and isolation mechanism to that can lead to robust and repeatable production deployments.
+## Using containerized infrastructure
 
-The container model for software deployment has become synonymous with microservice and distributed systems in general, largely because the architectural model is a natural fit with the underlying container model. Whilst a full discussion of the merits of containers is outside the scope of this book some of the key benefits to bear in mind are:
+Container technology has recently gained rapid adoption within the industry and for good reason. Containers provide a powerful abstraction and isolation mechanism that can lead to robust and repeatable production deployments.
 
-* Isolation - containers provide a clean isolated environment for our services to run in. The container 'brings' the correct environment with it so we can be sure that if it runs on my machine it will run on yours!
+The container model for software deployment has become synonymous with microservices and distributed systems in general. Largely because the architectural model is a natural fit with the underlying container model. Whilst a full discussion of the merits of containers is outside the scope of this book some of the key benefits to bear in mind are:
+
+* Isolation - containers provide a clean isolated environment for our services to run in. The container 'brings' the correct environment with it so we can be sure that if it runs on my machine it will run on ours!
 
 * Immutability - Once a container is built it can be treated as an immutable unit of functionality and promoted through test and staging environments to production
 
@@ -1369,10 +1372,17 @@ The container model for software deployment has become synonymous with microserv
 
 * Scale - Given that we construct our services correctly, containers can be rapidly scaled up or down for a single or multiple service elements
 
-In this recipe and subsequent ones in this chapter we are going to be using prebuilt containers to gain a practical understanding of the benefits of containerization, particularly when applied to a microservice system. We will be building our own container in the deployment chapter later in the book.
+In this recipe (and subsequent recipes in this chapter) we are going to be using prebuilt containers to gain a practical understanding of the benefits of containerization, particularly when applied to a microservice system. 
+
+> #### Creating containers for deployment ![](../info.png)
+> In this recipe we're primarily concerned with consuming 
+> containerized peer dependencies (such as as a database). 
+> In the final chapter, *Chapter 11 - Deploying Systems*, we'll be
+> covering how to build a deploy a containerized Node process. 
 
 ### Getting Ready
-For this recipe we will be using the Docker container engine. Firstly we will need to install this and validate that it is operating correctly. To do this head over to `http://www.docker.com` and install the appropriate binary for our system. Docker supports Linux, Windows and Mac natively.
+
+We're going to use the Docker container engine. Firstly we will need to install this and validate that it is operating correctly. To do this head over to http://www.docker.com and install the appropriate binary for our system. Docker supports Linux, Windows and Mac natively.
 
 We can check that Docker was installed successfully by opening a shell and running the following:
 
@@ -1383,19 +1393,23 @@ $ docker run hello-world
 This command will pull the `hello-world` image from Docker Hub - a central repository of public Docker images, create a new container from that image and run it. The executable within the container will output `hello from docker` along with some help text.
 
 > #### Docker Installation.. ![](../info.png)
-> Docker was originally built for Linux based operating systems. Until recently running docker on Mac or Windows required the use of a virtual machine using either > VirtualBox or VMWare, however Docker is now available natively on both Mac and Windows. This requires a recent version of OSX or Windows so be sure to check the
-> prerequisites when installing Docker.
+> Docker was originally built for Linux based operating systems. Until recently running docker on Mac or Windows required the use of a virtual machine using either VirtualBox or VMWare, however Docker is now available natively on both Mac and Windows. This requires a recent version of macOs or Windows 10 or greater - so be sure to check the prerequisites when installing Docker.
 
-Now that we have Docker installed we can press ahead. In this recipe we will be adding a new microservice that stores data into a MongoDB container to our microservice system from the last recipe `Standardizing services configuration, internal structure and data formatboilerplate the code is available in the accompanying source in the directory `source/Dealing_With_Configuration`.
+Now that we have Docker installed we can press ahead. In this recipe we will be adding a new microservice that stores data into a MongoDB container to the `micro` folder from the previous recipe *Standardizing service boilerplate*.
 
 ### How to do it
-Firstly we need to pull the MongoDB container. We can do this using Docker to pull the official Docker MongoDB container, to do this run:
+
+There first thing we need to do is download the MongoDB container using the `docker pull` comamnd.
+
+Let's execute the following command:
 
 ```sh
 $ docker pull mongo
 ```
 
-This will pull the official MongoDB image from the central Docker Hub repository. Once the download has completed we can verify that the image is available by running:
+This will pull the official MongoDB image from the central Docker Hub repository.
+
+Once the download has completed we can verify that the image is available by running:
 
 ```sh
 $ docker images
@@ -1403,7 +1417,9 @@ $ docker images
 
 This command will list all of the images that are available on the local machine. We should see the MongoDB image in this list.
 
-Now that we have a MongoDB container available we can update our Fuge configuration file for the system. Edit the file `fuge.yml` and add the following section:
+Now that we have a MongoDB container available we can update our Fuge configuration file for the system. 
+
+Let's edit the file `fuge.yml` and add the following section:
 
 ```
 mongo:
@@ -1413,7 +1429,7 @@ mongo:
     - main=27017:27017
 ```
 
-If we now run start up a Fuge shell and run a ps command we can see that Fuge is aware of the MongoDB container:
+If we now start a Fuge shell and run `ps` we can see that Fuge is aware of the MongoDB container:
 
 ```sh
 $ cd micro
@@ -1423,119 +1439,155 @@ fuge> ps
 
 ![](./images/addmongo.png)
 
-The above listing shows `mongo` as type container, Fuge will treat this as a container and run it accordingly as distinct to a process.
+The above listing shows `mongo` with a type of `container`. Fuge will treat it accordingly as distinct to a process.
 
-Now that we have our mongo container ready to go it's time to add a service to use it. We are going to write a simple auditing service that records all of the calculations submitted to our adder service for later inspection. Firstly let's create a folder for our service:
+Now that we have our MongoDB container ready to go it's time to add a service to use it. We are going to write a simple auditing service that records all of the calculations submitted to our `adderservice` for later inspection. 
+
+Let's create a folder for our new service, and initialize it as a package
+and add `restify` and `mongodb`:
 
 ```sh
 $ cd micro
 $ mkdir auditservice
-```
-
-Next let's add a package.json for our `auditservice`:
-
-```sh
 $ cd auditservice
 $ npm init -y
-```
-
-This will create a fresh `package.json` for us. Next let's add in the `restify` and `mongodb` modules for our service, run:
-
-```sh
-$ npm install --save restify  --no-opitional
+$ npm install restify --no-optional --save
 $ npm install mongodb --save
 ```
 
-Next let's add in our wiring file and and service entry point. Firstly create a file `index.js` and add the following code:
+We'll be modelling our `auditservice` on the general structure laid 
+out in the `adderservice`, so let's create `index.js`, `wiring.js`
+and `service.js` files:
+
+```sh
+$ touch index.js wiring.js service.js
+```
+
+The `micro/auditservice/index.js` is the same as in our `micro/adderservice`:  
 
 ```js
-var wiring = require('./wiring')
-var service = require('./service')()
+const wiring = require('./wiring')
+const service = require('./service')()
+
 wiring(service)
 ```
 
-Secondly create a file `wiring.js` and add this code to it:
+Our `micro/auditservice/wiring.js` file should look like the following:
 
 ```js
-var restify = require('restify')
+const restify = require('restify')
+const { AUDITSERVICE_SERVICE_PORT } = process.env
 
-module.exports = function (service) {
-  var server = restify.createServer()
+module.exports = wiring 
+
+function wiring (service) {
+  const server = restify.createServer()
 
   server.use(restify.bodyParser())
 
-  server.post('/append', function (req, res, next) {
-    service.append(req.params, function (err, result) {
-      if (err) { return res.send(err) }
-      res.send('' + result)
+  server.post('/append', (req, res, next) => {
+    service.append(req.params, (err, result) => {
+      if (err) { 
+        res.send(err) 
+        return
+      }
+      res.send(result)
       next()
     })
   })
 
-
-  server.get('/list', function (req, res, next) {
-    service.list(req.params, function (err, result) {
-      if (err) { return res.send(err) }
+  server.get('/list', (req, res, next) => {
+    service.list(req.params, (err, result) => {
+      if (err) { 
+        res.send(err)
+        return 
+      }
       res.send(200, result)
       next()
     })
   })
 
-
-  server.listen(process.env.AUDITSERVICE_SERVICE_PORT, '0.0.0.0',
-  function () {
+  server.listen(AUDITSERVICE_SERVICE_PORT, '0.0.0.0', () => {
     console.log('%s listening at %s', server.name, server.url)
   })
 }
 ```
 
-As we can see the audit service will support two operations, one to append to our audit log and a second to list entries from the log. Now we have the boilerplate out of the way, it's time to actually write our service logic!
+As we can see the audit service will support to endpoints.
+One endpoint append to the audit log, the other list entries from the log. 
 
-Create a file `service.js` and add the following code to it:
+Now for our service logic, our `micro/auditservice/service.js` file should look like so:
+
 
 ```js
-var MongoClient = require('mongodb').MongoClient
-var url = 'mongodb://' + process.env.MONGO_SERVICE_HOST + ':' +
-          process.env.MONGO_SERVICE_PORT + '/audit'
+const { MongoClient } = require('mongodb')
+const {
+  MONGO_SERVICE_HOST,
+  MONGO_SERVICE_PORT
+} = process.env
+const url = `mongodb://${MONGO_SERVICE_HOST}:${MONGO_SERVICE_PORT}/audit`
 
-module.exports = function () {
+module.exports = service 
 
+function service () {
   function append (args, cb) {
-    MongoClient.connect(url, function (err, db) {
-      if (err) return cb(err)
-      var audit = db.collection('audit')
-      var data = { ts: Date.now(),
-                   calc: args.calc,
-                   result: args.calcResult }
+    MongoClient.connect(url, (err, db) => {
+      if (err) {
+        cb(err)
+        return
+      }
 
-      audit.insert(data, function (err, result) {
-        if (err) return cb(err)
-        cb(null, result)
+      const audit = db.collection('audit')
+      const data = { 
+        ts: Date.now(),
+        calc: args.calc,
+        result: args.calcResult 
+      }
+
+      audit.insert(data, (err, result) => {
+        if (err) {
+          cb(err)
+          return
+        }
+        cb(null, {result: result.toString()})
         db.close()
       })
     })
   }
 
   function list (args, cb) {
-    MongoClient.connect(url, function (err, db) {
-      if (err) return cb(err)
-      var audit = db.collection('audit')
-      audit.find({}, {limit: 10}).toArray(function (err, docs) {
-        if (err) return cb(err)
+    MongoClient.connect(url, (err, db) => {
+      if (err) {
+        cb(err)
+        return
+      }
+      const audit = db.collection('audit')
+      audit.find({}, {limit: 10}).toArray((err, docs) => {
+        if (err) {
+          cb(err)
+          return
+        }
         cb(null, {list: docs})
         db.close()
       })
     })
   }
 
-  return {
-    append: append,
-    list: list
-  }
+  return { append, list }
 }
 ```
 
-Now that we have our service, the final thing that we need to do is to add a frontend to display the content of our audit log. Firstly `cd` into the `webapp` directory and create two files: `views/audit.ejs` and `routes/audit.js`. Open audit.ejs in an editor and add the following code:
+Next we're going to update the `micro/webapp` so it can record and display 
+calculation requests.
+
+Let's start by creating the auditing view and route files:
+
+```sh
+$ cd ../webapp # assuming our cwd is micro/auditservice
+$ touch views/audit.ejs routes/audit.js
+``` 
+
+We'll populate `micro/webapp/views/audit.ejs` with the following content:
 
 ```html
 <!DOCTYPE html>
@@ -1556,74 +1608,110 @@ Now that we have our service, the final thing that we need to do is to add a fro
 </html>
 ```
 
-Next add the following code to `routes/audit.js`:
+The `micro/webapp/routes/audit.js` route will make a request
+to the `micro/auditservice` `/list` endpoint and pass the response
+data to the `audit.ejs` template using `res.render. The following
+is the code for our `micro/webapp/routes/audit.js` file:
 
 ```js
-var express = require('express')
-var router = express.Router()
-var restify = require('restify')
+const { Router } = require('express')
+const restify = require('restify')
+const router = Router()
 
-router.get('/', function (req, res, next) {
-  var client = restify.createJsonClient({url: 'http://' +
-               process.env.AUDITSERVICE_SERVICE_HOST + ':' +
-               process.env.AUDITSERVICE_SERVICE_PORT})
-  client.get('/list', function (err, serviceReq, serviceRes, obj) {
-    if (err) { console.log(err) }
-    res.render('audit', obj)
-  })
-})
-```
+const {
+  AUDITSERVICE_SERVICE_HOST,
+  AUDITSERVICE_SERVICE_PORT
+} = process.env
 
-Now that we have our view and a route to exercise it we need to add the route into the `webapp`. To do this open the file `app.js` and hook the audit route in a similar manner to the add route by adding the following two lines at the appropriate point:
+router.get('/', (req, res, next) => {
+  const url = `http://${AUDITSERVICE_SERVICE_HOST}:${AUDITSERVICE_SERVICE_PORT}`
+  const client = restify.createJsonClient({ url })
 
-```js
-var audit = require('./routes/audit');
-.
-.
-app.use('/audit', audit);
-```
-
-So we now have an audit route that will display our audit log, the last thing we need to do is to call the audit service to log entries each time a calculation occurs, to do this open the file `routes/add.js` and modify it by adding a call to the audit service as shown below:
-
-```js
-var express = require('express')
-var router = express.Router()
-var restify = require('restify')
-
-router.get('/', function (req, res, next) {
-  res.render('add', { first: 0, second: 0, result: 0 })
-})
-
-router.post('/calculate', function (req, res, next) {
-  var addClient = restify.createJsonClient({url: 'http://' +
-                  process.env.ADDERSERVICE_SERVICE_HOST + ':' +
-                  process.env.ADDERSERVICE_SERVICE_PORT})
-  var auditClient = restify.createJsonClient({url: 'http://' +
-                    process.env.AUDITSERVICE_SERVICE_HOST + ':' +
-                    process.env.AUDITSERVICE_SERVICE_PORT})
-
-  addClient.get('/add/' + req.body.first + '/' + req.body.second,
-  function (err, serviceReq, serviceRes, resultObj) {
-    if (err) { console.log(err) }
-
-    res.render('add', {first: req.body.first, second: req.body.second,
-                       result: resultObj.result})
-
-    var calcString = '' + req.body.first + ' + ' + req.body.second
-    auditClient.post('/append', {calc: calcString,
-                                 calcResult: resultObj.result},
-    function (err, req, res, obj) {
-      if (err) { console.log(err) }
-    })
+  client.get('/list', (err, svcReq, svcRes, data) => {
+    if (err) { 
+      next(err)
+      return 
+    }
+    res.render('audit', data)
   })
 })
 
 module.exports = router
 ```
 
-Excellent! thats all of our code changes, the final thing we need to do is to tell Fuge about our new service. To do this open the Fuge config file `fuge/fuge.yml` and add the following section:
+We need to instrument the `/calculate` route in `micro/webapp/routes/add.js`
+with an additional call to the `auditservice` microservice. The `micro/webapp/routes/add.js` should look like so:
 
+```js
+const { Router } = require('express')
+const restify = require('restify')
+const router = Router()
+
+const {
+  ADDERSERVICE_SERVICE_HOST,
+  ADDERSERVICE_SERVICE_PORT,
+  AUDITSERVICE_SERVICE_HOST,
+  AUDITSERVICE_SERVICE_PORT,
+} = process.env
+
+router.get('/', function (req, res) {
+  res.render('add', { first: 0, second: 0, result: 0 })
+})
+
+router.post('/calculate', function (req, res, next) {
+  const clients = {
+    adder: restify.createJSONClient({
+      url: `http://${ADDERSERVICE_SERVICE_HOST}:${ADDERSERVICE_SERVICE_PORT}`
+    }),
+    audit: restify.createJSONClient({
+      url: `http://${AUDITSERVICE_SERVICE_HOST}:${AUDITSERVICE_SERVICE_PORT}`
+    })
+  }
+  const { first, second } = req.body
+  clients.adder.get(
+    `/add/${first}/${second}`,
+    (err, svcReq, svcRes, data) => {
+      if (err) {
+        next(err)
+        return
+      }
+
+      const { result } = data
+      clients.audit.post('/append', {
+        calc: first + '+' + second,
+        calcResult: result
+      }, (err) => {
+        if (err) console.error(err)
+      })
+      
+      res.render('add', { first, second, result })
+    }
+  )
+})
+
+module.exports = router
 ```
+
+Finally we need to register the `micro/webapp/routes/audit.js` route in
+the `micro/webapp/app.js` entry point. Near the top of `app.js` underneath
+where we load various routes we add the following line:
+
+```js
+var audit = require('./routes/audit')
+```
+
+Then in the secion where we mount URI paths to route handler with `app.use`, 
+we add the line: 
+
+```js
+app.use('/audit', audit);
+```
+
+Excellent! That's all of our code changes, the last thing we need to do is to tell Fuge about our new service. 
+
+Let's add the following section to `fuge/fuge.yml`:
+
+```yaml
 auditservice:
   type: process
   path: ../auditservice
@@ -1632,7 +1720,8 @@ auditservice:
     - main=8081
 ```
 
-We should be good to go! Let's fire up the Fuge shell and run a ps to confirm:
+We should be good to go! Let's fire up the Fuge shell and run a `ps` to confirm
+the new `auditservice` has been registered:
 
 ```
 $ fuge shell fuge/fuge.yml
@@ -1640,44 +1729,63 @@ fuge> ps
 ```
 
 > #### Container Terminology.. ![](../info.png)
-> It is important to clearly differentiate between a container and an image. An image is the
-> serialized 'on disk' artifact that is stored on our disks locally and in Docker
-> repositories. A container is the running instantiation of an image. We will be applying
-> this terminology consistently.
+> It is important to clearly differentiate between a container and an image. 
+> An image is the serialized 'on disk' artifact that is stored 
+> locally and in Docker repositories. A container is the running instantiation 
+> of an image. We will be applying this terminology consistently.
 
-You should now see `auditservice` listed as type process along with `adderservice`, `webapp` and `mongo`. Issue the `start all` command to Fuge to spin the system up. As before we can now see that Fuge has started our mongo container, both services and our frontend:
+We should now see `auditservice` listed as type process along with `adderservice`, `webapp` and `mongo`. 
 
-![](./images/auditservicerun.png)
+Let's issue the `start all` command to Fuge to spin the system up.
 
-If we now point a browser to `http://localhost:3000/audit` a blank audit history is displayed. We can add some history by opening `http://localhost:3000/add` and submitting some calculations. Once this is done open `http://localhost:3000/audit` again and a list of the calculations will be displayed as shown below:
+If we now point a browser to http://localhost:3000/audit a blank audit history is displayed. We can add some history by opening http://localhost:3000/add and submitting some calculations. 
+
+Then if we navigate to http://localhost:3000/audit againa list of the calculations will be displayed as shown below:
 
 ![](./images/auditlog.png)
 
 ### How it works
-In this recipe we introduced Docker containers and worked with the official MondoDB container. We could just as easily have used a MySql container or some other database. It should be clear that using the mongo container was very simple, there was no need for a compilation or installation of binaries on our local machine. The MongoDB container came preconfigured with everything it needed to run already encapsulated.
 
-Whilst this approach to using infrastructure is convenient in development, containers are a game changer when it comes to production deployment. We will investigate this topic in more detail in the Deployment Chapter, for now just keep in mind that containers are a neat way of encapsulating a service and its environment solving the 'it runs on my machine' problem!
+In this recipe we introduced Docker containers and worked with the official MondoDB container. We could just as easily have used a MySql container or some other database. Using the MongoDB container (or indeed any other containerized infrastructure) is very simple. There's no need for compilation steps, nor installation of binaries or libraries on our local system. The MongoDB container came preconfigured with everything it needed to run in an encapsulated manner.
+
+When a user fills out the HTML form at the `/add` route, the browser submits a POST request to to the `/add/calculate` route. The POST request is handled in 
+`micro/webapp/routes/add.js`, where a request to the `adderservice` and the
+`auditservice` is made. The `auditservice` is sent a POST request to the `/append`
+route, and route handler in `micro/auditservice/wiring.js` calls the `service.append` method which is in the `micro/auditservice/service.js` file. 
+The `service.append` function uses the `mongo` module to interface with the
+MongoDB database within the `mongo` container and inserts a new record.
+
+When the `/audit/list` route is loaded in the browser, the route handler in `micro/webapp/routes/audit.js` makes a GET request to the `auditservice` `/list` route, the route handler in `micro/auditservice/wiring.js` file calls 
+`service.list` function which is written in `micro/auditservice/service.js` which in turn makes a request to MongoDB to fetch a list of entries. This list is
+ultimately fed into the `micro/webapp/views/audit.ejs` template for rendering. 
+
+Whilst this approach to using infrastructure is convenient in development, containers are a game changer when it comes to production deployment. We will investigate this topic in more detail in the **Chapter 11 Deploying Systems**.
 
 Our audit service was able to connect to the MongoDB container in just the same way as if there were a local installation of MongoDB so no changes to the code were required in order to use the Docker container.
 
-We used Fuge to run both our container and also our system as processes. Whilst containers are incredibly useful for deployment during development of a microservice system it is much faster to work with processes which is the reason why Fuge was developed to support execution of both containers and processes.
+Whilst containers are incredibly useful for deployment and intrastructure encapsulation in development working with Node processes natively tends to allow for more rapid iteration. This is why we use Fuge to run both our container and our Node processes. 
 
 We connected to the Mongo container using this url:
 
 ```js
-'mongodb://' + process.env.MONGO_SERVICE_HOST + ':' +
-               process.env.MONGO_SERVICE_PORT + '/audit'
+const url = `mongodb://${MONGO_SERVICE_HOST}:${MONGO_SERVICE_PORT}/audit`
 ```
 
-Fuge generated these environment variables from the service definition for us which means that we do not have to have a separate configuration file for our service. We will see in the next recipe on service discovery and in the following chapter on deployment how this is important to ensure a smooth transition for our service from development to a production environment.
+Fuge generated these environment variables from the service definition for us which means that we do not have to have a separate configuration file for our service. This is important to ensure a smooth transition for our service from development to a production environment, as should become apparent in the following recipe *Service discovery with DNS* and in **Chapter 11 Deploying Systems**.
 
 ### There's more
+
 We are using Fuge to run our microservices in development as a convenience. This may not always be the best approach because once we exit the fuge shell the data in the container will be lost.
 
-#### Running Containers in the Background
-If we would prefer to have some of our containers execute in the background whilst still using fuge we can do this by tweaking our fuge configuration. Open up `micro/fuge/fuge.yml` and update the `fuge_global` section by adding the `run_containers` setting as below:
+#### Running Containers in the background
 
-```
+If we would prefer to have some of our containers execute in the background whilst still using fuge we can do this by tweaking our fuge configuration. 
+
+For demonstration purposes, we'll copy `micro/fuge/fuge.yml` to `micro/fuge/fuge2.yml`.
+
+Let's `micro/fuge/fuge2.yml` and update the `fuge_global` section by adding the `run_containers` setting as below:
+
+```yaml
 fuge_global:
   run_containers: false
   tail: true
@@ -1688,11 +1796,11 @@ fuge_global:
     - '*.log'
 ```
 
-Now start up the fuge shell and run a ps
+Now we'll start up the fuge shell with the `fuge/fuge2.yml` configuration and run Fuges `ps` command:
 
-```
+```sh
 $ cd micro
-$ fuge shell fuge/fuge.yml
+$ fuge shell fuge/fuge2.yml
 fuge> ps
 name                          type           status         watch          tail
 adderservice                  process        stopped        yes            yes
@@ -1701,7 +1809,9 @@ webapp                        process        stopped        yes            yes
 mongo                         container      not managed
 ```
 
-Fuge reports that the mongo container is `not managed`.  In another shell run the mongo container using Docker directly:
+Fuge reports that the mongo container is `not managed`.  
+
+In another terminal window we can run the mongo container using Docker directly:
 
 ```sh
 $ docker run -p 127.0.0.1:27017:27017 -d mongo
@@ -1713,23 +1823,29 @@ This will start the MongoDB container in the background and expose port `27017` 
 $ docker ps
 ```
 
-Next start the rest of our system in the Fuge shell:
+We can start the rest of our system in the Fuge shell:
 
 ```sh
 fuge> start all
 ```
 
-We can confirm that everything is running as before by accessing the `webapp` through a browser. We can now exit the Fuge shell and our mongo container will continue to run.
+Then we can confirm that everything is running as before by navigating our browser to and using the routes we've been creating in the this and previous recipes. 
+
+If we exit the Fuge shell the mongo container will continue to run.
 
 The key point to note here is that we can leave our infrastructure containers running in the background and tell Fuge about them. Fuge will then generate the appropriate environment variables (and other information) to allow us to access the container but will not attempt to start/stop the container.
 
 ### See also
-**TODO DMC**
 
-## Service Discovery with DNS
-Once a microservice system begins to grow past a few services we typically run into the challenge of service discovery. By this we mean:
+* TBD
 
-* How a consumer of a service determines the connection parameters to allow it to consume a downstream service, typically this means the IP address and port number to connect to.
+## Service discovery with DNS
+
+Once a microservice system begins to grow past a few services we typically run into the challenge of service discovery. 
+
+By this we mean:
+
+* How a consumer of a service determines the connection parameters to allow it to consume a downstream service. Typically this means the IP address and port number to connect to.
 
 * How a service registers itself with the system and advertises that it is available to be consumed.
 
@@ -1740,195 +1856,238 @@ Once a microservice system begins to grow past a few services we typically run i
 So far in this chapter we have been using environment variables to connect our services together, these variables have been generated for us by the Fuge tool. The astute reader may have wondered as to the format of the variables, for instance in the last recipe we used variables of the form:
 
 ```js
-var addClient = restify.createJsonClient({url: 'http://' +
-                process.env.ADDERSERVICE_SERVICE_HOST + ':' +
-                process.env.ADDERSERVICE_SERVICE_PORT})
+const url = `mongodb://${MONGO_SERVICE_HOST}:${MONGO_SERVICE_PORT}/audit`
 ```
 
-There is a reason for this format and that is that it is the same format that is used by both Kubernetes and Docker Swarm, two of the current leading container deployment technologies. Kubernetes is a container deployment and orchestration system that was developed at Google, Swarm is developed by Docker. Whilst there are alternative container deployment technologies, Kubernetes is currently gaining the most adoption across the industry.
+There is a reason for this format: it's the same format used by both Kubernetes and Docker Swarm; two of the current leading container deployment technologies. Kubernetes is a container deployment and orchestration system that was developed at Google. Swarm is developed by Docker. Whilst there are alternative container deployment technologies, at the time of writing Kubernetes is gaining significant adoption across the industry.
 
-It clearly makes sense that our development environment should behave as much like our production environment as possible so to this end we are using Fuge to make our development environment match our expected production environment as closely as possible through injecting the same environment.
+There are significant benefits to having consistency betwen development and production. Fuge facilitates parity between development and production by
+reproducing the same environment variable naming scheme for port and hosts.
 
-Kubernetes supports two methods for service discovery firstly the use of environment variables and secondly the use of DNS records. Whist Kubernetes is a very capable deployment stack, it is not optimized for local development, however, thankfully the Fuge tool also supports DNS using the same format as Kubernetes. This means that we can use a lightweight tool like Fuge to run our microservice system in development and be confident that we can run the same code in production without change.
+Kubernetes supports two methods for service discovery. One is the (now familiar) use of environment variables, the other (more flexible approach) is via the use of DNS records. Whilst Kubernetes is a very capable deployment stack, it's not optimized for local development. However, Fuge can also provide DNS using the same format as Kubernetes. This allows us to run our microservice system in development and whilst remaining confident that we can run the same code in production without any requiring any alterations to our code.
 
 In this recipe we are going to convert our system to use DNS for service discovery.
 
 ### Getting Ready
-This recipe builds on the code from the last recipe `Using Containerize Infrastructure`. If you skipped this recipe, the code is available in the accompanying source in the directory `source/Using_Containers`.
 
-As we already have everything required for this recipe let's dive right in and covert our code. To do this we are going to use a module called `concordant`. This is a small module that performs DNS lookups for us in oderer to determine the host and port information for a service. We will need to change the code in our service consumer, which is in the `webapp` project, the service code itself will remain largely unchanged.
+This recipe builds on our `micro` folder from the last recipe *Using containerized infrastructure*.
 
 ### How to do it
-Firstly we need to install the `concordant` module in the `webapp` project:
+
+Let's begin by installing `concordant` (a DNS lookup module) into the `webapp` folder:
 
 ```sh
 $ cd micro/webapp
 $ npm install --save concordant
 ```
 
-Next let's make the code changes. In the `webapp` directory create a file `helper.js` that contains the following code:
+Let's include the newly installed `concordant` module into `webapp/routes/add.js`
+and grab its `dns`. The top of `webapp/routes/add.js` should look like
+the following:
 
 ```js
-var restify = require('restify')
-var conc = require('concordant')()
+const { Router } = require('express')
+const restify = require('restify')
+const { dns } = require('concordant')()
+const router = Router()
+```
 
-module.exports = function () {
+Now we'll add a small helper function into the same `webapp/routes/add.js` file:
 
-  function createClient (name, cb) {
-    conc.dns.resolve('_main._tcp.' + name + '.micro.svc.cluster.local',
-    function (err, result) {
-      if (err) { console.log(err) }
-      cb(err, restify.createJsonClient({url: 'http://' +
-              result[0].host + ':' + result[0].port}))
-    })
-  }
-
-  return {
-    createClient: createClient
-  }
+```js
+function resolve (service, cb) {
+  const uri = `_main._tcp.${service}.micro.svc.cluster.local`
+  dns.resolve(uri, (err, result) => {
+    if (err) {
+      console.log(err, result)
+      cb(err)
+      return
+    }
+    const { host, port } = result[0]
+    cb(null, `${host}:${port}`)
+  })
 }
 ```
 
-Next open the file `webapp/routes/add.js`. We need to edit the following lines:
+This performs a DNS lookup to get a services host and port, and then
+creates a `restify` JSON client which is connected to the service.
 
 ```js
-var addClient = restify.createJsonClient({url: 'http://' +
-                process.env.ADDERSERVICE_SERVICE_HOST + ':' +
-                process.env.ADDERSERVICE_SERVICE_PORT})
-var auditClient = restify.createJsonClient({url: 'http://' +
-                  process.env.AUDITSERVICE_SERVICE_HOST + ':' +
-                  process.env.AUDITSERVICE_SERVICE_PORT})
-```
-
-We also need to require our `helper.js` module, edit the file so that it looks like the code below:
-
-```js
-var express = require('express')
-var router = express.Router()
-var helper = require('../helper')()
-
-
-router.get('/', function (req, res, next) {
-  res.render('add', { first: 0, second: 0, result: 0 })
-})
-
-
 router.post('/calculate', function (req, res, next) {
-  helper.createClient('adderservice', function (err, addClient) {
-    if (err) { console.log(err) }
+  resolve('adderservice', (err, adder) => {
+    if (err) {
+      next(err)
+      return
+    }
+    resolve('auditservice', (err, audit) => {
+      if (err) { 
+        next(err)
+        return
+      }
+      const clients = { 
+        adder: restify.createJSONClient({url: `http://${adder}`}), 
+        audit: restify.createJSONClient({url: `http://${audit}`})
+      }
+      const { first, second } = req.body
+      clients.adder.get(
+        `/add/${first}/${second}`,
+        (err, svcReq, svcRes, data) => {
+          if (err) {
+            next(err)
+            return
+          }
 
-    addClient.get('/add/' + req.body.first + '/' + req.body.second,
-    function (err, serviceReq, serviceRes, resultObj) {
-      if (err) { console.log(err) }
-
-      res.render('add', {first: req.body.first,
-                         second: req.body.second,
-                         result: resultObj.result})
-      var calcString = '' + req.body.first + ' + ' + req.body.second
-      helper.createClient('auditservice',
-      function (err, auditClient) {
-        if (err) { console.log(err) }
-        auditClient.post('/append', {calc: calcString,
-                                     calcResult: resultObj.result},
-        function (err, req, res, obj) {
-          if (err) { console.log(err) }
-        })
-      })
+          const { result } = data
+          clients.audit.post('/append', {
+            calc: first + '+' + second,
+            calcResult: result
+          }, (err) => {
+            if (err) console.error(err)
+          })
+          
+          res.render('add', { first, second, result })
+        }
+      )
     })
   })
 })
-
-module.exports = router
 ```
+
+We can also remove all the host and port constants that we get from `process.env` at the top of `webapp/routes/add.js`.
 
 We also need to modify the file `routes/audit.js` in a similar manner:
 
 ```js
-var express = require('express')
-var router = express.Router()
-var helper = require('../helper')()
+const { Router } = require('express')
+const restify = require('restify')
+const router = Router()
 
-router.get('/', function (req, res, next) {
-  helper.createClient('auditservice', function (err, client) {
-    if (err) { console.log(err) }
-
-    client.get('/list', function (err, serviceReq, serviceRes, obj) {
-      if (err) { console.log(err) }
-      res.render('audit', obj)
+router.get('/', (req, res, next) => {
+  resolve('auditservice', (err, audit) => {
+    if (err) {
+      next(err)
+      return
+    }
+    const client = restify.createJSONClient(`http://${audit}`)
+    client.get('/list', (err, svcReq, svcRes, data) => {
+      if (err) { 
+        next(err)
+        return 
+      }
+      res.render('audit', data)
     })
   })
 })
 
+function resolve (service, cb) {
+  const uri = `_main._tcp.${service}.micro.svc.cluster.local`
+  dns.resolve(uri, (err, result) => {
+    if (err) {
+      cb(err)
+      return
+    }
+    const { host, port } = result[0]
+    cb(null, `${host}:${port}`)
+  })
+}
+
 module.exports = router
 ```
 
-Finally let's modify our audit service so that it can discover the Mongodb database through dns. To do this firstly let's install the `concordant` module to the project:
+Finally let's modify our audit service so that it can discover the Mongodb database through dns. 
+
+We'll need the `concordant` module again, this time in the `auditservice`:
 
 ```sh
 $ cd micro/auditservice
 $ npm install --save concordant
 ```
 
-Then edit the file `micro/auditservice/service.js` to discover our MongoSB container using DNS:
+Next we'll edit `micro/auditservice/service.js` to discover our MongoDB container using DNS, our code should look as follows:
 
 ```js
-var MongoClient = require('mongodb').MongoClient
-var conc = require('concordant')()
+const { MongoClient } = require('mongodb')
+const { dns } = require('concordant')()
 
-module.exports = function () {
-  var url
+module.exports = service 
 
-  function init () {
-    conc.dns.resolve('_main._tcp.mongo.micro.svc.cluster.local',
-    function (err, result) {
-      if (err) { console.log(err) }
-      url = 'mongodb://' + result[0].host + ':' +
-            result[0].port + '/audit'
-    })
-  }
+function service () {
 
   function append (args, cb) {
-    MongoClient.connect(url, function (err, db) {
-      if (err) return cb(err)
+    resolve('mongo', (err, mongo) => {
+      const url = `mongodb://${mongo}/audit`
+      MongoClient.connect(url, (err, db) => {
+        if (err) {
+          cb(err)
+          return
+        }
 
-      var audit = db.collection('audit')
-      var data = { ts: Date.now(),
-        calc: args.calc,
-        result: args.calcResult }
+        const audit = db.collection('audit')
+        const data = { 
+          ts: Date.now(),
+          calc: args.calc,
+          result: args.calcResult 
+        }
 
-      audit.insert(data, function (err, result) {
-        if (err) return cb(err)
-        cb(null, result)
-        db.close()
+        audit.insert(data, (err, result) => {
+          if (err) {
+            cb(err)
+            return
+          }
+          cb(null, {result: result.toString()})
+          db.close()
+        })
       })
+
     })
   }
 
   function list (args, cb) {
-    MongoClient.connect(url, function (err, db) {
-      if (err) return cb(err)
-
-      var audit = db.collection('audit')
-      audit.find({}, {limit: 10,
-        sort: [['ts', 'desc']]}).toArray(function (err, docs) {
-        if (err) return cb(err)
-        cb(null, {list: docs})
-        db.close()
+    resolve('mongo', (err, mongo) => {
+      const url = `mongodb://${mongo}/audit`
+      MongoClient.connect(url, (err, db) => {
+        if (err) {
+          cb(err)
+          return
+        }
+        const audit = db.collection('audit')
+        audit.find({}, {limit: 10}).toArray((err, docs) => {
+          if (err) {
+            cb(err)
+            return
+          }
+          cb(null, {list: docs})
+          db.close()
+        })
       })
     })
   }
 
-  init()
-  return {
-    append: append,
-    list: list
-  }
+  return { append, list }
+}
+
+function resolve (service, cb) {
+  const uri = `_main._tcp.${service}.micro.svc.cluster.local`
+  dns.resolve(uri, (err, result) => {
+    if (err) {
+      cb(err)
+      return
+    }
+    const { host, port } = result[0]
+    cb(null, `${host}:${port}`)
+  })
 }
 ```
 
+> #### Managing code duplication in a distributed system ![](../tip.png)
+> We've duplicated the `connectTo` function across files for demonstration 
+> purposes, but in a typical setup we would publish system or business specific 
+> reusable modules to a shared (orgnizational) repository so that multiple 
+> services can avail of them. 
+
 That takes care of the code changes, next we need to edit our Fuge configuration file to enable DNS discovery. To do this we need to edit the `fuge_global` section so that it looks like this:
 
-```
+```yaml
 fuge_global:
   dns_enabled: true
   dns_host: 127.0.0.1
@@ -1943,34 +2102,43 @@ fuge_global:
     - '**/*.log'
 ```
 
-Those are all of the changes so we should now be good to go. Let's fire up the `fuge` shell:
+Those are all of the changes so we should now be good to go. 
+
+Let's fire up the `fuge` shell:
 
 ```sh
 $ fuge shell fuge/fuge.yml
 fuge> start all
 ```
 
-Once all of the process and containers have started up let's check that everything works as before by visiting `http://localhost:3000/add` and `http://localhost:3000/audit`. We should observe exactly the same behavior except that this time we are dynamically resolving our service endpoints rather than using environment variables.
+Once all of the process and containers have started up we can check that everything works as before by visiting http://localhost:3000/add and http://localhost:3000/audit. We should observe exactly the same behavior except that this time we are dynamically resolving our service endpoints rather than using environment variables.
 
 ### How it works
-DNS is one of the oldest service discovery mechanisms available and has of course been around since before the Word Wide Web. DNS is primarily used for resolving host names - for example `www.google.com` into IP addresses but it can also be used to provide other information. For service discovery we are interested in two pieces of information, namely the IP address and also the port number that the service resides on. To find this information using DNS we need to query two types of records: `SRV` records and `A` records.
+
+DNS is one of the oldest service discovery mechanisms available and has of course been around since before the Word Wide Web. DNS is primarily used for resolving host names - for example www.google.com into IP addresses but it can also be used to provide other information. For service discovery we are interested in two pieces of information, namely the IP address and also the port number that the service resides on. To find this information using DNS we need to query two types of records: `SRV` records and `A` records.
 
 > #### DNS record types .. ![](../info.png)
-> A full list of DNS record types can be found on Wikipedia at this URL `https://en.wikipedia.org/wiki/List_of_DNS_record_types`
+> A full list of DNS record types can be found on Wikipedia at this URL https://en.wikipedia.org/wiki/List_of_DNS_record_types
 
 Under the hood the  `concordant` module firstly performs an `SRV` query, this returns the port number for the service and a `CNAME` record (canonical name record). It then perform a host lookup - `A` record - against the `CNAME` to obtain an IP address for the service. Once we have these two pieces of information we can proceed to connect to and consume the service. The `concordant` module takes care of all of this detail for us, however it is important to understand what is happening internally.
 
-If we look at the code in the Audit service, we can see that the service is using the following code to resolve a hostname and port number for the `mongodb` database:
+If we look at the code in our `resolve` utility function which we use in the `webapp` and `auditservice`. We can see that the service is using the following code to resolve a hostname and port number for the `mongodb` database:
 
 ```js
-  conc.dns.resolve('_main._tcp.mongo.micro.svc.cluster.local',
-  function (err, result) {
-    url = 'mongodb://' + result[0].host + ':' +
-          result[0].port + '/audit'
+function resolve (service, cb) {
+  const uri = `_main._tcp.${service}.micro.svc.cluster.local`
+  dns.resolve(uri, (err, result) => {
+    if (err) {
+      cb(err)
+      return
+    }
+    const { host, port } = result[0]
+    cb(null, `${host}:${port}`)
   })
+}
 ```
 
-Concordant performs service discovery based on how it's environment is configured. If a DNS_HOST environment variable is present Concordant will query this server directly. In a production environment, if this variable is not present, Concordant will use the system configured DNS infrastructure as opposed to a direct lookup. This of course means that the application code does not need to take this into account, the environment differences between development and production are encapsulated within the `concordant` module for us.
+Concordant performs service discovery based on how its environment is configured. If a `DNS_HOST` environment variable is present Concordant will query this server directly. In a production environment, if this variable is not present, Concordant will use the system configured DNS infrastructure as opposed to a direct lookup. This of course means that the application code does not need to take this into account, the environment differences between development and production are encapsulated within the `concordant` module for us.
 
 The hostname that we are passing to the Concordant module looks a little long. This is the standard format for Kubernetes DNS based lookups and it follows a well defined schema:
 
@@ -1979,23 +2147,35 @@ _<port name>._<protocol>.<service name>.<namespace>.svc.cluster.local
 ```
 
 > #### Kubernetes naming .. ![](../info.png)
-> Full documentation on Kubernetes DNS can be found at the official Kubernetes site at this URL `https://kubernetes.io/docs/admin/dns/`
+> Full documentation on Kubernetes DNS can be found at the official Kubernetes site at this URL https://kubernetes.io/docs/admin/dns/
 
-In we look at the mongo configuration in our Fuge configuration file, we can see that we have named our mongo port `main` and the service is called `mongo`. The underlying protocol is of course `tcp`. So the mapping to this hostname is fairly straightforward.
+In we look at the mongo configuration in our Fuge configuration file, we can see that we have named our mongo port `main` and the service is called `mongo`. The underlying protocol is `tcp` so the mapping to this hostname is fairly straightforward.
 
-Let's take a look at how the `webapp` code is consuming the `adder` and `audit` services, in the file `webapp/helper.js` we can see that the `createClient` function is using exactly the same naming scheme to dynamically resolve the service end points.
+Our `resolve` function is using exactly the same naming scheme to dynamically resolve the service the `adderservice`, `auditservice` and `mongo` endpoints.
+
+Of course the additional DNS lookups create some latency overhead, a comprehensive
+caching strategy was omitted from the recipe for the same of simplicity, but in a 
+production scenario a cache with TTL (time to live) capabalities would be recommended. 
 
 ### There's more
-In this recipe we have used DNS as our service discovery mechanism. We did this specifically to align our development environment with our expected production environment under Kubernetes. There are of course many ways to deploy a microservice system and also many other service discovery mechanisms that we could have used. We will cover these options in more detail in the chapter on deployment, however for now some of the options that you should consider researching are listed below. Firstly for service discovery:
+
+Let's briefly cover other service discovery approaches and explore how Fuge is emulating Kubernetes in a little more detail:
+
+#### Alternative service discovery mechanisms
+
+In this recipe we have used DNS as our service discovery mechanism. We did this specifically to align our development environment with our expected production environment under Kubernetes. There are of course many ways to deploy a microservice system and also many other service discovery mechanisms that we could have used. 
+
+Some other options for consideration are: 
 
 * Consul.io by Hasicorp, provides a robust service discovery mechanism providing both HTTP and DNS based registration and lookup.
 * etcd, distributed key value store. This is used internally by Kubernetes
 * Zookeeper, distributed key value store from the Apache project
 * SWIM, Scaleable Weakly consistent Infection style process group Membership protocol. Peer to peer based service discovery protocol
 
-Let's explore how Fuge is emulating Kubernets in a little more detail:
+We will be covering service discovery further and in more detail in **Chapter 11 Deplying Systems**.
 
-#### Viewing the Environment and DNS Zone
+#### Viewing the environment and DNS Zone
+
 Fuge exposes information on both environment variables and DNS for us through the `info` and `zone` commands to aid us in debugging our service discovery process. Let's try this out. Start the Fuge shell and then run the info command for a service:
 
 ```sh
@@ -2005,7 +2185,7 @@ fuge> info auditservice full
 
 Fuge will display the environment that is passed into the `auditservice` which should look like the following:
 
-```
+```yaml
 command: node index.js
 directory: ...
 environment:
@@ -2033,13 +2213,16 @@ Let's now run the `zone` command, this should provide us with out put similar to
 As we can see Fuge is supplying both SRV and A records for discovery which Concordant is able to lookup. It is important to note that in a Kubernetes production environment the same DNS entries will be available for service discovery.
 
 ### See also
-**TODO DMC**
+
+* TBD
 
 ## Adding a Queue Based Service
+
 In this recipe we will create a simple asynchronous event recording service. In this context asynchronous means that we will expose the service over a queue rather than a direct point to point connection. We will be using Redis as a our queue mechanism for this recipe as it is simple and lightweight to use.
 
 ### Getting Ready
-To prepare for this recipe we need to ensure that we have Redis available. The simplest way to do this is to use the official Docker Redis image, so, to get ready for this section you will need to pull this image:
+
+To prepare for this recipe we need to ensure that we have Redis available. The simplest way to do this is to use the official Docker Redis image, so, to get ready for this section we will need to pull this image:
 
 ```sh
 $ docker pull redis
@@ -2297,7 +2480,7 @@ node index.js
 
 Finally we need to add the Redis container and our new `eventservice` to our Fuge configuration. Edit the file `fuge/fuge.yml` and add the following two entries:
 
-```
+```yaml
 eventservice:
   type: process
   path: ../eventservice
@@ -2329,6 +2512,7 @@ Output similar to the following should be displayed:
 ![](./images/eventreport.png)
 
 ### How it works
+
 In this recipe we created a queue based microservice that used Redis as a lightweight queueing mechanism. We used a Redis container and discovered this container using DNS. It is interesting to note that in this case, neither the service or consumer end had direct knowledge of each other, rather each simply placed messages onto an intermediary queue.
 
 Our event service again used `concordant` DNS to discover the Redis service as before, supplying the portName and service name for discovery. We are also supplying the name of the internal list structure that Redis should use for these messages, in this case the queue is called `eventservice`.
@@ -2358,13 +2542,13 @@ A full discussion of security as pertaining to microservices is outside the scop
 
 * Always use the API gateway pattern and minimize the exposed application surface area
 
-* Never expose internal service details in client code - i.e. frontend code that runs in web browsers or on mobile devices. Frontend code should communicate via an API only. This means that you should avoid using inherently insecure architectural patterns such as `client side service discovery`.
+* Never expose internal service details in client code - i.e. frontend code that runs in web browsers or on mobile devices. Frontend code should communicate via an API only. This means that we should avoid using inherently insecure architectural patterns such as `client side service discovery`.
 
 * Identify and classify services based on the sensitivity of the data that they handle. Consider the deployment and management policy for services based on this classification.
 
 * Ensure that regular and robust security and penetration testing is carried out by an expert third party.
 
-* Be familiar and ensure that your team is familiar with the OWASP top ten security risks [https://www.owasp.org/index.php/Category:OWASP_Top_Ten_Project](https://www.owasp.org/index.php/Category:OWASP_Top_Ten_Project)
+* Be familiar and ensure that our team is familiar with the OWASP top ten security risks [https://www.owasp.org/index.php/Category:OWASP_Top_Ten_Project](https://www.owasp.org/index.php/Category:OWASP_Top_Ten_Project)
 
 ### There's more
 For the recipes in this chapter we have been using Docker containers, in the chapter on deployment we will investigate building our own containers. There are some useful container techniques that we should be aware of, lets explore a few here:
