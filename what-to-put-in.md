@@ -1,6 +1,0 @@
-- node and nginx
-- why node and docker
-- Create a dockerfile
-- Docker Compose and DOcker Swarm
-- Kubernetes and ECS
-- Typical Continous deliver pipeline

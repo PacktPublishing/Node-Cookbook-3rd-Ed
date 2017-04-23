@@ -2,7 +2,7 @@
 This chapter covers the following topics:
 
 ## Contents
-* Building a Single Container
+* Building a Single Container for a Node.js process
 * Running a Docker Registry
 * Storing Images on DockerHub
 * Deploying a Container to Kubernetes
@@ -11,21 +11,27 @@ This chapter covers the following topics:
 * Deploying to the Cloud
 
 ## Introduction
-Deploying and operating a distributed system is a complex task. At least as complicated as creating the code for the system in the first place. Given that a lot of the cost of a software system is in the ongoing operation and maintenance this is certainly a skill that is in high demand. Before the advent of cloud and container technology this was normally accomplished though co-location of hardware within data centers. Sys-admins were required to have the skill in hardware, system configuration and scripting. However with the increasing adoption of cloud and container technology, the need for these lower level skills is diminishing rapidly and is largely being replaced by the role of DevOps - developers who can write code to control infrastructure and operations.
 
-Container technology brings several key benefits, which is why it's adoption has been so rapid across the industry:
+Deploying and operating a distributed system is a complex task. At least as complicated as creating the code for the system in the first place. Given that a significant cost of a software system involves its ongoing operation and maintenance this is certainly a skill in high demand. Before the advent of cloud and container technology this was normally accomplished though co-location of hardware within data centers. System administrators were required to have the skill in hardware, system configuration and scripting. However with the increasing adoption of cloud and container technology, the need for these lower level skills is diminishing rapidly and is largely being replaced by the role of DevOps - developers who can write code to control infrastructure and operations.
 
-* Encapsulation - A container holds everything that a service needs to execute, including library dependencies and environment. This solves the 'runs on my machine' problem!
+In **Chapter 10 Building Microservice Systems** we explored how decomposing a system
+into discrete processes and making those processes talk with each other works well with
+Node.js in particular, since Node is highly apt for building networked applications.  
 
-* Homogeneity - If everything can be treated as a container, then we can treat all of the elements of our system in the same way!
+Wrapping these Node processes (microservices) in containers brings several key benefits, which is why the adoption of container technology (in general) has been so rapid across the industry:
 
-* Orchestration - powerful container orchestration platforms are available precisely because of the encapsulated and homogenous nature of containers
+* Encapsulation - A container holds everything that a service needs to execute, including library dependencies and environment. This solves the 'runs on my machine' problem.
+
+* Homogeneity - If everything can be treated as a container, then we can treat all of the elements of our system in the same way.
+
+* Orchestration - powerful container orchestration platforms are available precisely because of the encapsulated and homogeneous nature of containers
 
 > ### Docker and BSD jails ![](../info.png)
-> The isolation model of Docker is nothing new. The notion of processes running in an isolated environment first emerged in BSD Unix using the `chroot`
-> create an isolated jail. You can read up about this here: *https://www.freebsd.org/doc/handbook/jails.html*.
+> The isolation model of Docker is not a new concept . The notion of processes running in an isolated environment first emerged in BSD Unix with the `chroot` command which evolved
+> into the idea of isolated jails. See https://www.freebsd.org/doc/handbook/jails.html for
+> an in-depth history.
 
-In this chapter we will focus on two particular container technologies: Docker and Kubernetes. Whilst a full introduction to these is outside the scope of this book the following links should act as a quick start introduction to both:
+In this chapter we will focus on deploying Node with two particular container technologies: Docker and Kubernetes. Whilst a full introduction to these is well outside the scope of this book the following links should act as a quick start introduction to both:
 
 * Docker overview https://docs.docker.com/engine/understanding-docker/
 * Docker quick start guide https://docs.docker.com/engine/getstarted/
@@ -34,46 +40,56 @@ In this chapter we will focus on two particular container technologies: Docker a
 * Kubernetes quick start guide https://kubernetes.io/docs/getting-started-guides/minikube/
 * Kubernetes cheat sheet https://kubernetes.io/docs/user-guide/kubectl-cheatsheet/
 
-In this chapter we will investigate how to build and deploy our microservice system from the Microservices Chapter as a set of docker containers on top of the Kubernetes platform. We will focus on presenting some practical hands on recipes for doing this oriented towards `node.js` programmers.
+In this chapter we will investigate how to build and deploy our microservice system from **Chapter 10 Building Microservice Systems** as a set of docker containers on top of the Kubernetes platform. At a minimum, reading over Chapter 10 before proceeding would be ideal.
 
 ## Building A Single Container
-In the chapter 'Understanding Microservices' we developed a small microservice system. For the rest recipes in this chapter we will examine how to build a container based deployment infrastructure for this system. If you skipped chapter 7 then it would be advisable that you go back and run through it now to familiarize yourself with the system. At a minimum you should review the architecture for the system in Chapter 7 before proceeding.
+
+In **Chapter 10 Building Microservice Systems** we developed a small microservice system.
+
+In this recipe we're going to take the `adderservice` as we left it at the end of Chapter 10 and create a container for it. 
 
 ### Getting Ready
-We will be using the Docker container engine for this recipe so you should have this installed on your system. If you don't yet have this installed, head over to http://www.docker.com and install the appropriate binary for your system. Docker supports Linux, Windows and Mac natively.
+
+We will be using the Docker container engine for this recipe so we should have this installed on our system. If we don't yet have this installed, we can head over to http://www.docker.com and install the appropriate binary for our system. Docker supports Linux, Windows and Mac natively.
 
 We can check that Docker was installed successfully by opening a shell and running the following:
+
 ```sh
 $ docker run hello-world
 ```
 
-This command will pull the hello-world image from Docker Hub - a central repository of public Docker images, create a new container from that image and run it. The executable within the container will output hello from docker along with some help text.
+This command will pull the `hello-world` image from Docker Hub - a central repository of public Docker images, create a new container from that image and run it. The executable within the container will output hello from docker along with some help text.
 
-We also need the code from the mciroservices chapter available so if you don't have this already you should grab the code from the final recipe in this chapter `Adding a Queue Based Service`, which is available in the accompanying source for the chapter under `source/Queue_Based_Service`.
+We also need the code from the **Chapter 10 Building Microservice Systems** available, we can get this from the source code for Chapter 10 provided with this book (source files can be obtained from the publisher website). We'll specifically be working with the source code from the *Adding a Queue Based Service* recipe in Chapter 10. 
 
 ### How to do it
-Our final system from the microservices chapter is depicted in below, recall that it comprises a front end, three services and a reporting tool.
+
+Our final system from **Chapter 10 Building Microservice Systems** is depicted in below, recall that it comprises a front end, three services and a reporting tool.
 
 ![image](./images/finalsystem.png)]
 
-Our build process will need a base Docker image suitable for running `node.js` application code, so the first thing we need to do is to pull the official Node base image from the Docker Hub repository, we will be using the `node:slim` variant to give us a smaller container size.
+Our build process will need a base Docker image suitable for running Node application code. The first thing we'll do is pull an official Node base image from the Docker Hub repository. 
 
-```
+We'll use the `node:slim` variant for optimal container size:
+
+```sh
 $ docker pull node:slim
 ```
 
-> ### Offical Node Containers ![](../info.png)
+> ### Official Node Containers ![](../info.png)
 > There are several variants of the official node.js Docker image available. These are explained here: https://hub.docker.com/_/node/. When building a system
-> you should select an image that best supports your use case.
+> we should select an image that best supports our use case.
 
-In order to build this system we will need to create a container for each service. To do this we will create a docker build file for each. Let's build the `adderservice` first. To do this `cd` to the `adderservice` directory and create a file called `Dockerfile` using your favorite editor:
+Now let's build a container for the `adderservice`. 
+
+We'll enter the  `micro/adderservice` directory and create two files, one called `Dockerfile` and the other named `.dockerignore`:
 
 ```sh
 $ cd micro/adderservice
-$ vim Dockerfile
+$ touch Dockerfile .dockerifnore
 ```
 
-Your Dockerfile should contain the following statements:
+Using our favorite editor, let's place the following statements into `Dockerfile`:
 
 ```
 FROM node:slim
@@ -85,7 +101,13 @@ COPY . /home/node/service
 CMD [ "node", "index.js" ]
 ```
 
-We also need to create a `.dockerignore` file to ensure that we don't add unnecessary bloat to our container. Create a `.dockerignore` file in the same directory and add the following to it:
+> ### Inspecting Official Containers ![](../info.png)
+> The Dockerfiles for all official Docker images are publicly available on Github. Taking 
+> some time to inspect publically available official Dockerfiles can furnish us with both > precise knowledge of what any given container is composed of, and best practice tips for
+> writing our own Dockerfiles. 
+
+The `.dockerignore` file ensures that we don't add unnecessary bloat to our container,
+let's add the following to our `.dockerignore` file:
 
 ```
 .git
@@ -94,24 +116,31 @@ node_modules
 npm-debug.log
 ```
 
-> ### Inspecting Offical Containers ![](../info.png)
-> The Dockerfiles for all of the official Docker images are publicly available on Github. You should take some time to inspect these to learn what goes into
-> each container and also to pick up some tips on how to best build Docker images
-We are now ready to build our `adderservice` image. Run the following command from the `adderservice` directory:
+We are now ready to build our `adderservice` image. 
 
-Next issue the following command to build our `adderservice` container:
+Let's run the following command from the `adderservice` directory:
 
 ```sh
 $ docker build -t adderservice .
 ```
 
-We can see that docker is working through all of the steps in the `Dockerfile` to create our image, once the build stops we can check that our newly created container built by issuing a `docker images` command. Next let's check that our container runs by issuing the following:
+We should see Docker working through all of the steps in the `Dockerfile` to create our image. 
+
+Once the build stops we can check that our newly created container has been built by issuing the following command:
+
+```sh
+$ docker images
+``` 
+
+We should see our `adderservice` image in the output.
+
+Next let's check that the image can successfully run as a container with the following:
 
 ```sh
 $ docker run -e ADDERSERVICE_SERVICE_PORT=8080 -p 8080:8080 -d adderservice
 ```
 
-We can now run a `docker ps` command to check that our container is running followed by a `netstat` command to check that our container is available on port 8080. Let's quickly check that our container is running correctly by using the `curl` command to invoke the service:
+Let's quickly check that our container is running correctly by using the `curl` command to invoke the service:
 
 ```sh
 $ docker ps
@@ -119,16 +148,23 @@ $ netstat -an | grep -i listen
 $ curl http://localhost:8080/add/2/3
 ```
 
-We should see that the number 5 is returned from the service. Let's now close down our running containers.
+We should see that the number 5 is returned from the service. 
+
+We can now close down any running containers with the following:
 
 ```sh
 $ docker kill $(docker ps -a -q)
 ```
 
-We have just built and run our first microservice container.
+We have just built and run our first microservice container!
 
 ### How it works
-Containers provide an isolated environment for our application and service code to execute in. The Dockerfile defines exactly what should go into this environment. Typically this should include all of the library and environmental dependencies that our code requires to execute successfully. Let's analyze what we placed into this container, the Dockerfile contained the following instructions:
+
+Containers provide an isolated environment for our application and service code to execute in. The Dockerfile defines exactly what should go into this environment. Typically this should include all of the library and environmental dependencies that our code requires to execute successfully. 
+
+Let's analyze what we placed into this container.
+
+The Dockerfile contained the following instructions:
 
 ```
 FROM node:slim
@@ -140,59 +176,98 @@ COPY . /home/node/service
 CMD [ "node", "index.js" ]
 ```
 
-Line by line this did the following:
+Let's examine these statements line-by-line:
 
-* `FROM node:slim` - tells the Docker build process to use `node:slim` as the base container image. This means that Docker will build our image on top of this so anything that is in the node:slim image will be included in our image.
+* `FROM node:slim` - instructs Docker's build process to use `node:slim` as the base container image. This means that Docker will modify the `node:slim` image based on our instruction set to create the new service image.
 
 * `RUN mkdir -p /home/node/service` - will run the `mkdir` command to create the directory `/home/node/services`. It is important to understand that and `RUN` commands execute in the context of the container. In other words this directory will be created inside the container not on the machine that is running the build.
 
 * `WORKDIR /home/node/service` - sets the working directory for all future `RUN` and `COPY` commands in this Dockerfile
 
-* `COPY package.json /home/node/service` - copies the file package.json from the build machine to the `/home/node/service` inside the container
+* `COPY package.json /home/node/service` - copies the `package.json` file from the build machine to the `/home/node/service` inside the container
 
-* `RUN npm install` - runs `npm install` inside the container using the dependencies as listed in our package.json file. It is important to understand that all dependencies should be installed in this manner. We should never just copy across our `node_modules` folder. This is because the execution environment within the container may be different to our build system so any binary dependencies need to be installed from scratch.
+* `RUN npm install` - runs `npm install` inside the container using the dependencies as listed in our `package.json` file. As a rule of thumb, we shouldn't just copy across our `node_modules` folder (unless we are sure there are no native dependencies and never will be). This is because the execution environment within the container may be different to our build system so any binary dependencies need to be installed from scratch.
 
-* `COPY . /home/node/service` - copies our application code into the container. Note that the copy command will ignore all patterns listed in our `.dockerignore` file. This means that the `COPY` command will not copy `node_modules` and other information to the container
+* `COPY . /home/node/service` - copies our application code into the container. Note that the copy command will ignore all patterns listed in our `.dockerignore` file. This means that the `COPY` command will not copy `node_modules` and other information to the container.
 
-* `CMD [ "node", "index.js" ]` - specifies the default command to execute when starting the container. This command will execute in the `/home/node/service` directory.
+* `CMD [ "node", "index.js" ]` - specifies the default command to execute when starting the container. This command will execute in the `/home/node/service` directory. The syntax
+for creating the command actually matches how `process.argv` parses command line inputs.  
 
 > ### Binary Incompatibility ![](../tip.png)
-> It is important to stress that one should never just copy the contents of a node_modules folder into a container. This is because some modules contain
-> binary dependencies that will be built for the host system. Instead running `npm install` from the Dockerfile will ensure that the correct binaries are placed
-> inside your container. Failing to do this can result in some difficult to fix bugs!
+> It is important to stress avoiding the shortcut of copying the `node_modules` folder 
+> into a container, as a general rule. This is because some modules contain
+> binary dependencies that will be built for the host system. 
+> Instead running `npm install` from the Dockerfile will ensure that the correct binaries are placed inside our container. Failing to do this can result in some difficult to fix bugs! What's more, by copying the `package.json` first, then running `npm install`, and only after that copying our source code we're taking advantage of Dockers layer caching system. The upshot is, if we rebuild our container the `npm install` will *only* run again
+if the `package.json` file was modified. This makes the copying of the `node_modules` folder less compelling from a build time perspective, since it would be faster to use Dockers cache.
 
-The Docker build process created an image and we can see this resultant image by running the `docker images` command. We created and executed a container from the image using the docker run command:
+The Docker build process created an image which we should have seen in the `docker images` command output. 
+
+We created and executed a container from the image using the `docker run` command:
 
 ```sh
 $ docker run -e ADDERSERVICE_SERVICE_PORT=8080 -p 8080:8080 -d adderservice
 ```
 
-the flags on this command are as follows:
+Let's explore the flags we passed to the `docker run` command:
 
-* -e specifies en environment variable to set when running the container. In this case the ADDERSERVICE_SERVICE_PORT. This is need to tell our service code the port it should listen on.
+* `-e` specifies an environment variable to set when running the container. In this case the `ADDERSERVICE_SERVICE_PORT`. The environment variable is read in the `adderservice` code and used to bind to the specified port number. 
 
-* -p exposes a port. Inside the container our service code is listening on port 8080, however in order for us to 'see' the service from outside of the container we need to tell Docker to expose this port for us. We do this with the -p flag when starting the container.
+* `-p` exposes a port from the container to the host system (the machine which is running `docker`). Inside the container our service code is listening on port 8080, however in order for us to 'see' the service from outside of the container we need to tell Docker to expose this port for us.
 
-* -d tells Docker to run this container in the background as a daemon process
+* `-d` instructs Docker to run this container in the background as a daemon process.
 
 ### There's more
-It is important to understand that Docker is based on the concept of layers. Each command in the Dockerfile potentially creates a new layer in the image. This allows container deployment to be very efficient. For example if we subsequently change some code in our service and rebuild the container, this will result in a very thin layer being created that represents just the delta between the last image and this one. This means of course that provided our target deployment environment has all of the previous layers, deployment of a new version of a container may only require a new layer of a few KBytes or less.
 
-#### View the Layers in an Image
-It is possible to view the layers that make up an image using the docker history command:
+Each command in the Dockerfile potentially creates a new layer in the image. This allows container deployment to be very efficient. For example if we subsequently change some code in our service and rebuild the container, this will result in a very thin layer being created that represents just the delta between the last image and this one. 
 
-![image](./images/docker_history.png)]
+This means that if our target deployment environment has all of the previous layers, deployment of a new version of a container may only require a new layer of a few kilobytes or less.
 
-It is interesting to observe that not only does this show the layers created by our Dockerfile, it also shows the commands that were used to build up the base image, in this case node:slim.
+Let's explore Docker layers.
+
+#### View the layers in a Docker image
+
+It is possible to view the layers that make up an image using the `docker history` command.
+
+Let's try it:
+
+```sh
+$ docker history adderservice
+```
+
+This should output something similar to the following image:
+
+![image](./images/docker-history.png)]
+
+Not only does this command show the layers created by our Dockerfile, it also shows the commands that were used to build up the base image, in this case our base `node:slim` image.
 
 #### Add a New Layer
-To see how Docker adds layers to an image let's make a change to the adder service and rebuild the container. For example let's add an additional `console.log` statement at the start of file `index.js` and then rebuild the container:
+
+To see how Docker adds layers to an image let's make a change to the adder service and rebuild the container.
+
+For example we could modify our `adderservice/index.js` like so:
+
+```js
+console.log('HI!')
+const wiring = require('./wiring')
+const service = require('./service')()
+
+wiring(service)
+```
+
+
+Then we can rebuild the container with:
 
 ```
 $ docker build -t adderservice .
 ```
 
-Firstly let run a `docker images` command which should look a little like this:
+Let's see how that's affected the images by running:
+
+```sh
+$ docker images
+```
+
+The output would look something like the following:
 
 ```
 REPOSITORY    TAG           IMAGE ID         CREATED           SIZE
@@ -201,20 +276,32 @@ adderservice  latest        7809fbfaaf33     3 seconds ago     226 MB
 node          slim          9be176e26d04     3 weeks ago       216 MB
 ```
 
-Notice the image labeled `<none>` this is the previous version of our `adderservice` container, The second build command has moved the repository name and the `latest` tag to our new image. If we now rerun the history command, we can see how our layers have changed:
+Notice the image labeled `<none>`. This is the previous version of our `adderservice` container which was displaced because we built another image with the same tag name. The second build command has moved the repository name and the `latest` tag to our new image. 
 
-![image](./images/docker_history2.png)]
+If we now rerun the history command, like so:
 
-If we look at the `IMAGE` column, we can see that the ID for the uppermost two layers is different. This means that the difference between these two images is just these two layers. Notice also that these layers consist of a total of 1.32 kBytes. It is important to understand that when this change to a container is deployed, on the delta, in this case 1.32 kBytes will be changed.
+```sh
+$ docker history adderservice
+```
 
-Docker is the leading container technology at present, however it should be pointed out that alternatives do exist. One such alternative is the `rkt` engine which is part of the CoreOS project. You can find out more about `rkt` here: https://coreos.com/rkt/.
+We should be able to see how our layers have changed, as in the following figure:
 
-Following the recent explosive growth in container technology, there has been a drive to push for binary and runtime standardization among interested parties in this space. The standardization effort is being led by the Open Container Initiative, you can read about their work here: https://www.opencontainers.org/
+![image](./images/docker-history2.png)]
+
+If we look at the `IMAGE` column, we can see that the ID for the uppermost two layers is different. This means that the difference between these two images is just these two layers. Notice also that these layers consist of a total of 1.475 kBytes. It is important to understand that when this change to a container is deployed, on the delta, in this case only 1.475 kBytes will be changed.
+
+#### Docker alternatives & container standards
+
+Docker is the leading container technology at present. However it should be pointed out that alternatives do exist. One such alternative is the `rkt` engine which is part of the CoreOS project. we can find out more about `rkt` here: https://coreos.com/rkt/.
+
+Following the recent explosive growth in container technology, there has been a drive to push for binary and runtime standardization among interested parties in this space. The standardization effort is being led by the Open Container Initiative, we can read about their work here: https://www.opencontainers.org/
 
 ### See also
-**TODO DMC**
+
+* TBD
 
 ## Running a Docker Registry
+
 In this recipe we are going to publish our `adderservice` container that we built in the last recipe to our own private docker registry.
 
 ### Getting Ready
@@ -224,13 +311,13 @@ To get setup for this recipe we need to pull the official Docker registry contai
 $ docker pull registry
 ```
 
-This recipe uses the code from our previous recipe `Building a Single Container`. If you don't have this already you should grab the code from the accompanying source for the chapter under `source/Building_Single_Container`. We will need to build the the `adderservice` image from the previous recipe, to build this `cd` into the `micro/adderservice` directory and run:
+This recipe uses the code from our previous recipe `Building a Single Container`. If we don't have this already we should grab the code from the accompanying source for the chapter under `source/Building_Single_Container`. We will need to build the the `adderservice` image from the previous recipe, to build this `cd` into the `micro/adderservice` directory and run:
 
 ```sh
 $ docker build -t adderservice .
 ```
 
-Finally we need the `openssl` command line tool available, which should be installed with our preferred package manager, for example `homebrew` if you are on Mac.
+Finally we need the `openssl` command line tool available, which should be installed with our preferred package manager, for example `homebrew` if we are on Mac.
 
 ### How to do it
 Firstly we need to start by running our Docker registry which is it's self running inside a Docker container. To do this run the following command:
@@ -270,14 +357,14 @@ Of course running a registry in this configuration is not all that useful becaus
 ```sh
 $ cd micro
 $ mkdir -p certs
-$ openssl req -newkey rsa:4096 -nodes -sha256 -keyout \
+$ openssl req -newkey rsa:4096 -nodes -sha256 -kewet \
   certs/myregistry.key -x509 -days 365 -out certs/myregistry.crt
 Country Name (2 letter code) [AU]:IE
 State or Province Name (full name) [Some-State]:Cork
 Locality Name (eg, city) []:Cork
 Organization Name (eg, company) [Internet Widgits Pty Ltd]:myregistry
 Organizational Unit Name (eg, section) []:dev
-Common Name (e.g. server FQDN or YOUR name) []:myregistry
+Common Name (e.g. server FQDN or our name) []:myregistry
 Email Address []:****
 ```
 
@@ -330,17 +417,17 @@ IT should be noted that using a self signed certificate is fine within a develop
 Docker tagging may seem a little confusing at first so let's dig into the details a little. A tag is comprised of the following:
 
 For a development environment its fine to do self signed:
-Make the rest of this recipe about running self signed (in this way you can supply the cert to people in your team to allow push and pull and container sharing)
+Make the rest of this recipe about running self signed (in this way we can supply the cert to people in our team to allow push and pull and container sharing)
 Or to run a self signed registry
 
 ```
 [registry host[:registry port]/]image name[:version]
 ```
 
-In other words the registry host, port and version part of the tag are optional. If no registry name is supplied then any subsequent `push` command will attempt to push to the central docker hub which can be accessed at this url: https://hub.docker.com/. Indeed once you have signed up for an account you may push and pull to this registry.
+In other words the registry host, port and version part of the tag are optional. If no registry name is supplied then any subsequent `push` command will attempt to push to the central docker hub which can be accessed at this url: https://hub.docker.com/. Indeed once we have signed up for an account we may push and pull to this registry.
 
 > ### Registry and Repository ![](../info.png)
-> You may hear the term repository and registry used interchangeably with regard to Docker. Strictly speaking registry refers to a docker registry server
+> we may hear the term repository and registry used interchangeably with regard to Docker. Strictly speaking registry refers to a docker registry server
 > such as the private registry that we ran in the last recipe or the central docker hub. A repository refers to a collection of images, for example, we
 > could create an account on the Docker Hub, create a repository against this account and then push images into this repository.
 
@@ -395,10 +482,10 @@ We can observe that the latest tag has been moved for the changed service. For e
 **TODO DMC**
 
 ## Storing Images on DockerHub
-DockerHub provides a global repository of images. We have already used it to fetch MongoDB and Redis images for use in the microservices chapter. In this recipe we are going to push our `adderservice` container to DockerHub.
+DockerHub provides a global repository of images. We have already used it to fetch MongoDB and Redis images for use in **Chapter 10 Building Microservice Systems**. In this recipe we are going to push our `adderservice` container to DockerHub.
 
 ### Getting Ready
-This recipe uses the code from our first recipe `Building a Single Container`. If you don't have this already you should grab the code from the accompanying source for the chapter under `source/Building_Single_Container`.
+This recipe uses the code from our first recipe `Building a Single Container`. If we don't have this already we should grab the code from the accompanying source for the chapter under `source/Building_Single_Container`.
 
 We need to build the `adderservice` image, if it's not already have it available, `cd` into the `micro/adderservice` directory and run:
 
@@ -428,7 +515,7 @@ $ docker login
 Once we have logged in, we can push our `adderservice` image to DockerHub. As in the previous recipe we need to tag the image and then push by running the following commands:
 
 ```sh
-$ docker tag adderservce <namepace>/adderservice
+$ docker tag adderservice <namepace>/adderservice
 $ docker push <namespace>/adderservice
 ```
 
@@ -443,7 +530,7 @@ $ docker pull <namespace>/adderservice
 ```
 
 ### How it works
-Applying the tag `<namespace>/adderservice` tells docker that this image is associated with a repository on DockerHub. Docker discriminates between a local private registry and the central hub based on the format of the tag. If the namespace tag contains an IP address or dotted domain name and port then docker will attempt to push/pull from a private registry. If the tag is just a namespace then docker will use the central Hub to push and pull. To avoid confusion the namespace that you provide on DockerHub is restricted to only allow letters and digits.
+Applying the tag `<namespace>/adderservice` instructs docker that this image is associated with a repository on DockerHub. Docker discriminates between a local private registry and the central hub based on the format of the tag. If the namespace tag contains an IP address or dotted domain name and port then docker will attempt to push/pull from a private registry. If the tag is just a namespace then docker will use the central Hub to push and pull. To avoid confusion the namespace that we provide on DockerHub is restricted to only allow letters and digits.
 
 In this recipe we created a public repository. DockerHub is free to use for public repositories, but of course public repositories may be accessed by anyone on the internet. This is a similar model to Github and other cloud based code version management systems. It is therefore important not to push any proprietary code to a public repository. Also bear in mind that we should never push images that contain secret information such as ssh keys or API keys to public repositories.
 
@@ -484,7 +571,7 @@ Using an incremental build number is one approach to maintaining version tags, a
 Kubernetes is an open source container orchestration and management system originally built at Google. Kubernetes is a powerful tool and can become quite complex however the basics are fairly simple to understand. To get to grips with Kubernetes, we will be deploying a single container into a local Kunbernetes system using Minikube. Minikube is a convenient way to explore the power of Kubernetes without building a complex cloud based deployment.
 
 ### Getting ready
-For this recipe we will need to install Minikube locally. Head over to the projects Github page to install pre-requisites and the appropriate build for your platform: `https://github.com/kubernetes/minikube/releases`.
+For this recipe we will need to install Minikube locally. Head over to the projects Github page to install pre-requisites and the appropriate build for our platform: `https://github.com/kubernetes/minikube/releases`.
 
 This recipe builds on the work that we did in the recipe `Storing Images on DockerHub`, in order to proceed with the recipe we will need a DockerHub account with our `adderservice` container available. We will also need the code from our first recipe in this chapter, `Building a Single Container`.The code for this is available in the accompanying source under `source/Building_Single_Container`. Once we have this and Minikube installed we are good to go.
 
@@ -511,7 +598,7 @@ $ kubectl get services
 
 We should see that we have a single node in the cluster and a single Kubernetes service running. Let's now go ahead and deploy our `adderservice`. Firstly `cd` into the `micro` directory and then create a new directory called `deployment` we will use this to hold our Kubernetes deployment scripts.
 
-Recall from the microservices chapter that we used the DNS namespace `micro`, we need to create a namespace in Kubernetes to reflect this so create a file in the deployment directory called namespace.yml and add the following to it:
+Recall from **Chapter 10 Building Microservice Systems** that we used the DNS namespace `micro`, we need to create a namespace in Kubernetes to reflect this so create a file in the deployment directory called namespace.yml and add the following to it:
 
 ```
 apiVersion: v1
@@ -615,7 +702,7 @@ $ curl http://192.168.99.100:30532/add/1/2
 Our service has returned the correct result. Excellent! we have just deployed our first `node.js` microservice to Kubernetes.
 
 ## How it works
-We achieved a lot in this recipe, and there are a lot of concepts to understand if you are new to Kubernetes. Whilst a full description of Kubernetes is outside the scope of this book, the following diagram illustrates what our single service deployment looks like:
+We achieved a lot in this recipe, and there are a lot of concepts to understand if we are new to Kubernetes. Whilst a full description of Kubernetes is outside the scope of this book, the following diagram illustrates what our single service deployment looks like:
 
 ![image](./images/KubeOneService.png)]
 
@@ -633,7 +720,7 @@ The structure is as follows:
 
 * We also created a Kubernetes `service` to expose our `adderservice` container to the outside world. The service exists within our `micro` namespace.
 
-A full introduction and tutorial on Kubernetes can be found on the official Kubernetes site here: https://kubernetes.io/docs/tutorials/. This tutorial provides a great explanation of the basic concepts that we need in order to work with Kubernetes. It is strongly recommended that you work through this tutorial and then revisit the diagram above before proceeding to the next recipe.
+A full introduction and tutorial on Kubernetes can be found on the official Kubernetes site here: https://kubernetes.io/docs/tutorials/. This tutorial provides a great explanation of the basic concepts that we need in order to work with Kubernetes. It is strongly recommended that we work through this tutorial and then revisit the diagram above before proceeding to the next recipe.
 
 There are of course alternatives to Kubernets, however, Kubernetes is at present the leading container orchestration platform. Some alternatives include:
 
@@ -659,7 +746,7 @@ If we click on the `logs` icon in the `adderservice` pod line, we can view the l
 
 ![image](./images/kube_dash2.png)]
 
-Take some time to explore the dashboard and ensure that the layout mentally matches the diagram in the `How it Works` section above for this recipe.
+Take some time to explore the dashboard and ensure that the lawet mentally matches the diagram in the `How it Works` section above for this recipe.
 
 #### Applying Changes
 Let's now try making a change to our service, edit the file `micro/adderservice/service.js` and add some `console.log` statements so that it looks as below:
@@ -714,7 +801,7 @@ Notice that our logging statement is present.
 In the previous recipes in this chapter we have become familiar with Docker and Kubernetes. It's time now to really exploit the power of these technologies by creating a deployment pipeline. Wether we are deploying to a staging environment (continuous delivery) or directly to production (continuous deployment) a robust and automated pipeline is powerful tool that should form the core of our DevOps strategy.
 
 ### Getting Ready
-For this recipe we are going to be using the Jenkins CI/CD system as our build and deployment tool so we will need to install this first. Head over to https://jenkins.io/ to download the appropriate binary for your system. Once you have the the download run the installer.
+For this recipe we are going to be using the Jenkins CI/CD system as our build and deployment tool so we will need to install this first. Head over to https://jenkins.io/ to download the appropriate binary for our system. Once we have the the download run the installer.
 
 Jenkins runs as in the background as a daemon process, in order to do this, the installer creates a `jenkins` user account, this account is very restricted in what it can do which is great for security on a production build system, however we are going to loosen things off a little bit on our local development environment. To to this we are going to give the `jenkins` user `sudo` powers, run the following command:
 
@@ -742,7 +829,7 @@ $ echo export PATH="/usr/local/bin:$PATH" > .bashrc
 
 This recipe uses the code from our previous recipe `Deploying a Container to Kubernetes`, this is available in the accompanying source under `source/Deploying_Container_Kubernetes`.
 
-For this recipe we need to create a Gitub repository for our code. If you don't have a Github account head over to http://github.com and create one. Next create a repository called `micro`. We will add code to this during the recipe.
+For this recipe we need to create a Gitub repository for our code. If we don't have a Github account head over to http://github.com and create one. Next create a repository called `micro`. We will add code to this during the recipe.
 
 ### How to do it
 Our build pipeline is going to consist of the following steps:
@@ -855,7 +942,7 @@ case "$1" in
 esac
 ```
 
-Replace <username> with your username, i.e. the account that you log into your computer with. Replace <dockerhub account> with your DockerHub user account name.
+Replace <username> with our username, i.e. the account that we log into our computer with. Replace <dockerhub account> with our DockerHub user account name.
 
 > ### Templates and `sed` ![](../info.png)
 > We are using `sed` as a simple way of running a template based build script. There is discussion in the Kuberenetes community on adding templates to
@@ -994,7 +1081,7 @@ $ sudo su jenkins
 $ sh build.sh container
 ```
 
-This allows us to figure out any environmental or permissions issues with a build step before committing the code. Remember to `exit` from the jenkins user once you are done debugging. Also note that a useful command is `whoami` which will tell us the context of the user our shell is running in.
+This allows us to figure out any environmental or permissions issues with a build step before committing the code. Remember to `exit` from the jenkins user once we are done debugging. Also note that a useful command is `whoami` which will tell us the context of the user our shell is running in.
 
 #### Triggering the Build
 During this recipe we manually triggered the build in Jenkins, of course this is not the ideal way to do things. It would be much better to trigger the build as code is checked into the master branch. Let's configure Jenkins to do this for us. Firstly we need to create a Github API access token. Head over to github.com and click the settings link. Under the Developer settings menu on the left hand side click the Personal access tokens link. Set the permissions on the token as per the image below:
@@ -1026,7 +1113,7 @@ Now that we have our Github polling setup we can go ahead and trigger a build. T
 Now that we have experience with containers and building a deployment pipeline for a single service, it's time to build a deployment pipeline for an entire microservice system. We will be setting this up to work on our local machine for now, but in our next recipe will explore how to lift this into a cloud environment.
 
 ### Getting Ready
-In the Chapter 'Understanding Microservices' we developed a small microservice system. For this recipe we will be deploying this system using techniques used in the previous recipes in this chapter. So to get ready we need to grab a copy of the code from the last recipe in chapter 7 'Adding a Queue Based Service'. This code is available in the accompanying source for the microservices chapter under `source/Queue_Based_Service`.
+In **Chapter 10 Building Microservice Systems** we developed a small microservice system. For this recipe we will be deploying this system using techniques used in the previous recipes in this chapter. So to get ready we need to grab a copy of the code from the last recipe in chapter 10 'Adding a Queue Based Service'. This code is available in the accompanying source for **Chapter 10 Building Microservice Systems** under `source/Queue_Based_Service`.
 
 This recipe builds on the work of our previous recipe 'Creating a Deployment Pipeline' and it is necessary to complete that recipe before proceeding with this one.
 We also assume that Docker, Minikube and Jenkins are installed locally as required by the previous recipe.
@@ -1275,13 +1362,13 @@ We now have a functioning microservice system with a continuous delivery pipelin
 
 Once a commit is pushed to the master branch, Jenkins will pull the latest version of the code. Jenkins will then run build and test steps before creating a new container image. Once the image is created it is pushed up to DockerHub. Jenkins then triggers a deployment into Kubernetes. Kubernetes pulls the nominated image from DockerHub and creates a new pod. The old pod is then discarded. We have created independent pipelines for each of `adderservice`, `auditservice`, `eventservice` and `webapp`
 
-It is important to note at this point the transition from running our system in development mode using Fuge, which was the subject of several recipes in the microservices chapter to running our system in Kubernetes. This transition was smooth because our code was written from the start to use the same service discovery mechanisms in each case.
+It is important to note at this point the transition from running our system in development mode using Fuge, which was the subject of several recipes in **Chapter 10 Building Microservice Systems** to running our system in Kubernetes. This transition was smooth because our code was written from the start to use the same service discovery mechanisms in each case.
 
 ### There's more
-Whilst Kubernetes can seem a little overwhelming at first, exploring some more `power user` techniques can help with mastering it. One technique that can help in many scenarios is to run a shell inside a Kubernetes managed container, let's try this out:
+Whilst Kubernetes can seem a little overwhelming at first, exploring some more *power user* techniques can help with mastering it. One technique that can help in many scenarios is to run a shell inside a Kubernetes managed container, let's try this out:
 
 #### Running a Report
-Recall that in the recipe `Adding a Queue Based Service` in the microservices chapter we created a reporting utility that displayed URL counts for our system. Let's run this again but from inside of Kubernetes. To do this we need to build a container for our reporting service. Firstly copy the code from the microservices chapter recipe directory  `micro/report` into our working `micro` directory.
+Recall that in the recipe `Adding a Queue Based Service` in **Chapter 10 Building Microservice Systems** we created a reporting utility that displayed URL counts for our system. Let's run this again but from inside of Kubernetes. To do this we need to build a container for our reporting service. Firstly copy the code from **Chapter 10 Building Microservice Systems** recipe directory  `micro/report` into our working `micro` directory.
 
 As above, copy in the same `Dockerfile` and `.dockerignore` files into the `report` directory. Next let's build, tag and push our container:
 
@@ -1298,7 +1385,7 @@ Next we are going to manually tell Kubernetes to run out report container and op
 $ kubectl run -i --tty report --image=<dockerhub account>/report -- /bin/bash
 ```
 
-This will cause Kuberenets to pull the report container and then open a `bash` shell for us. Once the container is pulled we will be dropped into a root prompt inside the `report` container:
+This will cause Kubernetes to pull the report container and then open a `bash` shell for us. Once the container is pulled we will be dropped into a root prompt inside the `report` container:
 
 ```sh
 root@report-1073913328-h8st5:/home/node/service#
@@ -1353,18 +1440,18 @@ Finally type `exit` to close the command prompt and exit the running container.
 **TODO DMC**
 
 ## Deploying to the Cloud
-In the final recipe for this chapter we are going to take our deployment and shift it up onto a public cloud, at the end we will have a cloud based deployment of our microservice system with a supporting continuous delivery pipeline. We will be using Amazon Web Services AWS as our cloud provider because at the time of writing AWS is the most popular Infrastructure as a Service (IAAS) provider. Please note that this recipe will incur billable time on the AWS cloud so you are advised to shut down the system once you have completed the recipe in order to minimize costs.
+In the final recipe for this chapter we are going to take our deployment and shift it up onto a public cloud, at the end we will have a cloud based deployment of our microservice system with a supporting continuous delivery pipeline. We will be using Amazon Web Services AWS as our cloud provider because at the time of writing AWS is the most popular Infrastructure as a Service (IAAS) provider. Please note that this recipe will incur billable time on the AWS cloud so we are advised to shut down the system once we have completed the recipe in order to minimize costs.
 
 ### Getting Ready
-For this recipe we will need an AWS account. If you do not already have an account, head over to `http://aws.amazon.com` and sign up for one.
+For this recipe we will need an AWS account. If we do not already have an account, head over to `http://aws.amazon.com` and sign up for one.
 
 The code in this recipe builds on that from our previous recipe `Deploying a Full System` so we will need to have this code available.
 
 > ### AWS Billing ![](../info.png)
-> On sign up you will need to provide a payment method to AWS, the cost to run this recipe for an hour or so is in the order of a few dollars, however Please
+> On sign up we will need to provide a payment method to AWS, the cost to run this recipe for an hour or so is in the order of a few dollars, however Please
 > ensure that all resources are terminated after use in order not to incur additional costs.
 
-Next we will need to install the AWS command line tools, these are implemented in Python and are best installed using `pip`. Python and `pip` may be installed using your systems package manager such as `homebrew` or `apt-get`.
+Next we will need to install the AWS command line tools, these are implemented in Python and are best installed using `pip`. Python and `pip` may be installed using our systems package manager such as `homebrew` or `apt-get`.
 
 > ### Pip ![](../info.png)
 > Pip is the Python equivalent of `npm` and stands for `Pip installs packages`
@@ -1428,7 +1515,7 @@ $ kops create cluster --zones=us-west-2c nodecookbookdeployme.com
 $ kops update cluster <domain name> --yes
 ```
 
-`kops` will now create a cluster for us on AWS, this includes booting up machine instances and deploying the Kuberenets container to the instances. Note that this command will several minutes to complete. We can check our cluster status using:
+`kops` will now create a cluster for us on AWS, this includes booting up machine instances and deploying the Kubernetes container to the instances. Note that this command will several minutes to complete. We can check our cluster status using:
 
 ```sh
 $ kops validate cluster <domain name>
@@ -1605,7 +1692,7 @@ Our deployed system is shown in the diagram below:
 
 Note that the configuration is very similar to our local setup, only that we have now deployed our system to the AWS cloud. Within AWS Kubernetes is running on three machine instances, one master and two worker nodes. Our containers are distributed across these nodes, in fact we don't event care too much which instances they are running on, Kubernetes will manage workload and distribution for us.
 
-`kops` is a powerful tool that allows us to manage multiple Kubernets clusters and takes a lot of the grunt work out of so doing. `kops` stores it's configuration in an S3 bucket so that it is centrally available - this is known as the `kops` state store. Both `'kops` and Kuberenets use the information in the state store to configure and update the cluster and underlying infrastructure. To edit the contents of the state store we should always use the `kops` interface, rather than editing the files on S3 directly, for example to edit the cluster information we could run:
+`kops` is a powerful tool that allows us to manage multiple Kubernets clusters and takes a lot of the grunt work out of so doing. `kops` stores it's configuration in an S3 bucket so that it is centrally available - this is known as the `kops` state store. Both `'kops` and Kubernetes use the information in the state store to configure and update the cluster and underlying infrastructure. To edit the contents of the state store we should always use the `kops` interface, rather than editing the files on S3 directly, for example to edit the cluster information we could run:
 
 ```sh
 $ kops edit cluster
