@@ -1364,7 +1364,7 @@ If GitHub triggers are running for the `adderservice` in Jenkins (using SCM Poll
 
 ### How to do it
 
-Firstly we need to add the code for the rest of the system into our `micro` repository that we created in the previous recipe. 
+We need to add the code for the rest of the system into our `micro` repository that we created in the previous recipe. 
 
 To do this copy the following top level directories from the *Adding a queue based service* `micro` folder into the root of our current `micro`folder (the one which is initialized as a GitHub) repository:
 
@@ -1388,90 +1388,68 @@ micro
 └── webapp
 ```
 
-Firstly let's go ahead and commit our changes and push them to GitHub:
+Let's go ahead and commit our changes and push them to GitHub:
 
 ```sh
+$ cd micro
 $ git add .
 $ git commit -m 'added services and webapp'
 $ git push origin master
 ```
 
-Next we need to apply the same build structure to `eventservice`, `auditservice` and `webapp`.
+Now let's apply the same build structure to `eventservice`, `auditservice` and `webapp`.
 
 > ### Check with Fuge ![](../tip.png)
-> We have copied across our fuge config with our microservice system, we can start the system up anytime under fuge to check that the system is running correctly,
-> todo this just run `fuge shell fuge/fuge.yml`. Note that we may need to stop our Jenkins server to do this because the adder service is running on port 8080 as is
-> Jenkins.
+> We have copied across our Fuge config (`fuge/fuge.yml`) with our microservice system. We can start the system up anytime with Fuge to check that the system is running correctly (simply run `fuge shell fuge/fuge.yml`). Note that Jenkins runs
+> on port 8080 by default, as does our `adderservice` which leads to an unfortunate port conflict, so when testing in Fuge we would need to stop Jenkins
+> temporarily. It's left as an exercise for the reader to solve this collision.
 
-To do this copy the files `.dockerignore`, `Dockerfile`, `Jenkinsfile` and `build.sh` from the `adderservice` folder to each of the `eventservice`, `auditservice` and `webapp` folders. Once copied we will need to modify the files to match the service that they are now pertaining to. Specifically this means replacing references to `adderservice` and the adder service port number. For example for the audit service `build.sh` should look as follows:
+To do this copy the files `.dockerignore`, `Dockerfile`, `Jenkinsfile` and `build.sh` from the `adderservice` folder to each of the `eventservice`, `auditservice` and `webapp` folders.
 
 ```sh
-#!/bin/bash
-source ~/.bashrc
+$ cp adderservice/{.dockerignore,Dockerfile,Jenkinsfile,build.sh} eventservice
+$ cp adderservice/{.dockerignore,Dockerfile,Jenkinsfile,build.sh} auditservice
+$ cp adderservice/{.dockerignore,Dockerfile,Jenkinsfile,build.sh} webapp
+``` 
 
-GITSHA=$(git rev-parse --short HEAD)
+Once copied we will need to modify the `Jenkinsfile` and `build.sh` files to match the service that they are now pertaining to. 
 
-case "$1" in
-  container)
-    sudo -u <user> docker build -t auditservice:$GITSHA .
-    sudo -u <user> docker tag auditservice:$GITSHA \
-      <user>/auditservice:$GITSHA
-    sudo -i -u <user> docker push <user>/auditservice:$GITSHA
-  ;;
-  deploy)
-    sed -e s/_NAME_/auditservice/ -e s/_PORT_/8081/ \
-      < ../deployment/service-template.yml > svc.yml
-    sed -e s/_NAME_/auditservice/ -e s/_PORT_/8081/ \
-      -e s/_IMAGE_/<user>\\/auditservice:$GITSHA/ \
-      < ../deployment/deployment-template.yml > dep.yml
-    sudo -i -u <user> kubectl apply -f $(pwd)/svc.yml
-    sudo -i -u <user> kubectl apply -f $(pwd)/dep.yml
-  ;;
-  *)
-    echo 'invalid build command'
-    exit 1
-  ;;
-esac
+Specifically this means replacing references to the name of the service (which currently be `adderservice`) and the port number. 
+
+We can do the bulk of necessary customizations quickly with `sed`. We can 
+process each `Jenkinsfile` like so:
+
+```sh
+$ cat auditservice/Jenkinsfile | sed -e s/adderservice/auditservice/ | tee auditservice/Jenkinsfile
+$ cat eventservice/Jenkinsfile | sed -e s/adderservice/eventservice/ | tee eventservice/Jenkinsfile
+$ cat webapp/Jenkinsfile | sed -e s/adderservice/webapp/| tee webapp/Jenkinsfile
 ```
 
-Jenkinsfile should look as below:
+The `build.sh` we can alter in similar form:
 
-```
-pipeline {
-  agent any
-
-  stages {
-    stage('Checkout') {
-      steps {
-        checkout scm
-      }
-    }
-    stage('Build') {
-      steps {
-        sh 'source ~/.bashrc && cd auditservice && npm install'
-      }
-    }
-    stage('Test'){
-      steps {
-        sh 'source ~/.bashrc && cd auditservice && npm test'
-      }
-    }
-    stage('Container'){
-      steps {
-        sh 'source ~/.bashrc && cd auditservice && sh build.sh \
-        container'
-      }
-    }
-    stage('Deploy'){
-      steps {
-        sh 'source ~/.bashrc && cd auditservice && sh build.sh deploy'
-      }
-    }
-  }
-}
+```sh
+$ cat auditservice/build.sh | sed -e s/adderservice/auditservice/ -e s/8080/8081/ | tee auditservice/build.sh
+$ cat eventservice/build.sh | sed -e s/adderservice/eventservice/ -e s/8080/8082/ | tee eventservice/build.sh
+$ cat webapp/build.sh | sed -e s/adderservice/webapp/ -e s/8080/3000/ | tee webapp/build.sh
 ```
 
-The `Dockerfile` will be the same in each case, except for `webapp` where the Dockerfile should look as follows:
+Notice how we also conver the port number in each case from 8080 to the
+relevant port for the service (based on how we've typically mapped services
+to ports thus far, as laid out initially in `fuge/fuge.yml`).
+
+Has in our previous recipe, we need to tweak `test` field in the `package.json` for each service so it has an exit code of zero. As mentioned previously, we're simulating successfully passing unit tests, but in a real scenario we would want each service to run unit tests instead of having a faux successful exit code.
+
+We can run the following commands to alter the `package.json` in each service:
+
+```sh
+$ node -e 'o = require(`./auditservice/package.json`);o.scripts.test = `echo "Error: no test specified" && exit 0`;fs.writeFileSync(`./auditservice/package.json`, JSON.stringify(o, 0, 2))'
+$ node -e 'o = require(`./eventservice/package.json`);o.scripts.test = `echo "Error: no test specified" && exit 0`;fs.writeFileSync(`./eventservice/package.json`, JSON.stringify(o, 0, 2))'
+$ node -e 'o = require(`./webapp/package.json`);o.scripts.test = `echo "Error: no test specified" && exit 0`;fs.writeFileSync(`./webapp/package.json`, JSON.stringify(o, 0, 2))'
+```
+
+The `webapp/Dockerfile` should be modified with the final `CMD` set to `npm start` instead of `node index.js`.
+
+The entire the `webapp/Dockerfile` should look as follows:
 
 ```
 FROM node:slim
@@ -1483,22 +1461,15 @@ COPY . /home/node/service
 CMD [ "npm", "start" ]
 ```
 
-There is one other change that we need to make. We have a `test` step in our build although for brevity we've skipped writing unit tests. However we need to modify `package.json` for each service and change or add a line in the scripts section because by default `npm init` adds an `exit 1` to the file which will fail our build script. To fix this ensure that `package.json` has the following in it's script section for each service
-
-```
-scripts {
-  "test": "echo \"no test specified\" && exit 0"
-```
-
-Once we have completed these changes for the `auditservice`, `eventservice` and `webapp`, commit them to the GitHub master branch.
+Once we have completed these changes for the `auditservice`, `eventservice` and `webapp`, we can commit them to the GitHub master branch.
 
 ```sh
 $ git add .
 $ git commit -m 'added build files'
-$ git push origin master
+$ git push
 ```
 
-> ### Independent Variation ![](../Info.png)
+> ### Independent variation ![](../Info.png)
 > We have chosen to clone and modify our build script and `Jenkinsfile` for each service. Whilst we could have created a single parameterized script to deploy our
 > services it is usually better to have a build script per service. That way the build may be customized as required for each service without introducing
 > complication into a master build script.
@@ -1558,11 +1529,21 @@ pipeline {
 }
 ```
 
-Next we need to commit these changes to GitHub. Once we have done that it's time to configure Jenkins. From the main Jenkins dashboard select `New Item`, select a type of `Pipeline` and call the pipeline `infrastructure`. Jenkins can give us a little help here, if we tell it to copy settings from `adderservice` as shown below, we will get the Github configuration copied into the `infrastructure` pipeline for us:
+We can now commit and push the infrastructure additions to GitHub:
+
+```sh
+$ git add infrastructure
+$ git commit -m 'infrastructure'
+$ git push
+```
+
+Now we're ready to configure Jenkins. 
+
+From the main Jenkins dashboard let's click *New Item* and select the *Pipeline* type. We'll name the pipeline *infrastructure*. Jenkins provides a convenient shortcut, we can instruct Jenkins to copy settings from *adderservice* pipeline  configuration as shown below. 
 
 ![image](./images/jenk_copysettings.png)
 
-Once we have created the pipeline we need to make one small modification, navigate to the configuration screen for the `infrastructure` pipeline and change the `Script Path` setting from `adderservice/Jenkinsfile` to `infrastructure/Jenkinsfile`. We can now manually trigger a build of our infrastructure pipeline. Once this is done we can inspect Kubernetes using the dashboard:
+This means we also copy the Github configuration the *infrastructure* pipeline automatically. It also means that the *Script Path* setting points to the `adderservice/Jenkinsfile` instead of `infrastructure/Jenkinsfile`. Let's navigate to the configuration screen for the *infrastructure* pipeline section and change the *Script Path* setting from *adderservice/Jenkinsfile* to *infrastructure/Jenkinsfile*. We can now manually trigger a build of our infrastructure pipeline. Once this is done we can inspect Kubernetes using the dashboard:
 
 ```
 $ minikube dashboard
@@ -1572,15 +1553,21 @@ Which should look similar to below:
 
 ![image](./images/kube_infradep.png)
 
-That takes care of our infrastructure, we now just need to configure our other services. To do this repeat the above steps for each of `eventservice`, `auditservice` and `webapp` making sure to copy settings from `adderservice` and updating the `Script path` setting in each case. Once we have done this our main Jenkins dashboard should look as below:
+That takes care of our infrastructure. We now just need to configure our other services. To do this repeat the above steps for each of `eventservice`, `auditservice` and `webapp` making sure to copy settings from `adderservice` and updating the `Script path` setting in each case. 
+
+Once we completed this our main Jenkins dashboard should look as below:
 
 ![image](./images/kube_infradep.png)
 
-We can now go ahead and trigger builds for each of our services and also our `webapp` project. Let's go ahead and do this manually in Jenkins. Once all of the builds have completed open up the `minikube` dashboard which should look similar to the image below:
+We can now trigger builds for each of our services and the `webapp` by clicking the left hand menu, selecting each and clicking *build now*. 
+
+Once all of the builds have completed we can open up the `minikube` dashboard which should look similar to the image below:
 
 ![image](./images/kube_full.png)
 
-Finally let's test that our system is up and running correctly to do this we need to determine the external port number that Kubernetes assigned to our web app and also the Kubernetes IP address:
+Finally we can test that our system is up and running correctly. 
+
+We need to determine the external port number that Kubernetes assigned to our web app and also the Kubernetes IP address:
 
 ```sh
 $ minikube ip
@@ -1595,20 +1582,25 @@ redis          10.0.0.57    <nodes>       6379:31863/TCP    17m
 webapp         10.0.0.54    <nodes>       3000:30607/TCP    9m
 ```
 
-In the case of the output above we can see that the `webapp` is available on IP address `192.168.99.100` port number `30607`. If we now go ahead and point our browser to `http://192.168.99.100:30607/add` we should see the `webapp` page rendered as before. When we enter some numbers and press `add` we should see a result, also the audit link at `http://192.168.99.100/30607/audit` should show a recording of all of our calculations.
+In the case of the output above we can see that the `webapp` is available on IP address `192.168.99.100` port number `30607`. If we now go ahead and point our browser to `http://192.168.99.100:30607/add` we should see the `webapp` page rendered as before. When we enter some numbers and press `add` we should see a result. Also the audit link at `http://192.168.99.100/30607/audit` should show a recording of all of our calculations.
 
-The final thing to do is to trigger the build using Git. To do this we need to repeat the step of the previous recipe by selecting the `Poll SCM` setting for each project and setting the schedule to `* * * * *` to poll every minute.
+The final thing to do is to automate the build pipeline to trigger after pushing to GitHub. 
+
+To do this we need to repeat the step of the previous recipe by selecting the `Poll SCM` setting for each project and setting the schedule to `* * * * *` to poll every minute.
 
 ### How it works
-We now have a functioning microservice system with a continuous delivery pipeline. This is depicted in the image below:
+
+We now have a functioning microservice system with a continuous delivery pipeline. 
+
+This is depicted in the image below:
 
 ![image](./images/BuildDetail.png)
 
-Once a commit is pushed to the master branch, Jenkins will pull the latest version of the code. Jenkins will then run build and test steps before creating a new container image. Once the image is created it is pushed up to DockerHub. Jenkins then triggers a deployment into Kubernetes. Kubernetes pulls the nominated image from DockerHub and creates a new pod. The old pod is then discarded. 
+Once a commit is pushed to the master branch, Jenkins will pull the latest version of the code, run build and test steps before creating a new container image. Once the image is created it is pushed up to DockerHub. Jenkins then triggers a deployment into Kubernetes. Kubernetes pulls the nominated image from DockerHub and creates a new pod. The old pod is then discarded. 
 
-We have created independent pipelines for each of `adderservice`, `auditservice`, `eventservice` and `webapp`
+We have created independent pipelines for our `adderservice`, `auditservice`, `eventservice` and `webapp`
 
-This is a good point to note that transitioning from running our system in development mode using Fuge (the microservice development toolkit used in several recipes in **Chapter 10 Building Microservice Systems**) to running our system in Kubernetes. This transition was smooth because our code was written from the start to use the same service discovery mechanisms in both environments.
+This is a good point to note the ease of transition from running our system in development mode using Fuge (the microservice development toolkit used in several recipes in **Chapter 10 Building Microservice Systems**) to running our system in Kubernetes. This down to our code being written from the start to use the same service discovery mechanisms in both environments.
 
 ### There's more
 
@@ -1619,6 +1611,7 @@ One helpful technique is opening a shell inside a Kubernetes managed container.
 Let's try this out.
 
 #### Running a Report
+
 Recall that in the recipe *Adding a queue based service* in **Chapter 10 Building Microservice Systems** we created a reporting utility that displayed URL counts for our system. Let's run this again but from inside of Kubernetes. To do this we need to build a container for our reporting service. Firstly copy the code from **Chapter 10 Building Microservice Systems** recipe directory  `micro/report` into our working `micro` directory.
 
 As above, copy in the same `Dockerfile` and `.dockerignore` files into the `report` directory. Next let's build, tag and push our container:
@@ -1642,35 +1635,38 @@ This will cause Kubernetes to pull the report container and then open a `bash` s
 root@report-1073913328-h8st5:/home/node/service#
 ```
 
-Before we run the report we need to modify the shell script `report.sh` we can do this inside the running container. Let's open the file in the `vi` editor:
+In order to run the report in the Kuberenets environment, 
+we need the `DNS_HOST` and `DNS_PORT` environment variables to *not* be set
+so that the `concordant` dependency uses the containers standard DNS resolution.
 
-```sh
-root@report-1073913328-h8st5:/home/node/service# vi report.sh
-bash: /usr/bin/vi: No such file or directory
+Fortunately we planned for this. 
+
+Let's quickly review the `report/env.js` file:
+
+```js
+const env = {
+  DNS_NAMESPACE: 'micro',
+  DNS_SUFFIX: 'svc.cluster.local'
+}
+
+if (process.env.NODE_ENV !== 'production') {
+  Object.assign(env, {  
+    DNS_HOST: '127.0.0.1',
+    DNS_PORT: '53053'
+  })
+}
+
+Object.assign(process.env, env)
 ```
 
-The error message is telling us that vi is not installed in the container! Recall that we used the `node:slim` variant which is an optimized image. This doesn't include editors or other packages not required for running Node processes. We can fix this on the fly! run:
+When we set `NODE_ENV` to production, `DNS_HOST` and `DNS_PORT`
+remain unset, thus Kuberenetes DNS system is used instead to
+find relevant services.
+
+We can run our report with:
 
 ```sh
-root@report-1073913328-h8st5:/home/node/service# apt-get update
-root@report-1073913328-h8st5:/home/node/service# apt-get install vi
-```
-
-This will install the vi editor into our running container, now we can open up report.sh and modify it to look as below:
-
-```sh
-#!/bin/bash
-# export DNS_HOST=127.0.0.1
-# export DNS_PORT=53053
-export DNS_NAMESPACE=micro
-export DNS_SUFFIX=svc.cluster.local
-node index.js
-```
-
-We have commented out the `DNS_HOST` and `DNS_PORT` environment variables as we will be using the containers standard DNS resolution. We can now run the report:
-
-```sh
-root@report-1073913328-h8st5:/home/node/service# sh report.sh
+root@report-1073913328-h8st5:/home/node/service# NODE_ENV=production node index.js
 ┌──────────────────────────────────────────────────┬──────────┐
 │ url                                              │ count    │
 ├──────────────────────────────────────────────────┼──────────┤
@@ -1684,7 +1680,7 @@ root@report-1073913328-h8st5:/home/node/service# sh report.sh
 └──────────────────────────────────────────────────┴──────────┘
 ```
 
-Finally type `exit` to close the command prompt and exit the running container.
+Finally we type `exit` to close the command prompt and exit the running container.
 
 ### See also
 
