@@ -64,7 +64,7 @@ We also need the code from the **Chapter 10 Building Microservice Systems** avai
 
 ### How to do it
 
-Our final system from **Chapter 10 Building Microservice Systems** is depicted in below, recall that it comprises a front end, three services and a reporting tool.
+Our final system from **Chapter 10 Building Microservice Systems** is depicted in below, recall that it comprises a frontend, three services and a reporting tool.
 
 ![image](./images/finalsystem.png)]
 
@@ -102,7 +102,7 @@ CMD [ "node", "index.js" ]
 ```
 
 > ### Inspecting Official Containers ![](../info.png)
-> The Dockerfiles for all official Docker images are publicly available on Github. Taking 
+> The Dockerfiles for all official Docker images are publicly available on GitHub. Taking 
 > some time to inspect publically available official Dockerfiles can furnish us with both > precise knowledge of what any given container is composed of, and best practice tips for
 > writing our own Dockerfiles. 
 
@@ -525,7 +525,7 @@ In this recipe we are going to push our `adderservice` container to DockerHub.
 
 This recipe uses the code from the first recipe in this Chapter, *Building a single Container*. 
 
-If we haven't already done so, we'll need to build the the `adderservice` image:
+If we haven't already done so, we'll need to build the `adderservice` image:
 
 ```sh
 $ cd micro/adderservice
@@ -583,7 +583,7 @@ $ docker pull <namespace>/adderservice
 
 Applying the tag `<namespace>/adderservice` instructs Docker that this image is associated with a repository on DockerHub. Docker differentiates between a local private registry and the central hub based on the format of the tag. If the namespace tag contains an IP address or dotted domain name and port then Docker will attempt to push/pull from a private registry. If the tag is just a namespace then Docker will use the central Hub to push and pull. To minimize confusion the namespace that we provide on DockerHub is restricted to only allow letters and digits.
 
-In this recipe we created a public repository. DockerHub is free to use for public repositories, but of course public repositories may be accessed by anyone on the internet. This is a similar model to Github and other cloud-based code version management systems. It's therefore important not to push any proprietary code or secret information (such as ssh or API keys) to a public repository.
+In this recipe we created a public repository. DockerHub is free to use for public repositories, but of course public repositories may be accessed by anyone on the internet. This is a similar model to GitHub and other cloud-based code version management systems. It's therefore important not to push any proprietary code or secret information (such as ssh or API keys) to a public repository.
 
 It is possible to host private repositories on DockerHub for a fee. Private repositories are only accessible to nominated DockerHub accounts so access can be tightly controlled.
 
@@ -627,7 +627,7 @@ Kubernetes is an open source container orchestration and management system origi
 
 ### Getting ready
 
-For this recipe we will need to install Minikube locally. Let's head over to the project's Github page at https://github.com/kubernetes/minikube/releases to install prerequisites and the appropriate build for our platform.
+For this recipe we will need to install Minikube locally. Let's head over to the project's GitHub page at https://github.com/kubernetes/minikube/releases to install prerequisites and the appropriate build for our platform.
 
 This recipe builds on the work that we did in the recipe *Storing Images on DockerHub*, in order to proceed with the recipe we will need a DockerHub account with our `adderservice` container available. 
 
@@ -650,11 +650,11 @@ The main interface into Kubernetes is the `kubectl` command line tool, which was
 Let's confirm that `kubectl` was installed successfully:
 
 ```sh
-$ kubeclt version
+$ kubectl version
 ```
 
 ```sh
-$ kubeclt help
+$ kubectl help
 ```
 
 We should see the version of Kubernetes that we are running and then some help information. 
@@ -671,7 +671,7 @@ $ kubectl get services
 
 We should see that we have a single node in the cluster and a single Kubernetes service running. Let's now go ahead and deploy our `adderservice`. 
 
-Let's begin by creating a `deployment` directory inside our `micro` folder, with three configuration files `namespace.yml`, `adderservice-dep.yml` and `adderservice-svc.yml`:
+Let's begin by creating a `deployment` directory inside our `micro` folder,with three configuration files `namespace.yml`, `adderservice-dep.yml` and `adderservice-svc.yml`:
 
 ```sh
 $ cd micro
@@ -962,7 +962,7 @@ This recipe uses the `micro` folder as we left it in previous recipe *Deploying 
 
 We'll be using the `git` version control tool in this recipe, so we need to have that installed on our system.
 
-We'll also need a GitHub account. If we don't have a Github account we can navigate to http://github.com and create one. 
+We'll also need a GitHub account. If we don't have a GitHub account we can navigate to http://github.com and create one. 
 
 Additionally, we need to create a GitHub repository called `micro` (see https://help.github.com/articles/create-a-repo/ for help on this). We'll be adding code to our GitHub repository throughout.
 
@@ -1003,8 +1003,7 @@ scripts {
 
 By default `npm` will insert an `exit 1` command which would cause our test build phase to fail. Note that we are not advocating skipping the test phase. Robust unit testing is a key practice for any system's development. However the focus of this recipe is on constructing a build pipeline not on the content of any unit tests we might write. 
 
-We can now add the contents of the `micro` folder into our local git repository,
-make the first commit, add the remote origin and push to Github.
+We can now add the contents of the `micro` folder into our local git repository, make the first commit, add the remote origin and push to GitHub.
 
 ```sh
 $ git add .
@@ -1013,7 +1012,7 @@ $ git remote add origin https://github.com/<user>/micro.git
 $ git push -u origin master
 ```
 
-In these steps, we substitute `<user>` with the name of our Github user account.
+In these steps, we substitute `<user>` with the name of our GitHub user account.
 
 Before we wire up Jenkins, we are going to create our build script. We're also going to make our Kubernetes deployment a little more generic. 
 
@@ -1167,7 +1166,7 @@ pipeline {
 }
 ```
 
-No we'll commit and push our changes thus far to our GitHub repository:
+Now we'll commit and push our changes thus far to our GitHub repository:
 
 ```sh
 $ cd micro
@@ -1182,7 +1181,7 @@ Select the `New Item` link on the left hand menu and create a new pipeline proje
 
 ![image](./images/jenk_createPipeline.png)
 
-Then we'll configure the pipeline by pointing it to our GitHub repository. Under the *General* heading we should select *Github project* input and provide the url to the project.
+Then we'll configure the pipeline by pointing it to our GitHub repository. Under the *General* heading we should select *GitHub project* input and provide the url to the project.
 
 ![image](./images/jenk_config1.png)
 
@@ -1271,7 +1270,9 @@ We accomplished a lot in this recipe! We now have a Jenkins controlled pipeline 
 
 If we encounter any issues with the build process, Jenkins will report these in the output logs. Once we have made a correction to our build scripts we will need to commit and push them to GitHub before telling Jenkins to rebuild. This results in quite a long development cycle. A much better way is to test the scripts directly in a shell so that we can be sure they're working before committing for Jenkins to build.
 
-To do this we need to test our scripts in the context of the `jenkins` user. We can do this using the `sudo` command. Let's run the container build step in isolation:
+To do this we need to test our scripts in the context of the `jenkins` user. We can do this using the `sudo` command. 
+
+Let's run the container build step in isolation:
 
 ```sh
 $ cd micro/adderservice
@@ -1287,13 +1288,13 @@ In the main recipe we manually triggered the build in Jenkins, this isn't ideal.
 
 Let's configure Jenkins and GitHub to automate the build process. 
 
-We need to create a Github API access token. Let's go to http://github.com, and login if we're not already. Next we click the *settings* link from right hand drop down menu (located next to our profile picture). Under the Developer settings menu on the left hand side click the Personal access tokens link (following this navigation should lead to https://github.com/settings/tokens). 
+We need to create a GitHub API access token. Let's go to http://github.com, and login if we're not already. Next we click the *settings* link from right hand drop down menu (located next to our profile picture). Under the Developer settings menu on the left hand side click the Personal access tokens link (following this navigation should lead to https://github.com/settings/tokens). 
 
 Next we set the permissions on the token as per the image below:
 
 ![image](./images/gh_accesstok.png)
 
-Once the token has been created it's only displayed once on the Github UI so we should copy and paste the token string somewhere for safe keeping. 
+Once the token has been created it's only displayed once on the GitHub UI so we should copy and paste the token string somewhere for safe keeping. 
 
 Next we need to make our access token available to Jenkins. We can achieve this by opening the main Jenkins dashboard page and clicking the *credentials* link on the left hand menu. Following this we click the *system link* and then select the *add credentials* link under the global scope (this should lead us to http://localhost:8080/credentials/store/system/domain/_/newCredentials). 
 
@@ -1301,18 +1302,18 @@ Then we can complete the form shown in the following screenshot:
 
 ![image](./images/jenk_creds.png)
 
-Select the type as `secret text` and paste in the access token from Github into the secret field. Next we need to configure the Jenkins Github plugin. Naviage to the main Jenkins dashboard and then hit the link to `Manage Jenkins` then the `Configure System` link, scroll down to the `Githuib` section and configure it as depicted below:
+Select the type as `secret text` and paste in the access token from GitHub into the secret field. Next we need to configure the Jenkins GitHub plugin. Naviage to the main Jenkins dashboard and then hit the link to `Manage Jenkins` then the `Configure System` link, scroll down to the `Githuib` section and configure it as depicted below:
 
 ![image](./images/jenk_gh.png)
 
 Using the credentials that we created in the previous step. We can use the *Test Connection* button to check that our access is setup correctly. 
 
-Finally we need to configure our pipeline so that it's triggered from Github.
+Finally we need to configure our pipeline so that it's triggered from GitHub.
 
 We navigate to the configuration screen for our pipeline and scroll down to the *Build Triggers* section. Then we select the *Poll SCM* option and the string `* * * * *` in the schedule box.
 
 > ### Webhooks ![](../info.png)
-> We are using polling in this recipe because our Jenkins server is running on localhost. A more efficient way to trigger a build is to setup a Github webhook.
+> We are using polling in this recipe because our Jenkins server is running on localhost. A more efficient way to trigger a build is to setup a GitHub webhook.
 > Using this technique, GitHub will call a nominated url on certain events such as a branch merge.
 
 Now that we have GitHub polling configured we can go ahead and trigger a build by pushing to GitHub.
@@ -1366,7 +1367,7 @@ If GitHub triggers are running for the `adderservice` in Jenkins (using SCM Poll
 
 We need to add the code for the rest of the system into our `micro` repository that we created in the previous recipe. 
 
-To do this copy the following top level directories from the *Adding a queue based service* `micro` folder into the root of our current `micro`folder (the one which is initialized as a GitHub) repository:
+To do this copy the following top level directories from the *Adding a queue based service* `micro` folder into the root of our current `micro` folder (the one which is initialized as a GitHub) repository:
 
 * `auditservice`
 * `eventservice`
@@ -1433,7 +1434,7 @@ $ cat eventservice/build.sh | sed -e s/adderservice/eventservice/ -e s/8080/8082
 $ cat webapp/build.sh | sed -e s/adderservice/webapp/ -e s/8080/3000/ | tee webapp/build.sh
 ```
 
-Notice how we also conver the port number in each case from 8080 to the
+Notice how we also convert the port number in each case from 8080 to the
 relevant port for the service (based on how we've typically mapped services
 to ports thus far, as laid out initially in `fuge/fuge.yml`).
 
@@ -1543,7 +1544,7 @@ From the main Jenkins dashboard let's click *New Item* and select the *Pipeline*
 
 ![image](./images/jenk_copysettings.png)
 
-This means we also copy the Github configuration the *infrastructure* pipeline automatically. It also means that the *Script Path* setting points to the `adderservice/Jenkinsfile` instead of `infrastructure/Jenkinsfile`. Let's navigate to the configuration screen for the *infrastructure* pipeline section and change the *Script Path* setting from *adderservice/Jenkinsfile* to *infrastructure/Jenkinsfile*. We can now manually trigger a build of our infrastructure pipeline. Once this is done we can inspect Kubernetes using the dashboard:
+This means we also copy the GitHub configuration the *infrastructure* pipeline automatically. It also means that the *Script Path* setting points to the `adderservice/Jenkinsfile` instead of `infrastructure/Jenkinsfile`. Let's navigate to the configuration screen for the *infrastructure* pipeline section and change the *Script Path* setting from *adderservice/Jenkinsfile* to *infrastructure/Jenkinsfile*. We can now manually trigger a build of our infrastructure pipeline. Once this is done we can inspect Kubernetes using the dashboard:
 
 ```
 $ minikube dashboard
@@ -1688,23 +1689,32 @@ Finally we type `exit` to close the command prompt and exit the running containe
 
 ## Deploying to the Cloud
 
-In the final recipe for this chapter we are going to take our deployment and shift it up onto a public cloud, at the end we will have a cloud based deployment of our microservice system with a supporting continuous delivery pipeline. We will be using Amazon Web Services AWS as our cloud provider because at the time of writing AWS is the most popular Infrastructure as a Service (IAAS) provider. Please note that this recipe will incur billable time on the AWS cloud so we are advised to shut down the system once we have completed the recipe in order to minimize costs.
+In the final recipe for this chapter we are going to take our deployment and shift it up onto a public cloud. By the end of this recipe we will have a cloud based deployment of our microservice system with a supporting continuous delivery pipeline. 
+
+Whilst we've built our deployment structure without coupling it to any particular cloud provider, we'll be focusing on deploying to Amazon Web Services AWS in this recipe. At the time of writing AWS is the most popular Infrastructure as a Service (IAAS) provider. 
+
+Please note that this recipe will incur billable time on the AWS cloud so we advised shutting down the system once the recipe is complete (and between long breaks) in order to minimize costs.
 
 ### Getting Ready
-For this recipe we will need an AWS account. If we do not already have an account, we can head over to `http://aws.amazon.com` and sign up for one.
 
-The code in this recipe builds on that from our previous recipe `Deploying a Full System` so we will need to have this code available.
+For this recipe we will need an AWS account. If we do not already have an account, we can navigate to http://aws.amazon.com and sign up for one.
+
+The code in this recipe builds on the `micro` folder we've been working on in our previous recipe *Deploying a Full System* so we will need to have this code available.
 
 > ### AWS Billing ![](../info.png)
-> On sign up we will need to provide a payment method to AWS, the cost to run this recipe for an hour or so is in the order of a few dollars, however Please
-> ensure that all resources are terminated after use in order not to incur additional costs.
+> On sign up we will need to provide a payment method to AWS. The cost to run 
+> this recipe for an hour or so is in the order of a few dollars. However please 
+> ensure that all resources are terminated after use in order not to incur 
+> additional costs.
 
-Next we will need to install the AWS command line tools, these are implemented in Python and are best installed using `pip`. Python and `pip` may be installed using our systems package manager such as `homebrew` or `apt-get`.
+Next we will need to install the AWS command line tools. These are implemented in Python and are best installed using `pip`. Python and `pip` may be installed using our systems package manager such as `homebrew` or `apt-get`.
 
 > ### Pip ![](../info.png)
-> Pip is the Python equivalent of `npm` and stands for `Pip installs packages`
+> Pip is the Python equivalent of `npm` and stands for "Pip installs packages"
 
-Full details on how to install the AWS tools can be found here: `http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-set-up.html`. Once we have installed and configured the tools we can validate them by running the following:
+Full details on how to install the AWS tools can be found here: http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-set-up.html. 
+
+Once we have installed and configured the tools we can validate them by running the following:
 
 ```
 $ aws ec2 describe-instances
@@ -1712,9 +1722,9 @@ $ aws ec2 describe-instances
 
 Which should complete without error. Note that this will operate against the default AWS region which can be configured by setting the environment variable `AWS_DEFAULT_REGION`.
 
-We will also need a copy of `kubectl` available locally, we should already have this from the previous recipes in this chapter involving Kubernetes.
+We will also need a copy of `kubectl` available locally. We should already have this from the previous recipes in this chapter involving Kubernetes.
 
-Finally, we are going to be using a tool called `kops` to install our Kubernetes cluster. `kops` is an open source  Kubernetes cluster management tool, the projects Github page is here `https://github.com/kubernetes/kops`. Instructions on how to install `kops` are available here `https://kubernetes.io/docs/getting-started-guides/kops/`.
+Finally, we are going to be using a tool called `kops` to install our Kubernetes cluster. The `kops` command is an open source Kubernetes cluster management tool,the projects GitHub can be found at https://github.com/kubernetes/kops. Instructions on how to install `kops` are available here https://kubernetes.io/docs/getting-started-guides/kops/.
 
 > ### Kops ![](../info.png)
 > Kops is short for 'Kubernetes Operations'. Kops allows us to deploy and manage multiple Kubernetes clusters and supports a variety of cloud platforms.
@@ -1722,7 +1732,10 @@ Finally, we are going to be using a tool called `kops` to install our Kubernetes
 Once we have `kops` installed we are good to go!
 
 ### How to do it
-Firstly we need to ensure that we have our tooling configured correctly as per the instructions in the getting ready section above. To confirm we should have the following environment variables defined in our working shell:
+
+Firstly we need to ensure that we have our tooling configured correctly as per the instructions in the *Getting Ready* section. 
+
+To confirm we should have the following environment variables defined in our working shell:
 
 ```sh
 export PATH=~/Library/Python/<version>/bin/:$PATH
@@ -1731,15 +1744,33 @@ export AWS_SECRET_ACCESS_KEY=xxxxxxxxxxxxxx
 export AWS_DEFAULT_REGION=us-west-2
 ```
 
-For this recipe the examples will use `us-west-2` as the AWS region, any region may be used, however we suggest using a region in which no previous resources have been deployed.
+For this recipe the examples will use `us-west-2` as the AWS region. Any region may be used, however we suggest using a region in which no previous resources have been deployed.
 
-We will be deploying the code from the previous recipe so `cd` into the `micro` directory and create a fresh directory called `cluster` to store our local cluster configuration information. `cd` into the `cluster` directory.
+Let's enter the `micro` folder (as we left it in the previous recipe),
+and create a `cluster` directory:
 
-Instructions for creating a cluster with `kops` are provided here: `https://kubernetes.io/docs/getting-started-guides/kops/`, we will walk through the process here to provide additional direction and explanations.
+```sh
+$ cd micro
+$ mkdir cluster
+```
 
-Firstly we need to create a Route53 domain. To do this open the AWS console and navigate to the Route53 control panel. Enter a domain name into the text box provided and hit the `check` button. If the Domain is available proceed to register it. This will cost 12 USD to complete. During the process we need to provide an email address as the administrative and technical contact for the domain. AWS will validate this address by sending and email so we must be sure to click the validation link in the email. For the purposes of this recipe any valid domain name can be used, in the examples we have used `nodecookbookdeployme.com` as our throwaway domain name.
+The `cluster` folder will store our local cluster configuration information.
 
-Next we need to create an S3 bucket, to do this again open up the AWS console and navigate to the S3 control panel. Create a fresh empty bucket, for this example we have used `nodecookbookdemo` as our bucket name. Once we have created the bucket we need to set an environment variable in our shell to tell `kops` where to store and read cluster configuration to. Set the following variable:
+Instructions for creating a cluster with `kops` are provided here: https://kubernetes.io/docs/getting-started-guides/kops/. We'll walk through the process here and provide additional direction and explanations.
+
+First we need to create a Route53 domain (Route53 is simply the AWS' domain name registrar). 
+
+Let's open the AWS console and navigate to the Route53 control panel. Next we';; enter a domain name into the text box provided and hit the `check` button. If the Domain is available proceed to register it. This will cost 12 USD to complete (at time of writing). 
+
+During the process we need to provide an email address as the administrative and technical contact for the domain. AWS will validate this address by sending an email, we must be sure to click the validation link in the email. 
+
+For the purposes of this recipe any valid domain name can be used, in the examples we have used `nodecookbookdeployme.com` as our throwaway domain name.
+
+Next we need to create an S3 bucket (S3 is the AWS static assets service). Let's navigate to the S3 control panel from the AWS console and create an empty bucket. For this example we have used `nodecookbookdemo` as our bucket name. 
+
+Once we have created the bucket we need to set an environment variable in our shell to tell `kops` where to store and read cluster configuration to. 
+
+We do this by setting the following variable:
 
 ```sh
 export KOPS_STATE_STORE=s3://<bucket name>
@@ -1757,25 +1788,31 @@ Substituting our zone and domain name information. For example using `us-west-2c
 $ kops create cluster --zones=us-west-2c nodecookbookdeployme.com
 ```
 
-`kops` will generate a cluster configuration for us and write it to our S3 bucket. We can inspect this by navigating to the bucket and viewing the files that `kops` created. Note that at this point `kops` has only created the configuration, no other resources have been created in AWS. To actually deploy the cluster run:
+This command will generate a cluster configuration for us and write it to our S3 bucket. We can inspect this by navigating to the bucket and viewing the files that `kops` created. Note that at this point `kops` has only created the configuration. No other resources have been created in AWS.
+
+To actually deploy the cluster run:
 
 ```sh
 $ kops update cluster <domain name> --yes
 ```
 
-`kops` will now create a cluster for us on AWS, this includes booting up machine instances and deploying the Kubernetes container to the instances. Note that this command will several minutes to complete. We can check our cluster status using:
+This causes `kops` to create a cluster for us on AWS. Operations include booting up machine instances and deploying the Kubernetes container to the instances. Note that this command will take several minutes to complete. We can check our cluster status using:
 
 ```sh
 $ kops validate cluster <domain name>
 ```
 
-Now that our cluster is up and running on AWS it's time to deploy our system. On creating the configuration, `kops` created a file for us called `kubeconfig` in the `cluster` directory. To control our cluster using `kubectl` we need to point our local tools to this configuration. We can do this using the `KUBECONFIG` environment variable.
+Once our cluster is up and running on AWS it's time to deploy our system. 
+
+When we created the cluster `kops` created a file for us called `kubeconfig` in the `cluster` directory. To control our cluster using `kubectl` we need to point our local tools to this configuration. We can do this using the `KUBECONFIG` environment variable.
 
 ```sh
 export KUBECONFIG=<path to kubeconfig>
 ```
 
-Once we have this environment variable set, we can run `kubectl` as in our previous recipes, only now it will point to our AWS Kubernetes cluster rather than a our local `minikube` instance. To check that everything is working correctly run the following:
+Once we have this environment variable set, we can run `kubectl` as in our previous recipes. Only now it will point to our AWS Kubernetes cluster rather than a our local `minikube` instance. 
+
+Let's run the following to check that everything is working correctly:
 
 ```sh
 $ kubectl get namespaces
@@ -1784,9 +1821,12 @@ default       Active    3h
 kube-system   Active    3h
 ```
 
-This may take a few seconds to complete. Note that there will be no `micro` namespace reported as we have yet to create this in our AWS cluster. In fact let's now go ahead and create this. `cd` into the `micro/deployment` directory and run the following:
+This may take a few seconds to complete. Note that there will be no `micro` namespace reported as we have yet to create this in our AWS cluster. 
+
+In fact let's now go ahead and create this:
 
 ```sh
+$ cd ../deployment # assuming cwd is micro/cluster
 $ kubectl create -f namespace.yml
 $ kubectl get namespaces
 NAME          STATUS    AGE
@@ -1795,13 +1835,23 @@ kube-system   Active    3h
 micro         Active    1h
 ```
 
-Now that we have our namespace setup we need to configure `kubectl` to use this namespace as the default one. Open up the file `kubeconfig` and look for the `context` entry, for the example domain and zone that we have been using our context is `uswest2.nodecookbookdeployme.com`. Use this context to set the
+Now that we've registered our namespace with our Kubernetes cluster on AWS we need to make it the default namespace for `kubectl`. 
+
+Let's open up the `kubeconfig` file and locate the `context` entry. 
+
+In our example the context is `uswest2.nodecookbookdeployme.com`, which we can pass to `kubectrl config set-context` to configure the `kubectrl` tool's default namespace, like so:
 
 ```sh
-$ kubectl config set-context <cluster name> --namespace=micro
+$ kubectl config set-context  uswest2.nodecookbookdeployme.com --namespace=micro
 ```
 
-Now that we have `kubectl` configured locally we can go ahead and deploy our system containers. Interestingly, because of the way that we structured our build and deployment scripts, our Jenkins build process should work without change. This is because we have pointed our local `kubectl` command at our AWS cluster and not at `minikube`. Let's open the Jenkins control panel and deploy the infrastructure project to spin up our Mongo and Redis containers. Once this project has deployed run the following:
+Now that we have `kubectl` configured locally we can go ahead and deploy our system containers. 
+
+Interestingly, because of the way that we structured our build and deployment scripts, our Jenkins build process should work without change. This is because we have pointed our local `kubectl` command at our AWS cluster and not at `minikube`. 
+
+Let's open the Jenkins control panel and deploy the infrastructure project to spin up our Mongo and Redis containers. 
+
+Once this project has deployed run the following:
 
 ```sh
 $ kubectl get deployments
@@ -1822,19 +1872,29 @@ mongo          100.67.19.86     <nodes>       27017:30940/TCP   2h
 redis          100.68.54.205    <nodes>       6379:31896/TCP    2h
 ```
 
-> ### Github Triggers ![](../info.png)
-> We could at this point re-enable our Github triggers from the previous recipe to provide a fully automated build pipeline into AWS.
+> ### GitHub Triggers ![](../info.png)
+> We could at this point re-enable our GitHub triggers from the previous recipe to provide a fully automated build pipeline into AWS.
 
-Finally we need to deploy our `webapp` project, this is our front end into the system and we need to make a small tweak before deploying. We deployed our services as type NodePort which exposes services in a point to point manner using a direct IP address and port number for each service instance. However a better approach for a cloud deployed application is to deploy as type LoadBalancer. let's go ahead and configure the build for `webapp` to do this:
+Finally we need to deploy our `webapp` project. This is our frontend into the system and we need to make a small tweak before deploying. We deployed our services as type `NodePort` which exposes services in a point to point manner using a direct IP address and port number for each service instance. 
 
-Firstly let's remove our existing `webapp` service and deployment:
+However for the `webapp` service, which is a public facing layer, deploying with the type `LoadBalancer` allows for a more scalable deployment.
+
+Let's go ahead and configure the build to run our `webapp` service instance in `LoadBalancer` mode.
+
+First let's remove our existing `webapp` service and deployment:
 
 ```sh
 $ kubectl delete service webapp
 $ kubectl delete deployment webapp
 ```
 
-Next we need to create a fresh service template YAML `cd` into the `micro/deployment` folder and make a copy of the `service-temalate.yml` file, call it `service-template-lb.yml`, edit this file so that the type is `LoadBalancer` as below:
+Next let's copy `deployment/service-template.yml` to `deployment/service-template-lb.yml`:
+
+```sh
+$ cp service-template.yml service-template-lb.yml
+```
+
+We'll modify `service-template-lb.yml`, so that the type is `LoadBalancer` as below:
 
 ```
 apiVersion: v1
@@ -1854,7 +1914,8 @@ spec:
   type: LoadBalancer
 ```
 
-Next `cd` into the `micro/webapp` directory and edit the file `build.sh` so that it uses the new `service-template-lb.yml` file:
+Next we'll edit the `micro/webapp/build.sh` so it uses our
+new `service-template-lb.yml` file:
 
 ```sh
 #!/bin/bash
@@ -1884,7 +1945,11 @@ case "$1" in
 esac
 ```
 
-Once we have made these changes we need to commit them to our Github repository. If our Jenkins server was set to trigger on commit then a build will start automatically, otherwise we will need to navigate to the `webapp` project in Jenkins and manually trigger a build. Once this has completed let's check that the updates to our cluster were successful:
+Once we have made these changes we need to commit them to our GitHub repository.
+
+If our Jenkins server was set to trigger on commit then a build will start automatically. Otherwise we can navigate to the *webapp* project in Jenkins and manually trigger a build (refer to the *Creating a deployment pipeline* for details). 
+
+Once the rebuild is complete we can check that the updates to our cluster were successful:
 
 ```sh
 $ kubectl get deployments
@@ -1923,44 +1988,55 @@ Endpoints:		100.96.1.7:3000
 Session Affinity:	None
 ```
 
-From this we can observe that Kubernetes has created an Elastic Load Balancer within AWS for us. We can now access our system through this balancer by pointing a browser to `http://a0ac21827191511e78d220ae28f9af81-1027644718.us-west-2.elb.amazonaws.com:3000/add`. The add screen will load as before and we can also see our audit service at `http://a0ac21827191511e78d220ae28f9af81-1027644718.us-west-2.elb.amazonaws.com:3000/audit`.
+From this we can observe that Kubernetes has created an Elastic Load Balancer within AWS for us. We can now access our system through this balancer by pointing a browser to (in the case case of this example) http://a0ac21827191511e78d220ae28f9af81-1027644718.us-west-2.elb.amazonaws.com:3000/add (in our case the URL will be similar but unique to us). The add screen will load as before and we can also see our audit service at the usual `/audit` route.
 
 Excellent! We now have a fully automated build pipeline to our system running on AWS!
 
-We will be inspecting this system in the There's More section below, but please note that AWS will be billing us for the instance time and other resources used such as the ELB. To remove the system from AWS at any time and stop incurring costs, run:
+We will be inspecting this system in the There's More section below, but please note that AWS will be billing us for the instance time and other resources used such as the ELB. 
+
+To remove the system from AWS at any time and stop incurring costs, run:
 
 ```sh
 $ kops delete cluster <domain name> --yes
 ```
 
 ### How it works
+
 Our deployed system is shown in the diagram below:
 
 ![image](./images/BuildDetailAWS.png)]
 
-Note that the configuration is very similar to our local setup, only that we have now deployed our system to the AWS cloud. Within AWS Kubernetes is running on three machine instances, one master and two worker nodes. Our containers are distributed across these nodes, in fact we don't event care too much which instances they are running on, Kubernetes will manage workload and distribution for us.
+Note that the configuration is very similar to our local setup, only that we have now deployed our system to the AWS cloud. Kubernetes is running on three AWS machine instances: one master and two worker nodes. Our containers are distributed across these nodes, in fact we don't event care too much which instances they are running on as Kubernetes manages workload and distribution for us.
 
-`kops` is a powerful tool that allows us to manage multiple Kubernetes clusters and takes a lot of the grunt work out of so doing. `kops` stores it's configuration in an S3 bucket so that it is centrally available - this is known as the `kops` state store. Both `'kops` and Kubernetes use the information in the state store to configure and update the cluster and underlying infrastructure. To edit the contents of the state store we should always use the `kops` interface, rather than editing the files on S3 directly, for example to edit the cluster information we could run:
+The `kops` tool powerful. It allows us to manage multiple Kubernetes clusters and takes a lot of the grunt work out of so doing. THe `kops` tool stores its configuration (known as the `kops` state store) in an S3 bucket so that it's centrally available. 
+
+Both `'kops` and Kubernetes use the information in the state store to configure and update the cluster and underlying infrastructure. To edit the contents of the state store we should always use the `kops` interface, rather than editing the files on S3 directly.
+
+For example to edit the cluster information we could run:
 
 ```sh
 $ kops edit cluster
 ```
 
-`kops` uses a set of rules to specify sensible default values for the Kubernetes cluster, hiding a lot of the detailed configuration. Whilst this is useful to spin up a staging cluster it is advisable to fully understand the configuration at a more detailed level when implementing production grade clusters, particularly with regard to system security.
+The `kops` tool uses a set of rules to specify sensible default values for the Kubernetes cluster, hiding a lot of the detailed configuration. 
+
+Whilst this is useful to spin up a staging cluster it is advisable to fully understand the configuration at a more detailed level when implementing production grade clusters, particularly with regard to system security.
 
 To view a list of all of the resources that `kops` created for us by running the `delete` command without the `--yes` flag:
 
 ```sh
-$ kops delete cluster <cluste name>
+$ kops delete cluster <cluster name>
 ```
 
-Omitting the `--yes` flag runs the command in preview mode. This provides a list of all the AWS resources. We can inspect these resources in the AWS control panel, for example in the EC2 panel we can observe that three instances were started, on cluster master and two workers.
+Omitting the `--yes` flag runs the command in preview mode. This provides a list of all the AWS resources. We can inspect these resources in the AWS control panel. For example in the EC2 panel we can observe that three instances were started, on cluster master and two workers.
 
-In our previous recipes we used NodePort as the service type, this is because `minikube` does not support the `LoadBalancer` service type, however in our full Kubernetes cluster this maps onto an AWS ELB which we can again inspect in the EC2 control panel.
+In our previous recipes we used `NodePort` as the service type, this is because `minikube` does not support the `LoadBalancer` service type. However in our full Kubernetes cluster this maps onto an AWS ELB which we can again inspect in the EC2 control panel.
 
-Throughout this chapter and the `microservices` chapter we have been working with the same codebase. It is important to note that the codebase has been deployed in development mode using the `fuge` tool, to a local minikube cluster and now to a full blown Kubernetes cluster on AWS - WITHOUT CHANGE! i.e. we have not needed to provide separate environment configuirations for `dev`, `test`, `staging` etc.. This is because the code was developed to use the same service discovery mechanism in all environments. We also harnessed the power of containers not only for deployment but also in development to provide our Mongo and Redis databases.
+Throughout this chapter and **Chapter 10 Building Microservice Systems** we have been working with the same codebase. The codebase has been deployed in development mode using the `fuge` tool, to a local `minikube` cluster and now to a full blown Kubernetes cluster on AWS - WITHOUT CHANGE! That is, on the whole, we have not needed to provide separate environment configurations for `dev`, `test`, `staging` and so forth. 
 
-`kops` is just one tool that helps us to automate Kubernetes cluster deployment, others include:
+This is because the code was developed to use the same service discovery mechanism in all environments. We also harnessed the power of containers not only for deployment but also in development to provide our Mongo and Redis databases.
+
+The `kops` CLI is just one tool that helps us to automate Kubernetes cluster deployment, others include:
 
 * `kube-aws` - from the folks at CoreOS, as the name implies targets creating Kubernetes clusters on AWS: https://coreos.com/kubernetes/docs/latest/kubernetes-on-aws-render.html
 * Google Container Engine - turnkey cloud based Kubernetes deployment https://cloud.google.com/container-engine/
@@ -1969,10 +2045,14 @@ Throughout this chapter and the `microservices` chapter we have been working wit
 Finally the long form way is to install Kubernetes from scratch: https://kubernetes.io/docs/getting-started-guides/scratch/.
 
 ### There's more
+
 Before we delete our cluster from AWS it is worth exploring it a little more, firstly with the Kubernetes dashboard.
 
 #### Running the Dashboard
-Recall from our previous use of `minikube` that we ran the Kubernetes dashboard as a means of inspecting our cluster. We can install and run the dashboard in our AWS cluster by running the following commands:
+
+Recall from our previous use of `minikube` that we ran the Kubernetes dashboard as a means of inspecting our cluster. 
+
+We can install and run the dashboard in our AWS cluster by running the following commands:
 
 ```sh
 $ kubectl create -f https://rawgit.com/kubernetes/dashboard/master/\
@@ -1984,13 +2064,23 @@ Starting to serve on 127.0.0.1:8001
 The `proxy` command will forward requests on `localhost` port 3001 to our cluster master on AWS. If we now open a browser at `http://localhost:3001/ui/` we can view the Kubernetes dashboard on our cluster as we did with `minikube`.
 
 #### Inspecting the `kops` State Store
-`kops` stores it's state in our S3 bucket. We can grab the contents of the bucket locally using the AWS tools. To do this, Create a fresh empty directory `cd` into it and run:
+
+The `kops` tool stores its state in our S3 bucket. We can grab the contents of the bucket locally using the AWS tools. 
+
+Let's create and enter a fresh directory called `store`:
+
+```sh
+$ mkdir store
+$ cd store
+```
+
+Then we can run the following command to pull the State Store to our local machine:
 
 ```sh
 $ aws s3 sync s3://<bucket name> .
 ```
 
-This will pull the entire contents of the `kops` state store for us to inspect. The directory structure is as follows:
+This will fetch the entire contents of the `kops` state store for us to inspect. The directory structure is as follows:
 
 ```
 ├── addons
@@ -2005,7 +2095,10 @@ This will pull the entire contents of the `kops` state store for us to inspect. 
     └── ...
 ```
 
-The key files are `cluster.spec` and `config` which control the overall structure of our cluster. Dissecting these configuration files is a great way to take our Kubernetes knowledge to the next level, however sadly that is outside the scope of this chapter!
+The key files are `cluster.spec` and `config` which control the overall structure of our cluster. Dissecting these configuration files is a great way to take our Kubernetes knowledge to the next level. 
+
+Sadly that is beyond the scope of this chapter, and indeed beyond the scope of Node Cookbook. However, we now know how to build, manage, and deploy a distributed Node.js system.
 
 ### See also
-**TODO DMC**
+
+* TBD
