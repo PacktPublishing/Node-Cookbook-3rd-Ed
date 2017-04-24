@@ -6,7 +6,7 @@ This chapter covers the following topics:
 * Running a Docker Registry
 * Storing Images on DockerHub
 * Deploying a Container to Kubernetes
-* Creating a Deployment Pipeline
+* Creating a deployment pipeline
 * Deploying a Full System
 * Deploying to the Cloud
 
@@ -40,9 +40,9 @@ In this chapter we will focus on deploying Node with two particular container te
 * Kubernetes quick start guide https://kubernetes.io/docs/getting-started-guides/minikube/
 * Kubernetes cheat sheet https://kubernetes.io/docs/user-guide/kubectl-cheatsheet/
 
-In this chapter we will investigate how to build and deploy our microservice system from **Chapter 10 Building Microservice Systems** as a set of docker containers on top of the Kubernetes platform. At a minimum, reading over Chapter 10 before proceeding would be ideal.
+In this chapter we will investigate how to build and deploy our microservice system from **Chapter 10 Building Microservice Systems** as a set of Docker containers on top of the Kubernetes platform. At a minimum, reading over Chapter 10 before proceeding would be ideal.
 
-## Building A Single Container
+## Building a single Container
 
 In **Chapter 10 Building Microservice Systems** we developed a small microservice system.
 
@@ -58,9 +58,9 @@ We can check that Docker was installed successfully by opening a shell and runni
 $ docker run hello-world
 ```
 
-This command will pull the `hello-world` image from Docker Hub - a central repository of public Docker images, create a new container from that image and run it. The executable within the container will output hello from docker along with some help text.
+This command will pull the `hello-world` image from Docker Hub - a central repository of public Docker images, create a new container from that image and run it. The executable within the container will output hello from Docker along with some help text.
 
-We also need the code from the **Chapter 10 Building Microservice Systems** available, we can get this from the source code for Chapter 10 provided with this book (source files can be obtained from the publisher website). We'll specifically be working with the source code from the *Adding a Queue Based Service* recipe in Chapter 10. 
+We also need the code from the **Chapter 10 Building Microservice Systems** available, we can get this from the source code for Chapter 10 provided with this book (source files can be obtained from the publisher website). We'll specifically be working with the source code from the *Adding a queue based service* recipe in Chapter 10. 
 
 ### How to do it
 
@@ -76,7 +76,7 @@ We'll use the `node:slim` variant for optimal container size:
 $ docker pull node:slim
 ```
 
-> ### Official Node Containers ![](../info.png)
+> ### Official Node containers ![](../info.png)
 > There are several variants of the official node.js Docker image available. These are explained here: https://hub.docker.com/_/node/. When building a system
 > we should select an image that best supports our use case.
 
@@ -153,7 +153,7 @@ We should see that the number 5 is returned from the service.
 We can now close down any running containers with the following:
 
 ```sh
-$ docker kill $(docker ps -a -q)
+$ docker kill $(docker ps -q)
 ```
 
 We have just built and run our first microservice container!
@@ -193,7 +193,7 @@ Let's examine these statements line-by-line:
 * `CMD [ "node", "index.js" ]` - specifies the default command to execute when starting the container. This command will execute in the `/home/node/service` directory. The syntax
 for creating the command actually matches how `process.argv` parses command line inputs.  
 
-> ### Binary Incompatibility ![](../tip.png)
+> ### Binary incompatibility ![](../tip.png)
 > It is important to stress avoiding the shortcut of copying the `node_modules` folder 
 > into a container, as a general rule. This is because some modules contain
 > binary dependencies that will be built for the host system. 
@@ -240,7 +240,7 @@ This should output something similar to the following image:
 
 Not only does this command show the layers created by our Dockerfile, it also shows the commands that were used to build up the base image, in this case our base `node:slim` image.
 
-#### Add a New Layer
+#### Add a new layer
 
 To see how Docker adds layers to an image let's make a change to the adder service and rebuild the container.
 
@@ -302,31 +302,44 @@ Following the recent explosive growth in container technology, there has been a 
 
 ## Running a Docker Registry
 
-In this recipe we are going to publish our `adderservice` container that we built in the last recipe to our own private docker registry.
+In this recipe we are going to publish our `adderservice` container that we built in the last recipe to our own private Docker registry.
 
 ### Getting Ready
-To get setup for this recipe we need to pull the official Docker registry container. Do this by running the following:
+
+To get setup for this recipe we need to pull the official Docker registry container. 
+
+We do this by running the following:
 
 ```sh
 $ docker pull registry
 ```
 
-This recipe uses the code from our previous recipe `Building a Single Container`. If we don't have this already we should grab the code from the accompanying source for the chapter under `source/Building_Single_Container`. We will need to build the the `adderservice` image from the previous recipe, to build this `cd` into the `micro/adderservice` directory and run:
+This recipe uses the code from the previous recipe *Building a single Container*. 
+
+If we haven't already done so, we'll need to build the the `adderservice` image from the previous recipe:
 
 ```sh
+$ cd micro/adderservice
 $ docker build -t adderservice .
 ```
 
-Finally we need the `openssl` command line tool available, which should be installed with our preferred package manager, for example `homebrew` if we are on Mac.
+Finally we need the `openssl` command line tool available, which should be installed with our preferred package manager (for example `homebrew` if we are using a Mac).
 
 ### How to do it
-Firstly we need to start by running our Docker registry which is it's self running inside a Docker container. To do this run the following command:
+
+Let's start a Docker registry container (we pulled the Docker registry container in the *Getting Ready* section of this recipe) with the following command:
 
 ```sh
 $ docker run -d -p 5000:5000 --name registry registry:2
 ```
 
-If we now issue a `docker ps` command we can see that our registry container is up and running on port 5000. Firstly let's push a container to the registry to test it out. To do this we need to tag an image. Let's do this with the `adderservice`
+If we now issue a `docker ps` command we can see that our registry container is up and running on port 5000. 
+
+Now let's push a container to the registry to test it out. 
+
+To do this we need to tag an image with a specific naming convention.
+
+Let's run the following command:
 
 ```sh
 $ docker tag adderservice localhost:5000/adderservice
@@ -346,103 +359,123 @@ We can now push the image to our local registry:
 $ docker push localhost:5000/adderservice
 ```
 
-and then check that everything went OK by pulling the image back again:
+We can check that this was successful by pulling the image back again:
 
 ```sh
 $ docker pull localhost:5000/adderservice
 ```
 
-Of course running a registry in this configuration is not all that useful because the registry is only accessible over the localhost interface. To run a registry in production we should use a full domain registry which requires a domain certificate, however to run a local development registry, say for our development teams office, we can use a self signed certificate.
+Running a registry in this configuration is not all that useful because the registry is only accessible over the localhost interface. 
+
+To run a registry in production we should use a full domain registry which requires a domain certificate. 
+
+However to run a local development registry, say for our development teams office, we can use a self signed certificate.
+
+Let's use the `openssl` tool to create a self signed certificate:
 
 ```sh
 $ cd micro
-$ mkdir -p certs
-$ openssl req -newkey rsa:4096 -nodes -sha256 -kewet \
-  certs/myregistry.key -x509 -days 365 -out certs/myregistry.crt
-Country Name (2 letter code) [AU]:IE
-State or Province Name (full name) [Some-State]:Cork
-Locality Name (eg, city) []:Cork
-Organization Name (eg, company) [Internet Widgits Pty Ltd]:myregistry
-Organizational Unit Name (eg, section) []:dev
-Common Name (e.g. server FQDN or our name) []:myregistry
-Email Address []:****
+$ mkdir certs
+$ openssl req -newkey rsa:4096 -nodes -sha256 -keyout \
+  certs/localhost.key -x509 -days 365 -out certs/localhost.crt
 ```
 
-Now that we have generated our certificate we need to tell docker about it, to do this on Mac run the following:
+Before we can generate the certificate `openssl` will ask some questions. For most we can simply press return. However the Common Name prompt should be passed "localhost" as the response:
+
+```
+Common Name (e.g. server FQDN or our name) []:localhost
+```
+
+Now that we have generated our certificate we need to tell Docker about it.
+
+To do this on Mac we run the following:
 
 ```sh
-$ sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain certs/myregistry.crt
+$ sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain certs/localhost.crt
 ```
 
-We then need to add an entry into our /etc/hosts file so that `myregistry` resolves to our machines IP address. Run the following to get the machine IP address:
+On Linux the command would be:
 
 ```sh
-$ ipconfig getifaddr en0
+$ sudo cp certs/localhost.crt /etc/docker/certs.d/localhost:5000/ca.crt
 ```
 
-Next edit /etc/hosts to add the following line, replacing <host ip> with our machines IP address.
+> #### Linux troubleshooting
+> Some Linux distributions require other steps to allow Docker to use a self signed certificate, see 
+> https://docs.docker.com/registry/insecure/#troubleshooting-insecure-registry
+
+On Windows (assuming the ProgramData directory is at `C:\ProgramData`) we'd add our certificate with:
 
 ```sh
-<host ip> myregistry
+$ copy certs\localhost.crt C:\ProgramData\docker\certs.d\localhost5000\ca.crt
 ```
 
-We now need to restart Docker to allow the daemon to pick up the certificate. Once this is done we need to start our registry container informing it of the certificate:
+We now need to restart Docker to allow the daemon to pick up the certificate. Once this is done can start our registry container informing it of the certificate:
 
 ```sh
 $ cd micro
 $ docker run -d -p 5000:5000 --name registry -v `pwd`/certs:/certs \
-  -e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/myregistry.crt \
- -e REGISTRY_HTTP_TLS_KEY=/certs/myregistry.key registry:2
+  -e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/localhost.crt \
+ -e REGISTRY_HTTP_TLS_KEY=/certs/localhost.key registry:2
 ```
 
 Finally we can tag and push our `adderservice` image to our secured registry:
 
 ```sh
-$ docker tag adderservice myregistry:5000/adderservice
-$ docker push myregistry:5000/adderservice
+$ docker tag adderservice localhost:5000/adderservice
+$ docker push localhost:5000/adderservice
 ```
 
 > ### Querying private registries ![](../info.png)
-> Whist there is currently no official command line client to query the contents of a docker registry we can interface directly to the the registry HTTP API
-> using curl. Running `curl https://myregistry:5000/v2/_catalog` will return a list of all images in the local private registry in JSON format
+> Whist there is currently no official command line client to query the contents of a Docker registry we can interface directly to the the registry HTTP API. For instance  `curl https://localhost:5000/v2/_catalog` will return a list of all images in the local private registry in JSON format.
 
-In order to pull and push images from other machines - for example other developers in our team, we can share the generated certificate file, import it and configure `/etc/hosts` as above.
+In order to pull and push images from other machines - for example other developers in our team, we can simply share the generated certificate file.
 
 ### How it works
-IT should be noted that using a self signed certificate is fine within a development setting, for sharing images across a development team, as access to the certificate can be tightly controlled, however a full domain registry or a hosted registry must be used in any deployment environment.
+
+We use `openssl` to create a self signed certificate. This basically means we are
+our own Certificate Authority, we give credence to the certificate. The CRT file doubles as both the certificate authority key and the private key in a typical SSL exchange. 
+
+We register the certificate file Docker by copying it to a relevant folder or registering it with Keychain in the case of Mac. Then we start our Docker registry container, and mount our `certs` folder into the container using the `-v` flag. This effectively means our `certs` folder is a shared folder - between the host machine and the container. 
+
+Then we set two environment variables with the `-e` flag which configure the registry to use the relevant key and certificate files in the mounted `/certs` folder.
+
+It should be noted that using a self signed certificate is fine within a development setting, for sharing images across a development team, as access to the certificate can be tightly controlled. However a full domain registry or a hosted registry must be used in any deployment environment.
 
 > ### Domain Registry ![](../info.png)
 > Instructions on how to run a secured domain registry can be found here https://docs.docker.com/registry/deploying/
 
-Docker tagging may seem a little confusing at first so let's dig into the details a little. A tag is comprised of the following:
+Docker tagging may seem a little confusing at first so let's dig into the details a little. 
 
-For a development environment its fine to do self signed:
-Make the rest of this recipe about running self signed (in this way we can supply the cert to people in our team to allow push and pull and container sharing)
-Or to run a self signed registry
+A tag is comprised of the following:
 
 ```
 [registry host[:registry port]/]image name[:version]
 ```
 
-In other words the registry host, port and version part of the tag are optional. If no registry name is supplied then any subsequent `push` command will attempt to push to the central docker hub which can be accessed at this url: https://hub.docker.com/. Indeed once we have signed up for an account we may push and pull to this registry.
+In other words the registry host, port and version part of the tag are optional. If no registry name is supplied then any subsequent `push` command will attempt to push to the central Docker hub which can be accessed at this url: https://hub.docker.com/. Indeed once we have signed up for an account we may push and pull to this registry.
 
 > ### Registry and Repository ![](../info.png)
-> we may hear the term repository and registry used interchangeably with regard to Docker. Strictly speaking registry refers to a docker registry server
-> such as the private registry that we ran in the last recipe or the central docker hub. A repository refers to a collection of images, for example, we
+> we may hear the term repository and registry used interchangeably with regard to Docker. Strictly speaking registry refers to a Docker registry server
+> such as the private registry that we ran in the last recipe or the central Docker hub. A repository refers to a collection of images, for example, we
 > could create an account on the Docker Hub, create a repository against this account and then push images into this repository.
 
-Once an image has been tagged with a repository, the `push` command can be used to push images to that repository. It is important to stress that in these recipes we are using an insecure local private registry, which is fine for experimentation, however in a full production environment a secured registry should always be used even when sitting behind multiple firewall layers.
+Once an image has been tagged with a repository, the `docker push` command can be used to push images to that repository. We should emphasize that we're using an insecure local private registry, which is fine for experimentation. However in a full production environment a secured registry should always be used even when sitting behind multiple firewall layers.
 
 We have been running the official Docker registry container however there are alternatives to this that we can install and run on premise:
 
-* CoreOS Enterprise Registry - installable on premise registry
+> #### Registry alternatives
+> We've been running the official Docker registry, which is freely available.
+> Additional enterprise alternatives include the CoreOS Enterprise Registry 
+> and Artifactory from JFrog also offers Container artifact management. 
 
-* Artifactory from JFrog - installable on premise registry
 
 ### There's more
-The Docker tagging syntax can be a little confusing so let's explore this a little more.
+
+Let's explore Docker tags a little more.
 
 #### Tagging
+
 Let's look again at the output of the `docker images` command:
 
 ```
@@ -479,21 +512,28 @@ auditservice                  latest f88358133c8e 36 minutes ago 232 MB
 We can observe that the latest tag has been moved for the changed service. For experimentation it's fine to use the latest tag however for a full production system it is best to explicitly apply a version tag to our containers.
 
 ### See also
-**TODO DMC**
+
+* TBD
 
 ## Storing Images on DockerHub
-DockerHub provides a global repository of images. We have already used it to fetch MongoDB and Redis images for use in **Chapter 10 Building Microservice Systems**. In this recipe we are going to push our `adderservice` container to DockerHub.
+
+DockerHub provides a global repository of images. In **Chapter 10 Building Microservice  Systems** we implicitly used it when we pulled MongoDB and Redis images, and we used the global repository in the previous recipe *Building a single Container* when we fetched the Docker Registry container. 
+
+In this recipe we are going to push our `adderservice` container to DockerHub.
 
 ### Getting Ready
-This recipe uses the code from our first recipe `Building a Single Container`. If we don't have this already we should grab the code from the accompanying source for the chapter under `source/Building_Single_Container`.
 
-We need to build the `adderservice` image, if it's not already have it available, `cd` into the `micro/adderservice` directory and run:
+This recipe uses the code from the first recipe in this Chapter, *Building a single Container*. 
+
+If we haven't already done so, we'll need to build the the `adderservice` image:
 
 ```sh
+$ cd micro/adderservice
 $ docker build -t adderservice .
 ```
 
 ### How to do it
+
 Firstly we need to create an account on DockerHub, to do this head over to `http://hub.docker.com` and sign up for an account:
 
 ![image](./images/dh_signup.png)]
@@ -502,39 +542,50 @@ Once we have our account we need to create a repository for our `adderservice` i
 
 ![image](./images/dh_mainblank.png)]
 
-Complete the form using `adderservice` as the repository name. Leave the Visibility of the repository as `public`. Once the repository is created we should see a screen similar to the following:
+We need to complete the form using `adderservice` as the repository name, leaving the "Visibility" of the repository as "public". 
+
+Once the repository is created we should see a screen similar to the following:
 
 ![image](./images/dh_blankrepo.png)]
 
-Of course the username will be different in each case! Now that we have our account setup we need to login from our Docker command line client, to do this run:
+Of course the username will be different in each case! 
+
+Now that we have our account setup we need to login from our Docker command line client, to do this run:
 
 ```sh
 $ docker login
 ```
 
-Once we have logged in, we can push our `adderservice` image to DockerHub. As in the previous recipe we need to tag the image and then push by running the following commands:
+Once we have logged in, we can push our `adderservice` image to DockerHub. 
+
+As in the previous recipe we need to tag the image and then push by running the following commands:
 
 ```sh
 $ docker tag adderservice <namepace>/adderservice
 $ docker push <namespace>/adderservice
 ```
 
-Replacing <namespace> with the repository namespace, which is to say the docker hub account name (in the illustrated case the namespace is `pelger`). Docker will push our image to the hub. To confirm that the push was good we can navigate to the `tags` tab as illustrated below:
+Replacing <namespace> with the repository namespace, which is to say the docker hub account name (in the illustrated case the namespace is `pelger`). 
+
+Docker will push our image to the hub. 
+
+We can navigate to the `tags` tab to confirm that the push was succesful, as illustrated below:
 
 ![image](./images/dh_pushed.png)]
 
-Also we can pull now pull this image:
+We should also now be able pull this image:
 
 ```sh
 $ docker pull <namespace>/adderservice
 ```
 
 ### How it works
-Applying the tag `<namespace>/adderservice` instructs docker that this image is associated with a repository on DockerHub. Docker discriminates between a local private registry and the central hub based on the format of the tag. If the namespace tag contains an IP address or dotted domain name and port then docker will attempt to push/pull from a private registry. If the tag is just a namespace then docker will use the central Hub to push and pull. To avoid confusion the namespace that we provide on DockerHub is restricted to only allow letters and digits.
 
-In this recipe we created a public repository. DockerHub is free to use for public repositories, but of course public repositories may be accessed by anyone on the internet. This is a similar model to Github and other cloud based code version management systems. It is therefore important not to push any proprietary code to a public repository. Also bear in mind that we should never push images that contain secret information such as ssh keys or API keys to public repositories.
+Applying the tag `<namespace>/adderservice` instructs Docker that this image is associated with a repository on DockerHub. Docker differentiates between a local private registry and the central hub based on the format of the tag. If the namespace tag contains an IP address or dotted domain name and port then Docker will attempt to push/pull from a private registry. If the tag is just a namespace then Docker will use the central Hub to push and pull. To minimize confusion the namespace that we provide on DockerHub is restricted to only allow letters and digits.
 
-It is possible to host private repositories on DockerHub for a fee, private repositories are only accessible to nominated DockerHub accounts so access can be tightly controlled.
+In this recipe we created a public repository. DockerHub is free to use for public repositories, but of course public repositories may be accessed by anyone on the internet. This is a similar model to Github and other cloud-based code version management systems. It's therefore important not to push any proprietary code or secret information (such as ssh or API keys) to a public repository.
+
+It is possible to host private repositories on DockerHub for a fee. Private repositories are only accessible to nominated DockerHub accounts so access can be tightly controlled.
 
 DockerHub is just one of several cloud based registries that we can use, alternatives include:
 
@@ -543,18 +594,20 @@ DockerHub is just one of several cloud based registries that we can use, alterna
 * Amazon ECR  - managed registry for those using AWS
 
 ### There's more
-Using a cloud based registry can be far more convenient than managing our own on premise registry, however it is important to effectively manage image versions, we will explore this a little more here:
+
+Using a cloud based registry can be far more convenient than managing our own on premise registry. However a proficient image version management strategy is imperative. Let's explore image versioning.
 
 #### Using a Specific Version tag
+
 Applying the tag structure in this recipe results in Docker applying using `latest` as the version tag. When we build a new version of an image without explicitly providing a version, Docker will move the `latest` tag to this new image and leave the previous build untagged. The same process will occur with images that we push to Docker Hub. It is generally better practice to use a specific image version tag. By doing this we can maintain a history of our images which makes any rollback or post incident analysis easier.
 
-Let's tag our `adderservice` image with a version, run:
+Let's tag our `adderservice` image with a version by running:
 
 ```sh
 $ docker tag adderservice <namespace>/adderservice:1
 ```
 
-We can now push this image to Docker Hub:
+We can now push this image to Docker Hub, like so:
 
 ```sh
 $ docker push <namespace>/adderservice:1
@@ -565,40 +618,71 @@ If we now navigate to the `Tags` panel for our `adderservice` image on DockerHub
 Using an incremental build number is one approach to maintaining version tags, another approach is to pull the version field from `package.json` and use that as a version tag. Our preferred approach is to use the `git` SHA as a version tag, that we we can immediately identify the exact code that is built into our service containers.
 
 ### See also
-**TODO DMC**
+
+* TBD
 
 ## Deploying a Container To Kubernetes
-Kubernetes is an open source container orchestration and management system originally built at Google. Kubernetes is a powerful tool and can become quite complex however the basics are fairly simple to understand. To get to grips with Kubernetes, we will be deploying a single container into a local Kunbernetes system using Minikube. Minikube is a convenient way to explore the power of Kubernetes without building a complex cloud based deployment.
+
+Kubernetes is an open source container orchestration and management system originally built at Google. Kubernetes is a powerful tool and can become quite complex. However the basics are fairly simple to understand. To get to grips with Kubernetes, we will be deploying a single container into a local Kunbernetes system using Minikube. Minikube is a convenient way to explore the power of Kubernetes without building a complex cloud based deployment.
 
 ### Getting ready
-For this recipe we will need to install Minikube locally. Head over to the projects Github page to install pre-requisites and the appropriate build for our platform: `https://github.com/kubernetes/minikube/releases`.
 
-This recipe builds on the work that we did in the recipe `Storing Images on DockerHub`, in order to proceed with the recipe we will need a DockerHub account with our `adderservice` container available. We will also need the code from our first recipe in this chapter, `Building a Single Container`.The code for this is available in the accompanying source under `source/Building_Single_Container`. Once we have this and Minikube installed we are good to go.
+For this recipe we will need to install Minikube locally. Let's head over to the project's Github page at https://github.com/kubernetes/minikube/releases to install prerequisites and the appropriate build for our platform.
+
+This recipe builds on the work that we did in the recipe *Storing Images on DockerHub*, in order to proceed with the recipe we will need a DockerHub account with our `adderservice` container available. 
+
+We will also need the code from our first recipe in this chapter, *Building a single Container*.  
+
+Once we have our code, a DockerHub account and Minikube installed we are good to go.
 
 ### How to do it
-Firstly we need to start up `minikube` to do this run:
+
+Firstly we need to start up `minikube`. To do so, we can execute the following:
 
 ```sh
 $ minikube start
 ```
 
-Now that we have Minikube running let's try out a few commands. The main interface into Kubernetes is `kubectl` which was installed during the Minikube installation process. Firstly let's confirm that `kubectl` was installed successfully:
+Now that we have Minikube running let's try out a few commands. 
+
+The main interface into Kubernetes is the `kubectl` command line tool, which was installed during the Minikube installation process. 
+
+Let's confirm that `kubectl` was installed successfully:
 
 ```sh
 $ kubeclt version
+```
+
+```sh
 $ kubeclt help
 ```
 
-We can now see the version of Kubernetes that we are running and also some help information. Let's try some commands to list out the current state of our local Kubernetes cluster:
+We should see the version of Kubernetes that we are running and then some help information. 
+
+Let's try some commands to list out the current state of our local Kubernetes cluster:
 
 ```sh
 $ kubectl get nodes
+```
+
+```sh
 $ kubectl get services
 ```
 
-We should see that we have a single node in the cluster and a single Kubernetes service running. Let's now go ahead and deploy our `adderservice`. Firstly `cd` into the `micro` directory and then create a new directory called `deployment` we will use this to hold our Kubernetes deployment scripts.
+We should see that we have a single node in the cluster and a single Kubernetes service running. Let's now go ahead and deploy our `adderservice`. 
 
-Recall from **Chapter 10 Building Microservice Systems** that we used the DNS namespace `micro`, we need to create a namespace in Kubernetes to reflect this so create a file in the deployment directory called namespace.yml and add the following to it:
+Let's begin by creating a `deployment` directory inside our `micro` folder, with three configuration files `namespace.yml`, `adderservice-dep.yml` and `adderservice-svc.yml`:
+
+```sh
+$ cd micro
+$ mkdir deployment
+$ cd deployment
+$ touch namespace.yml adderservice-dep.yml adderservice-svc.yml
+```
+
+Recall from **Chapter 10 Building Microservice Systems** that we used the DNS namespace `micro`, we need to create a namespace in Kubernetes to mirror our present DNS configuation. Fortunately, this is fairly trivial to achieve. 
+
+Let's add the following to `deployment/namespace.yml`:
 
 ```
 apiVersion: v1
@@ -609,19 +693,22 @@ metadata:
     name: micro
 ```
 
-Next we need to create this namespace in Kubernetes, do this by running the following command:
+Next we register the namespace decribed with Kubernetes like so:
 
 ```sh
 $ kubectl create -f namespace.yml
 ```
 
-Now that we have our namespace created we need to set the Kubernetes context to use this namespace as the default. This means that all subsequent `kubectl` operations will use the `micro` namespace as opposed to the default namespace. To enable this run:
+Now that we have our namespace created we need to set the Kubernetes context to use this namespace as the default. Meaning that all subsequent `kubectl` operations will use the `micro` namespace as opposed to the default namespace. 
+
+To enable this let's run:
 
 ```sh
 $ kubectl config set-context minikube --namespace=micro
 ```
 
-Next we need to create a deployment and a service for our `adderservice`, in the deployment directory create a new file `adderservice-dep.yml` and add the following code to it:
+Next let's describe the deployment topology by adding the following code to 
+the `adderservice-dep.yml` file:
 
 ```
 apiVersion: extensions/v1beta1
@@ -641,7 +728,11 @@ spec:
         ports:
         - containerPort: 8080
 
-In doing this we need to replace `<dockerhub-account>` with the account namespace that we used to upload our `adderservice` to DockerHub in the previous recipe. We also need to create a service to expose our `adderservice` deployment so create a second file called `adderservice-svc.yml` and add the following code:
+In doing this we need to replace `<dockerhub-account>` with the account namespace that we used to upload our `adderservice` to DockerHub in the previous recipe. 
+
+We also need to supply Kubnerenets with service description to allow `adderservice` container to be exposed to the deployment. 
+
+Let's populate `adderservice-svc.yml` with the following configuration code:
 
 ```
 apiVersion: v1
@@ -661,7 +752,9 @@ spec:
   type: NodePort
 ```
 
-Now let's actually push the button and deploy our `adderservice` container. Run the following two commands:
+Now let's actually push the button and deploy our `adderservice` container. 
+
+Run the following two commands:
 
 ```sh
 $ kubectl create -f adderservice-svc
@@ -676,14 +769,14 @@ $ kubectl describe deployment adderservice
 $ kubectl describe service adderservice
 ```
 
-Now that we have deployed our service let's test that it is in fact working by running a curl command against it firstly we need to determine the  minikube cluster IP address, to do this run:
+Now that we have deployed our service let's test that it is in fact working. The first thing we need to ascertain is the minikube cluster's IP address. We can obtain this with the following:
 
 ```sh
 $ minikube ip
 192.168.99.100
 ```
 
-Next we need to get the port number that Minikube has exposed our service on. To determine this run:
+Next we need to get the port number that Minikube has exposed our service on. To determine this we run run:
 
 ```sh
 $ kubectl get services
@@ -692,23 +785,24 @@ adderservice    10.0.0.106   <nodes>       8080:30532/TCP   16m
 kubernetes      10.0.0.1     <none>        443/TCP          1h
 ```
 
-We can see from this that Minikube has exposed our service on 30532 so to test this out we need to run the following curl:
+We can see from this that Minikube has exposed our service on 30532 so to check our `adderservice` we can run the following:
 
 ```sh
 $ curl http://192.168.99.100:30532/add/1/2
 {"result":3}
 ```
 
-Our service has returned the correct result. Excellent! we have just deployed our first `node.js` microservice to Kubernetes.
+Our service has returned the correct result. Excellent! we have just deployed our first Node microservice to Kubernetes.
 
 ## How it works
+
 We achieved a lot in this recipe, and there are a lot of concepts to understand if we are new to Kubernetes. Whilst a full description of Kubernetes is outside the scope of this book, the following diagram illustrates what our single service deployment looks like:
 
 ![image](./images/KubeOneService.png)]
 
 The structure is as follows:
 
-* We have a docker engine instance running on our host machine, we used this to build and tag our images
+* We have a Docker engine instance running on our host machine, we used this to build and tag our images
 
 * We pushed our Docker image to a public repository on DockerHub
 
@@ -716,23 +810,29 @@ The structure is as follows:
 
 * Kubernetes pulled our `adderservice` image from our Docker repository
 
-* Kubernetes created a `pod` in which to run our container. `pods` are managed by a replication controller which is associated with a namespace. In this case the `micro` namespace.
+* Kubernetes created a [pod](https://kubernetes.io/docs/concepts/workloads/pods/pod/) in which to run our container. Pods are managed by a replication controller which is associated with a namespace. In this case the `micro` namespace.
 
-* We also created a Kubernetes `service` to expose our `adderservice` container to the outside world. The service exists within our `micro` namespace.
+* We also created a Kubernetes [service](https://kubernetes.io/docs/concepts/services-networking/service/) to expose our `adderservice` container to the outside world. The service exists within our `micro` namespace.
 
-A full introduction and tutorial on Kubernetes can be found on the official Kubernetes site here: https://kubernetes.io/docs/tutorials/. This tutorial provides a great explanation of the basic concepts that we need in order to work with Kubernetes. It is strongly recommended that we work through this tutorial and then revisit the diagram above before proceeding to the next recipe.
+A full introduction and tutorial on Kubernetes can be found on the official Kubernetes site here: https://kubernetes.io/docs/tutorials/. This tutorial provides a great explanation of the basic concepts that we need in order to work with Kubernetes. If the intricacies of our deployment thus far are still a little unclear we recommend working through the Kubernetes tutorial revisiting the diagram above before proceeding to the next recipe.
 
-There are of course alternatives to Kubernets, however, Kubernetes is at present the leading container orchestration platform. Some alternatives include:
+There are of course alternatives to Kubernetes, some alternatives include:
 
 * Docker Swarm - https://docs.docker.com/engine/swarm/
 * Apache Mesos - http://mesos.apache.org/
 * Amazon Elastic Container Services - https://aws.amazon.com/ecs
 
-### There's more
-It is important to fully understand the core concepts behind Kubernets, to help us do this we will explore the dashboard and also push an updated container to `minikube`
+However, Kubernetes is at the time of writing the leading container orchestration platform. 
 
-### Dashboard
-`Minikube` comes with a built in web dashboard. Whilst the `kubectl` command line client is our primary point of interaction, the dashboard is a great visual tool for exploring Kubernetes. let's open it up now:
+### There's more
+
+It is important to fully understand the core concepts behind Kubernetes. To help us do this we will explore the dashboard and also push an updated container to `minikube`
+
+### Using the `minikube` dashboard
+
+The `minikube` tool comes with a built in web dashboard. Whilst the `kubectl` command line client is our primary point of interaction, the dashboard is a great visual tool for exploring Kubernetes. 
+
+We can open the dashboard with the following command:
 
 ```sh
 $ minikube dashbaord
@@ -746,36 +846,40 @@ If we click on the `logs` icon in the `adderservice` pod line, we can view the l
 
 ![image](./images/kube_dash2.png)]
 
-Take some time to explore the dashboard and ensure that the lawet mentally matches the diagram in the `How it Works` section above for this recipe.
+Let's take some time to explore the dashboard, ensuring the dashboard output mentally matches the diagram in the `How it Works` section for this recipe.
 
-#### Applying Changes
-Let's now try making a change to our service, edit the file `micro/adderservice/service.js` and add some `console.log` statements so that it looks as below:
+#### Applying changes
 
-```javascript
-module.exports = function () {
+Let's now try making a change to our service. For experimentation purposes 
+let's copy the `micro` folder to `micro2` as we make these changes.
 
+Let's edit the file `micro/adderservice/service.js` and add some `console.log` statements so that it looks as below:
+
+```js
+module.exports = service
+
+function service () {
   function add (args, cb) {
-    console.log('add called: ' + args.first + '+' + args.second)
-    var result = parseInt(args.first, 10) + parseInt(args.second, 10)
-    cb(null, result)
+    const {first, second} = args
+    console.log(`add called: ${first} ${second}`)
+    const result = (parseInt(first, 10) + parseInt(second, 10))
+    cb(null, {result: result.toString()})
   }
 
-  return {
-    add: add
-  }
+  return { add }
 }
 ```
 
 Let's now quickly rebuild and push our container to DockerHub:
 
 ```sh
-$ cd micro/adderservice
+$ cd micro2/adderservice
 $ docker build -t adderservice .
 $ docker tag adderservice <dockerhub-account>/adderservice:2
 $ docker push <dockerhub-account>/adderservice:2
 ```
 
-Notice that we applied a version tag this time rather than using the default `latest` tag. Also notice that on the push docker only needs to push a single layer, reporting that the other layers already exist. Now let's update our deployment. Firstly edit the file `micro/deployment/adderservice-dep.yml` and update the image field to reflect the tag of the image that we just pushed, the line should read:
+Notice that we applied a version tag this time rather than using the default `latest` tag. Also notice that on the push Docker only needs to push a single layer, reporting that the other layers already exist. Now let's update our deployment. Firstly edit the file `micro/deployment/adderservice-dep.yml` and update the image field to reflect the tag of the image that we just pushed, the line should read:
 
 ```
     image: <dockerhub-account>/adderservice:2
@@ -784,26 +888,53 @@ Notice that we applied a version tag this time rather than using the default `la
 Next tell Kubernetes to apply the change as follows:
 
 ```sh
-$ cd micro/deployment
+$ cd micro2/deployment
 $ kubtctl apply -f adderservice-dep.yml
 ```
 
-Finally let's test our service and check that our log statement shows up. Firstly curl the service as before then open the minikube dashboard and view the logs which should look as below:
+Finally let's test our service and check that our log statement shows up.
+
+As before we can use the `get services` command to fetch the port mappings:
+
+```
+$ kubectl get services
+```
+
+We can use `curl` to hit the service endpoint (assuming port 30532): 
+
+```sh
+$ curl http://192.168.99.100:30532/add/1/2
+```
+
+Now if we open the dashboard (by running `minikube dashboard`) and view the logs we should see our inserted message in the log output:
 
 ![image](./images/kube_logs.png)]
 
-Notice that our logging statement is present.
 
 ### See also
-**TODO DMC**
 
-## Creating a Deployment Pipeline
-In the previous recipes in this chapter we have become familiar with Docker and Kubernetes. It's time now to really exploit the power of these technologies by creating a deployment pipeline. Wether we are deploying to a staging environment (continuous delivery) or directly to production (continuous deployment) a robust and automated pipeline is powerful tool that should form the core of our DevOps strategy.
+* TODO
+
+## Creating a deployment pipeline
+
+In the previous recipes of this chapter we have become familiar with Docker and Kubernetes. It's now time to weild the power of these technologies by creating a deployment pipeline. 
+
+Whether we are deploying to a staging environment (Continuous Delivery) or directly to production (Continuous Deployment) a robust and automated pipeline is powerful tool that should form the core of our DevOps strategy.
+
+In this recipe we're going to create a deployment pipeline for our system.
+
+> #### Requires bash ![](../info.png)
+> This recipe uses bash scripts (a common practice in creating build pipelines),
+> thus requires a machine capable of running bash to effectively implemented
+> (Linux, Mac and Windows 10 Pro support the bash shell).
 
 ### Getting Ready
-For this recipe we are going to be using the Jenkins CI/CD system as our build and deployment tool so we will need to install this first. Head over to https://jenkins.io/ to download the appropriate binary for our system. Once we have the the download run the installer.
 
-Jenkins runs as in the background as a daemon process, in order to do this, the installer creates a `jenkins` user account, this account is very restricted in what it can do which is great for security on a production build system, however we are going to loosen things off a little bit on our local development environment. To to this we are going to give the `jenkins` user `sudo` powers, run the following command:
+For this recipe we are going to be using the Jenkins CI/CD system as our build and deployment tool so we will need to install this first. We can head over to https://jenkins.io/ to download the appropriate binary for our system. Once we have the the download run the installer.
+
+Jenkins runs in the background as a daemon process. To achieve this, the installer creates a `jenkins` user account. This account is very restricted in what it can do which is great for security on a production build system, however we'll be loosening the restrictions for local development purposes. 
+
+We'll configure `jenkins` to have `sudo` powers. Let's run the following command:
 
 ```sh
 $ sudo visudo
@@ -827,30 +958,36 @@ $ cd ~
 $ echo export PATH="/usr/local/bin:$PATH" > .bashrc
 ```
 
-This recipe uses the code from our previous recipe `Deploying a Container to Kubernetes`, this is available in the accompanying source under `source/Deploying_Container_Kubernetes`.
+This recipe uses the `micro` folder as we left it in previous recipe *Deploying a Container to Kubernetes*.
 
-For this recipe we need to create a Gitub repository for our code. If we don't have a Github account head over to http://github.com and create one. Next create a repository called `micro`. We will add code to this during the recipe.
+We'll be using the `git` version control tool in this recipe, so we need to have that installed on our system.
+
+We'll also need a GitHub account. If we don't have a Github account we can navigate to http://github.com and create one. 
+
+Additionally, we need to create a GitHub repository called `micro` (see https://help.github.com/articles/create-a-repo/ for help on this). We'll be adding code to our GitHub repository throughout.
 
 ### How to do it
+
 Our build pipeline is going to consist of the following steps:
 
 * Pull the latest code
-* run a build step - npm install
-* run a test step -  npm test
+* run a build step (`npm install`)
+* run a test step (`npm test`)
 * build an updated container, updating the version number
 * push the container to DockerHub
 * rollout the new container to our minikube environment
 
-This build pipeline will be controlled and executed by Jenkins. This pipeline will focus only on building the `adderservice` project. The build will pull our `adderservice` and other code from Github so firstly we need to create a local git repository:
+This build pipeline will be controlled and executed by Jenkins. Our pipeline will focus only on building the `adderservice` project. The build process relies on being able to pull the latest code from GitHub. So the first thing we need to do is initalize the `micro` folder as a local git repository:
 
 ```sh
 $ cd micro
 $ git init
 ```
 
-Next add the code from the `adderservice` and the `deployment` folder from the previous recipe to this new local repository. To keep the repository clean let's add a `.gitignore` file at the root containing the following:
+To keep the repository clean let's add a `.gitignore` file at the root containing the following:
 
 ```
+.DS_Store
 *.log
 node_modules
 npm-debug.log
@@ -864,9 +1001,30 @@ scripts {
 }
 '''
 
-By default `npm` will insert and `exit 1` which will cause our test build phase to fail later in the recipe. Note that we are not advocating that one should skip testing, robust unit testing is a key practice for any systems development, however the focus of this recipe is on constrcuting a build pipeline not on the content of any unit tests we might write. We can now commit our code, add the remote origin and push our first commit to Github.
+By default `npm` will insert an `exit 1` command which would cause our test build phase to fail. Note that we are not advocating skipping the test phase. Robust unit testing is a key practice for any system's development. However the focus of this recipe is on constructing a build pipeline not on the content of any unit tests we might write. 
 
-Before we wire up Jenkins, we are going to create our build script, we are also going to make our Kubernetes deployment a little more generic. Firstly `cd` into the `micro/deployment` directory and create a new file `deployment-template.yml`, add the following code to it:
+We can now add the contents of the `micro` folder into our local git repository,
+make the first commit, add the remote origin and push to Github.
+
+```sh
+$ git add .
+$ git commit -m '1st'
+$ git remote add origin https://github.com/<user>/micro.git
+$ git push -u origin master
+```
+
+In these steps, we substitute `<user>` with the name of our Github user account.
+
+Before we wire up Jenkins, we are going to create our build script. We're also going to make our Kubernetes deployment a little more generic. 
+
+Let's create two new files in the `micro/deployment` folder:
+
+```sh
+$ cd micro/deployment
+$ touch deployment-template.yml service-template.yml
+```
+
+The `deployment-template.yml` should look like so: 
 
 ```
 apiVersion: extensions/v1beta1
@@ -887,7 +1045,7 @@ spec:
         - containerPort: _PORT_
 ```
 
-Next create a file `service-template.yml` in the same directory and add the following code:
+The `service-template.yml` should contain the following code:
 
 ```
 apiVersion: v1
@@ -907,11 +1065,25 @@ spec:
   type: NodePort
 ```
 
-> ### Build Scripts ![](../tip.png)
-> Jenkins and other build systems can be powerful tools, however it is normally better to write simple build scripts and trigger/manmage them with tools like
-> Jenkins. This way it is simpler to debug the build process and also to transfer to another build tool if required.
+Our new template files are simply the previous Kuberenetes deployment scripts which we created in the *Deploying a container to Kubernetes* recipe with the specific service name, port and image replaced with the string `_NAME_`, `_PORT` and `_IMAGE_`. Since previous scripts are now redundant let's go ahead and remove them:
 
-As we can see, these templates are just our previous Kuberenetes deployment scripts with the specific service name, port and image replaced with the string `_NAME_`, `_PORT` and `_IMAGE_`. Next let's take care of the build script for the `adderservice`. `cd` into the `micro/adderservice` directory and create a file build.sh. Add the following code to it, replacing the string `_user_` with our own user account that has security permissions to run docker and to upload images to Docker Hub.
+```
+$ rm adderservice*.yml
+```
+
+> ### Build scripts ![](../tip.png)
+> Jenkins and other build systems can be powerful all-encompassing tools. However we recommend writing simple build scripts which are then triggered or managed by automation software like Jenkins. This layer of separation keeps us decoupled from the build tool, and could make debugging easier since we've written the build scripts using familiar languages and tools.
+
+ Next we'll write a build script for the `adderservice`. 
+ 
+ Let's create a `build.sh` file in the `micro/adderservice` folder:
+
+ ```sh
+ $ cd ../adderservice # assuming cwd is micro/deployment
+ $ touch build.sh
+ ``` 
+ 
+ Our `build.sh` file should look as follows, 
 
 ```sh
 #!/bin/bash
@@ -930,10 +1102,10 @@ case "$1" in
     sed -e s/_NAME_/adderservice/ -e s/_PORT_/8080/ \
       < ../deployment/service-template.yml > svc.yml
     sed -e s/_NAME_/adderservice/ -e s/_PORT_/8080/ \
-      -e s/_IMAGE_/_user_\\/adderservice:$GITSHA/ \
+      -e s/_IMAGE_/<dockerhub account>\\/adderservice:$GITSHA/ \
       < ../deployment/deployment-template.yml > dep.yml
-    sudo -i -u _user_ kubectl apply -f $(pwd)/svc.yml
-    sudo -i -u _user_ kubectl apply -f $(pwd)/dep.yml
+    sudo -i -u <dockerhub account> kubectl apply -f $(pwd)/svc.yml
+    sudo -i -u <dockerhub account> kubectl apply -f $(pwd)/dep.yml
   ;;
   *)
     echo invalid build step
@@ -942,14 +1114,23 @@ case "$1" in
 esac
 ```
 
-Replace <username> with our username, i.e. the account that we log into our computer with. Replace <dockerhub account> with our DockerHub user account name.
+Here we need to replace <username> with our username, i.e. the account that we log into our computer with. Replace <dockerhub account> with our DockerHub user account name.
 
 > ### Templates and `sed` ![](../info.png)
 > We are using `sed` as a simple way of running a template based build script. There is discussion in the Kuberenetes community on adding templates to
 > Kubernetes but this is not currently supported. `sed` is an easy way to create a template based solution.
 
-Next we need to wire our build script into Jenkins. We will be using a feature called `pipelines`. Pipelines are described in text files, by convention, called `Jenkinsfile` let's create a Jenkinsfile for our `addderservice` build pipeline. `cd` into the `micro/adderservice` directory and create a file called `Jenkinsfile`,
-add the following to it:
+Next we'll wire our build script into Jenkins. We'll be using a Jenkin's feature called [pipelines](https://jenkins.io/doc/book/pipeline/). 
+
+Pipelines are described in text files named Jenkinsfile (by convention). 
+
+Let's create a Jenkinsfile for our `addderservice` build pipeline:
+
+```sh
+$ touch Jenkinsfile # cwd should be micro/adderservice
+```
+
+The contents of our `Jenkinsfile` should look as follows:
 
 ```
 pipeline {
@@ -986,7 +1167,7 @@ pipeline {
 }
 ```
 
-let's now commit those changes to our github repository:
+No we'll commit and push our changes thus far to our GitHub repository:
 
 ```sh
 $ cd micro
@@ -995,34 +1176,43 @@ $ git commit -m 'build script'
 $ git push origin master
 ```
 
-Great! Now we need to hook up Jenkins. To do this open the Jenkins web interface at http://localhost:8080. Select the `New Item` link on the left hand menu and create a new pipeline project called `adderservice` as illustrated below:
+Great! Now we need to hook up Jenkins. To do we'll open the Jenkins web interface at http://localhost:8080. 
+
+Select the `New Item` link on the left hand menu and create a new pipeline project called `adderservice` as illustrated below:
 
 ![image](./images/jenk_createPipeline.png)
 
-Configure the pipeline by pointing it to our github repository, under the `General` heading, select `github project` and provide the url to the project.
+Then we'll configure the pipeline by pointing it to our GitHub repository. Under the *General* heading we should select *Github project* input and provide the url to the project.
 
 ![image](./images/jenk_config1.png)
 
-We also need to configure the pipeline settings as illustrated below:
+We also need to configure the pipeline settings under the *Pipeline* tab, with SCM set to Git, a single repository with the *Repository URL* set to our GitHub repository (in `.git` format), *Branch specifier* set to `*/master` and *Script Path* configured as `adderservice/Jenkinsfile`, as illustrated in the following image:
 
 ![image](./images/jenk_config2.png)
 
-Once we have these configured and saved, it's time to test our pipeline. From the main Jenkins menu click the `adderservice` link and then click the `build now` link. Jenkins will now kick off the pipeline and build then deploy our service to Kubernetes. Once the build is complete we can inspect the log output and also the overview as below:
+Once we have these settings configured and saved, we're able to test our pipeline. 
+
+From the main Jenkins menu we can click the *adderservice* link, then click the *build now* link. Jenkins will initiate the pipeline, building and deploying our service to Kubernetes. 
+
+Once the build is complete we can inspect Jenkins log output and overview screens as in the below screenshots:
 
 ![image](./images/jenk_build1.png)
 
 ![image](./images/jenk_build2.png)
 
-Finally let's inspect the state of our Kuberenetes cluster after the build:
+Finally we can use the `minikube` dashboard to inspect the state of our Kuberenetes cluster after the build:
 
 ```sh
 $ minikube dashboard
 ```
 
-We can see that a fresh pod has been deployed along with our newly created container image.
+We should see that a fresh pod has been deployed along with our newly created container image.
 
 ### How it works
-We accomplished a lot in that recipe so there is quite a bit to understand. let's start with the build script. Firstly this reads the short form Git SHA for the current branch in our micro project using this code:
+
+We've accomplished a lot so far, let's break it down into pieces. 
+
+Let's begin with the build script, The first line reads the short form Git SHA for the current branch in our micro project using this code:
 
 ```sh
 GITSHA=$(git rev-parse --short HEAD)
@@ -1035,7 +1225,9 @@ sudo -u <username> docker tag adderservice:$GITSHA <dockerhub account>/adderserv
 sudo -i -u <username> docker push <dockerhub account>/adderservice:$GITSHA
 ```
 
-Using a Git SHA as a tag on a container image is a useful technique because it means that we can identify the exact code that is in the container just by looking at the container tag. There are of course other valid tagging strategies, such as using the `npm` version number from `package.json` or some kind other independent build number.
+Using a Git SHA as a tag on a container image is a useful technique because it means that we can identify the exact code that is in the container by cross referencing the container tag with the git history (which can be viewed using `git log`).
+
+There are of course other valid tagging strategies, such as using the `npm` version number from `package.json` or some kind other independent build number.
 
 We used the following code to generate our Kubernetes deployment configuration from our templates:
 
@@ -1043,22 +1235,26 @@ We used the following code to generate our Kubernetes deployment configuration f
 sed -e s/_NAME_/adderservice/ -e s/_PORT_/8080/ \
   < ../deployment/service-template.yml > svc.yml
 sed -e s/_NAME_/adderservice/ -e s/_PORT_/8080/ \
-  -e s/_IMAGE_/_user_\\/adderservice:$GITSHA/ \
+  -e s/_IMAGE_/<user>\\/adderservice:$GITSHA/ \
   < ../deployment/deployment-template.yml > dep.yml
 ```
 
 This is just using `sed` the stream editor to replace our template strings with the required values for the deployment. The output files are written to `svc.yml` for the service and `dep.yml` for the deployment. Finally in the deployment stage we use `kubectl` to apply the updated container using the files we generated through `sed`
 
 ```sh
-sudo -i -u _user_ kubectl apply -f $(pwd)/svc.yml
-sudo -i -u _user_ kubectl apply -f $(pwd)/dep.yml
+sudo -i -u <user> kubectl apply -f $(pwd)/svc.yml
+sudo -i -u <user> kubectl apply -f $(pwd)/dep.yml
 ```
 
-Note that we use the `pwd` command to generate an absolute path because of the context that this script is run in by Jenkins. Let's take a look at the Jenkinsfile again, which is broken down into a number of stages. Jenkins scans the repository that we nominated when we configured the pipeline through the Jenkins web interface. Jenkins reads our Jenkinsfile and begins executing the first phase `Checkout`. Here Jenkins will get a full copy of our `micro` repository into a temporary build area.
+Note that we use the `pwd` command to generate an absolute path because of the context that this script is run in by Jenkins differs from our terminal session (meaning, that the working directories are not the same). 
 
-The next two phases just execute an `npm install` and `npm test` as the build and test phases. In the case of our `adderservice` project we haven't defined any unit tests, but of course for an actual system the test phase should break the build pipeline on test failure. Normally we might also apply some other metrics such as measuring coverage levels or `linting` the code.
+Let's take a look at the `adderservice/Jenkinsfile` again. It's broken down into a number of stages. Jenkins scans the repository that we nominated when we configured the pipeline through the Jenkins web interface. Jenkins reads the `Jenkinsfile` and begins executing the first phase (the `stage('Checkout')` phase). 
 
-In the `container` phase we build, tag and upload our new container image to DockerHub. Finally we apply the changes to Kubernetes in the deployment phase. It is important to note that our approach when using tools like Jenkis is to always do the minimum work within the tool itself and to handle the build as much as possible in external scripts. This makes our build process much easier to debug and also much more portable.
+Here Jenkins will get a pull a full copy of our `micro` GitHub repository into a temporary build area.
+
+The next two stages (`state('Build')` and `stage('Test')`) run `npm install` and `npm test` as the build and test phases. We define unit tests for the `adderservice` since it was beyond our scope, but in an actual system the test phase should break the build pipeline on test failure by returning a non-zero exit code. In the test phase we might also apply other constraints such as minimum coverage levels or code linting.
+
+In the `stage('Container')` phase we build, tag and upload our new container image to DockerHub. Finally we apply the changes to Kubernetes in the deployment phase. It is important to note that our approach when using tools like Jenkins is to always do the minimum work within the tool itself and to handle the build as much as possible in external scripts. This makes our build process much easier to debug and also much more portable.
 
 We should note that Jenkins is just one of a number of CI/CD tools, although it is very widely used. There are several noteworthy alternatives, including:
 
@@ -1068,10 +1264,12 @@ We should note that Jenkins is just one of a number of CI/CD tools, although it 
 * Go - from ThroughtWorks https://www.gocd.io/
 
 ### There's more
+
 We accomplished a lot in this recipe! We now have a Jenkins controlled pipeline building and deploying our `adderservice` container to Kubernetes. Let's explore how we might debug this build process and also automatically trigger it.
 
 #### Debugging the build
-If we encounter any issues with the build process, Jenkins will report these in the output logs. Once we have made a correction to our build scripts we will need to commit and push them to github before telling Jenkins to rebuild. This results in quite a long development cycle. A much better way is to test the scripts directly in a shell so that we are sure that they work before committing for Jenins to build.
+
+If we encounter any issues with the build process, Jenkins will report these in the output logs. Once we have made a correction to our build scripts we will need to commit and push them to GitHub before telling Jenkins to rebuild. This results in quite a long development cycle. A much better way is to test the scripts directly in a shell so that we can be sure they're working before committing for Jenkins to build.
 
 To do this we need to test our scripts in the context of the `jenkins` user. We can do this using the `sudo` command. Let's run the container build step in isolation:
 
@@ -1081,14 +1279,25 @@ $ sudo su jenkins
 $ sh build.sh container
 ```
 
-This allows us to figure out any environmental or permissions issues with a build step before committing the code. Remember to `exit` from the jenkins user once we are done debugging. Also note that a useful command is `whoami` which will tell us the context of the user our shell is running in.
+This allows us to figure out any environmental or permission issues with a build step before committing the code. Remember to `exit` from the `jenkins` user login once we are done debugging. The `whoami` command, which tells us the context of the user our shell is running in, can be generally useful in this process.
 
-#### Triggering the Build
-During this recipe we manually triggered the build in Jenkins, of course this is not the ideal way to do things. It would be much better to trigger the build as code is checked into the master branch. Let's configure Jenkins to do this for us. Firstly we need to create a Github API access token. Head over to github.com and click the settings link. Under the Developer settings menu on the left hand side click the Personal access tokens link. Set the permissions on the token as per the image below:
+#### Automating the build trigger
+
+In the main recipe we manually triggered the build in Jenkins, this isn't ideal. A preferable approach is to trigger the build as code is checked into the master branch. 
+
+Let's configure Jenkins and GitHub to automate the build process. 
+
+We need to create a Github API access token. Let's go to http://github.com, and login if we're not already. Next we click the *settings* link from right hand drop down menu (located next to our profile picture). Under the Developer settings menu on the left hand side click the Personal access tokens link (following this navigation should lead to https://github.com/settings/tokens). 
+
+Next we set the permissions on the token as per the image below:
 
 ![image](./images/gh_accesstok.png)
 
-Once the token has been created copy and paste the token string somewhere for safe keeping as it is only displayed once on the Github UI. Next we need to make our access token available to Jenkins. To do this open the main Jenkins dashboard page and click the credentials link on the left hand menu, following this click the system link and then select the `add credentials` link under the global scope. Complete the for as illustrated below:
+Once the token has been created it's only displayed once on the Github UI so we should copy and paste the token string somewhere for safe keeping. 
+
+Next we need to make our access token available to Jenkins. We can achieve this by opening the main Jenkins dashboard page and clicking the *credentials* link on the left hand menu. Following this we click the *system link* and then select the *add credentials* link under the global scope (this should lead us to http://localhost:8080/credentials/store/system/domain/_/newCredentials). 
+
+Then we can complete the form shown in the following screenshot:
 
 ![image](./images/jenk_creds.png)
 
@@ -1096,44 +1305,79 @@ Select the type as `secret text` and paste in the access token from Github into 
 
 ![image](./images/jenk_gh.png)
 
-Using the credentials that we created in the previous step. We can use the `Test Connection` button to check that our access is setup correctly. Finally we need to configure our pipeline to trigger it from Github. Navigate to the configuration screen for our pipeline and scroll down to the `Build Triggers` section. Select the Poll SCM Option  enter the string `* * * * *` in the schedule box as shown below:
+Using the credentials that we created in the previous step. We can use the *Test Connection* button to check that our access is setup correctly. 
 
-![image](./images/jenk_gh.png)
+Finally we need to configure our pipeline so that it's triggered from Github.
+
+We navigate to the configuration screen for our pipeline and scroll down to the *Build Triggers* section. Then we select the *Poll SCM* option and the string `* * * * *` in the schedule box.
 
 > ### Webhooks ![](../info.png)
-> We are using polling in this recipe because our Jenkins server is running on `localhost`. A more efficient way to trigger a build is to setup a Github `webhook`.
-> Using this technique, Github will call a nominated url on certain event such as branch merge.
+> We are using polling in this recipe because our Jenkins server is running on localhost. A more efficient way to trigger a build is to setup a Github webhook.
+> Using this technique, GitHub will call a nominated url on certain events such as a branch merge.
 
-Now that we have our Github polling setup we can go ahead and trigger a build. To do this we can make a small change to our project, for example adding an additional `console.log` or a comment to the code and push the change to our master branch. Jenkins will pick this change up on it's next poll and automatically run the full pipeline for us right through to deploying new pods on Kubernetes!
+Now that we have GitHub polling configured we can go ahead and trigger a build by pushing to GitHub.
+
+We can make a small change to our project, for example adding an additional `console.log` or a comment to the code and push the change to our master branch.
+
+For instance, we could make our `adderservice/index.js` look like so:
+
+```js
+console.log('BUILD ME :D')
+const wiring = require('./wiring')
+const service = require('./service')()
+
+wiring(service)
+```
+
+Then we would use the following commands to add the change, commit, and push to GitHub:
+
+```sh
+$ cd micro
+$ git add adderservice/index.js
+$ git commit -m 'test build'
+$ git push
+```
+
+Jenkins will pick this change the next time it polls github and automatically run the full pipeline for us right through to deploying new pods on Kubernetes!
 
 ### See also
-**TODO DMC**
 
-## Deploying a Full System
-Now that we have experience with containers and building a deployment pipeline for a single service, it's time to build a deployment pipeline for an entire microservice system. We will be setting this up to work on our local machine for now, but in our next recipe will explore how to lift this into a cloud environment.
+* TBD
+
+## Deploying a full system
+
+Now that we have experience with containers and building a deployment pipeline for a single service, we're going to build a deployment pipeline for an entire microservice system. 
+
+We'll be setting this up to work on our local machine for now, but in the next recipe we'll explore how to lift this into a cloud environment.
 
 ### Getting Ready
-In **Chapter 10 Building Microservice Systems** we developed a small microservice system. For this recipe we will be deploying this system using techniques used in the previous recipes in this chapter. So to get ready we need to grab a copy of the code from the last recipe in chapter 10 'Adding a Queue Based Service'. This code is available in the accompanying source for **Chapter 10 Building Microservice Systems** under `source/Queue_Based_Service`.
 
-This recipe builds on the work of our previous recipe 'Creating a Deployment Pipeline' and it is necessary to complete that recipe before proceeding with this one.
+In **Chapter 10 Building Microservice Systems** we developed a small microservice system. For this recipe we will be deploying this system using techniques used in the previous recipes in this chapter. 
+
+So to prepare we need to grab a copy `micro` folder from the last recipe of chapter 10 *Adding a queue based service*, we'll by copy folders from this recipe into the `micro` folder in previous recipe of this chapter *Creating a deployment pipeline*.
+
+Since we're building on the work of the previous recipe it is necessary to complete it before proceeding with this one.
+
 We also assume that Docker, Minikube and Jenkins are installed locally as required by the previous recipe.
 
-If Github triggers are running for the `adderservice` in Jenkins then now would be a good time to temporarily disable these whilst we work on the rest of the pipeline.
+If GitHub triggers are running for the `adderservice` in Jenkins (using SCM Polling) then now would be a good time to temporarily disable these whilst we work on the rest of the pipeline.
 
 ### How to do it
-Firstly we need to add the code for the rest of the system into our `micro` repository that we created in the previous recipe. To do this copy the following top level directories into the root of our micro repository:
 
-* auditservice
-* eventservice
-* webapp
-* report
-* fuge
+Firstly we need to add the code for the rest of the system into our `micro` repository that we created in the previous recipe. 
 
-Our micro repository directory structure should now look as follows:
+To do this copy the following top level directories from the *Adding a queue based service* `micro` folder into the root of our current `micro`folder (the one which is initialized as a GitHub) repository:
+
+* `auditservice`
+* `eventservice`
+* `webapp`
+* `report`
+* `fuge`
+
+Our `micro` repository directory structure should now look as follows:
 
 ```
 micro
-├── README.md
 ├── .gitignore
 ├── adderservice
 ├── auditservice
@@ -1144,7 +1388,7 @@ micro
 └── webapp
 ```
 
-Firstly let's go ahead and commit this into our github respository:
+Firstly let's go ahead and commit our changes and push them to GitHub:
 
 ```sh
 $ git add .
@@ -1169,19 +1413,19 @@ GITSHA=$(git rev-parse --short HEAD)
 
 case "$1" in
   container)
-    sudo -u _user_ docker build -t auditservice:$GITSHA .
-    sudo -u _user_ docker tag auditservice:$GITSHA \
-      _user_/auditservice:$GITSHA
-    sudo -i -u _user_ docker push _user_/auditservice:$GITSHA
+    sudo -u <user> docker build -t auditservice:$GITSHA .
+    sudo -u <user> docker tag auditservice:$GITSHA \
+      <user>/auditservice:$GITSHA
+    sudo -i -u <user> docker push <user>/auditservice:$GITSHA
   ;;
   deploy)
     sed -e s/_NAME_/auditservice/ -e s/_PORT_/8081/ \
       < ../deployment/service-template.yml > svc.yml
     sed -e s/_NAME_/auditservice/ -e s/_PORT_/8081/ \
-      -e s/_IMAGE_/_user_\\/auditservice:$GITSHA/ \
+      -e s/_IMAGE_/<user>\\/auditservice:$GITSHA/ \
       < ../deployment/deployment-template.yml > dep.yml
-    sudo -i -u _user_ kubectl apply -f $(pwd)/svc.yml
-    sudo -i -u _user_ kubectl apply -f $(pwd)/dep.yml
+    sudo -i -u <user> kubectl apply -f $(pwd)/svc.yml
+    sudo -i -u <user> kubectl apply -f $(pwd)/dep.yml
   ;;
   *)
     echo 'invalid build command'
@@ -1239,14 +1483,14 @@ COPY . /home/node/service
 CMD [ "npm", "start" ]
 ```
 
-There is one other change that we need to make. We have a `test` step in our build although we have cheated and skipped writing unit tests for reasons of brevity. However we need to modify `package.json` for each service and change or add a line in the scripts section because by default `npm init` adds an `exit 1` to the file which will fail our build script. To fix this ensure that `package.json` has the following in it's script section for each service
+There is one other change that we need to make. We have a `test` step in our build although for brevity we've skipped writing unit tests. However we need to modify `package.json` for each service and change or add a line in the scripts section because by default `npm init` adds an `exit 1` to the file which will fail our build script. To fix this ensure that `package.json` has the following in it's script section for each service
 
 ```
 scripts {
   "test": "echo \"no test specified\" && exit 0"
 ```
 
-Once we have completed these changes for each of `auditservice`, `eventservice` and `webapp`, commit them to the Github master branch.
+Once we have completed these changes for the `auditservice`, `eventservice` and `webapp`, commit them to the GitHub master branch.
 
 ```sh
 $ git add .
@@ -1270,16 +1514,16 @@ case "$1" in
       < ../deployment/service-template.yml > svc.yml
     sed -e s/_NAME_/mongo/ -e s/_PORT_/27017/ -e s/_IMAGE_/mongo/ \
       < ../deployment/deployment-template.yml > dep.yml
-    sudo -i -u _user_ kubectl apply -f $(pwd)/svc.yml
-    sudo -i -u _user_ kubectl apply -f $(pwd)/dep.yml
+    sudo -i -u <user> kubectl apply -f $(pwd)/svc.yml
+    sudo -i -u <user> kubectl apply -f $(pwd)/dep.yml
   ;;
   redis)
     sed -e s/_NAME_/redis/ -e s/_PORT_/6379/  \
       < ../deployment/service-template.yml > svc.yml
     sed -e s/_NAME_/redis/ -e s/_PORT_/6379/ -e s/_IMAGE_/redis/ \
       < ../deployment/deployment-template.yml > dep.yml
-    sudo -i -u _user_ kubectl apply -f $(pwd)/svc.yml
-    sudo -i -u _user_ kubectl apply -f $(pwd)/dep.yml
+    sudo -i -u <user> kubectl apply -f $(pwd)/svc.yml
+    sudo -i -u <user> kubectl apply -f $(pwd)/dep.yml
   ;;
   *)
     echo 'invalid build command'
@@ -1314,7 +1558,7 @@ pipeline {
 }
 ```
 
-Next we need to commit these changes to Github. Once we have done that it's time to configure Jenkins. From the main Jenkins dashboard select `New Item`, select a type of `Pipeline` and call the pipeline `infrastructure`. Jenkins can give us a little help here, if we tell it to copy settings from `adderservice` as shown below, we will get the Github configuration copied into the `infrastructure` pipeline for us:
+Next we need to commit these changes to GitHub. Once we have done that it's time to configure Jenkins. From the main Jenkins dashboard select `New Item`, select a type of `Pipeline` and call the pipeline `infrastructure`. Jenkins can give us a little help here, if we tell it to copy settings from `adderservice` as shown below, we will get the Github configuration copied into the `infrastructure` pipeline for us:
 
 ![image](./images/jenk_copysettings.png)
 
@@ -1360,15 +1604,22 @@ We now have a functioning microservice system with a continuous delivery pipelin
 
 ![image](./images/BuildDetail.png)
 
-Once a commit is pushed to the master branch, Jenkins will pull the latest version of the code. Jenkins will then run build and test steps before creating a new container image. Once the image is created it is pushed up to DockerHub. Jenkins then triggers a deployment into Kubernetes. Kubernetes pulls the nominated image from DockerHub and creates a new pod. The old pod is then discarded. We have created independent pipelines for each of `adderservice`, `auditservice`, `eventservice` and `webapp`
+Once a commit is pushed to the master branch, Jenkins will pull the latest version of the code. Jenkins will then run build and test steps before creating a new container image. Once the image is created it is pushed up to DockerHub. Jenkins then triggers a deployment into Kubernetes. Kubernetes pulls the nominated image from DockerHub and creates a new pod. The old pod is then discarded. 
 
-It is important to note at this point the transition from running our system in development mode using Fuge, which was the subject of several recipes in **Chapter 10 Building Microservice Systems** to running our system in Kubernetes. This transition was smooth because our code was written from the start to use the same service discovery mechanisms in each case.
+We have created independent pipelines for each of `adderservice`, `auditservice`, `eventservice` and `webapp`
+
+This is a good point to note that transitioning from running our system in development mode using Fuge (the microservice development toolkit used in several recipes in **Chapter 10 Building Microservice Systems**) to running our system in Kubernetes. This transition was smooth because our code was written from the start to use the same service discovery mechanisms in both environments.
 
 ### There's more
-Whilst Kubernetes can seem a little overwhelming at first, exploring some more *power user* techniques can help with mastering it. One technique that can help in many scenarios is to run a shell inside a Kubernetes managed container, let's try this out:
+
+Whilst Kubernetes can seem a little overwhelming at first, exploring some more *power user* techniques can help with mastering it.
+
+One helpful technique is opening a shell inside a Kubernetes managed container.
+
+Let's try this out.
 
 #### Running a Report
-Recall that in the recipe `Adding a Queue Based Service` in **Chapter 10 Building Microservice Systems** we created a reporting utility that displayed URL counts for our system. Let's run this again but from inside of Kubernetes. To do this we need to build a container for our reporting service. Firstly copy the code from **Chapter 10 Building Microservice Systems** recipe directory  `micro/report` into our working `micro` directory.
+Recall that in the recipe *Adding a queue based service* in **Chapter 10 Building Microservice Systems** we created a reporting utility that displayed URL counts for our system. Let's run this again but from inside of Kubernetes. To do this we need to build a container for our reporting service. Firstly copy the code from **Chapter 10 Building Microservice Systems** recipe directory  `micro/report` into our working `micro` directory.
 
 As above, copy in the same `Dockerfile` and `.dockerignore` files into the `report` directory. Next let's build, tag and push our container:
 
@@ -1398,7 +1649,7 @@ root@report-1073913328-h8st5:/home/node/service# vi report.sh
 bash: /usr/bin/vi: No such file or directory
 ```
 
-The error message is telling us that vi is not installed in the container! Recall that we used the `node:slim` variant which is an optimized image. This doesn't include editors or other packages not required for running `node.js` processes. We can fix this on the fly! run:
+The error message is telling us that vi is not installed in the container! Recall that we used the `node:slim` variant which is an optimized image. This doesn't include editors or other packages not required for running Node processes. We can fix this on the fly! run:
 
 ```sh
 root@report-1073913328-h8st5:/home/node/service# apt-get update
@@ -1437,13 +1688,14 @@ Finally type `exit` to close the command prompt and exit the running container.
 
 ### See also
 
-**TODO DMC**
+* TBD
 
 ## Deploying to the Cloud
+
 In the final recipe for this chapter we are going to take our deployment and shift it up onto a public cloud, at the end we will have a cloud based deployment of our microservice system with a supporting continuous delivery pipeline. We will be using Amazon Web Services AWS as our cloud provider because at the time of writing AWS is the most popular Infrastructure as a Service (IAAS) provider. Please note that this recipe will incur billable time on the AWS cloud so we are advised to shut down the system once we have completed the recipe in order to minimize costs.
 
 ### Getting Ready
-For this recipe we will need an AWS account. If we do not already have an account, head over to `http://aws.amazon.com` and sign up for one.
+For this recipe we will need an AWS account. If we do not already have an account, we can head over to `http://aws.amazon.com` and sign up for one.
 
 The code in this recipe builds on that from our previous recipe `Deploying a Full System` so we will need to have this code available.
 
@@ -1527,7 +1779,7 @@ Now that our cluster is up and running on AWS it's time to deploy our system. On
 export KUBECONFIG=<path to kubeconfig>
 ```
 
-Once we have this environment variable set, we can run `kubectl` as in our previous recipes, only now it will point to our AWS Kubernets cluster rather than a our local `minikube` instance. To check that everything is working correctly run the following:
+Once we have this environment variable set, we can run `kubectl` as in our previous recipes, only now it will point to our AWS Kubernetes cluster rather than a our local `minikube` instance. To check that everything is working correctly run the following:
 
 ```sh
 $ kubectl get namespaces
@@ -1616,18 +1868,18 @@ GITSHA=$(git rev-parse --short HEAD)
 
 case "$1" in
   container)
-    sudo -u _user_ docker build -t webapp:$GITSHA .
-    sudo -u _user_ docker tag webapp:$GITSHA _user_/webapp:$GITSHA
-    sudo -i -u _user_ docker push _user_/webapp:$GITSHA
+    sudo -u <user> docker build -t webapp:$GITSHA .
+    sudo -u <user> docker tag webapp:$GITSHA <user>/webapp:$GITSHA
+    sudo -i -u <user> docker push <user>/webapp:$GITSHA
   ;;
   deploy)
     sed -e s/_NAME_/webapp/ -e s/_PORT_/3000/ \
       < ../deployment/service-template-lb.yml > svc.yml
     sed -e s/_NAME_/webapp/ -e s/_PORT_/3000/ \
-      -e s/_IMAGE_/_user_\\/webapp:$GITSHA/ \
+      -e s/_IMAGE_/<user>\\/webapp:$GITSHA/ \
       < ../deployment/deployment-template.yml > dep.yml
-    sudo -i -u _user_ kubectl apply -f $(pwd)/svc.yml
-    sudo -i -u _user_ kubectl apply -f $(pwd)/dep.yml
+    sudo -i -u <user> kubectl apply -f $(pwd)/svc.yml
+    sudo -i -u <user> kubectl apply -f $(pwd)/dep.yml
   ;;
   *)
     echo 'invalid build command'
@@ -1636,7 +1888,7 @@ case "$1" in
 esac
 ```
 
-Once we have made these changes we need to commit them to our Github repository. If our Jenkis server was set to trigger on commit then a build will start automatically, otherwise we will need to navigate to the `webapp` project in Jenkins and manually trigger a build. Once this has completed let's check that the updates to our cluster were successful:
+Once we have made these changes we need to commit them to our Github repository. If our Jenkins server was set to trigger on commit then a build will start automatically, otherwise we will need to navigate to the `webapp` project in Jenkins and manually trigger a build. Once this has completed let's check that the updates to our cluster were successful:
 
 ```sh
 $ kubectl get deployments
@@ -1675,7 +1927,7 @@ Endpoints:		100.96.1.7:3000
 Session Affinity:	None
 ```
 
-From this we can observe that Kubernets has created an Elastic Load Balancer within AWS for us. We can now access our system through this balancer by pointing a browser to `http://a0ac21827191511e78d220ae28f9af81-1027644718.us-west-2.elb.amazonaws.com:3000/add`. The add screen will load as before and we can also see our audit service at `http://a0ac21827191511e78d220ae28f9af81-1027644718.us-west-2.elb.amazonaws.com:3000/audit`.
+From this we can observe that Kubernetes has created an Elastic Load Balancer within AWS for us. We can now access our system through this balancer by pointing a browser to `http://a0ac21827191511e78d220ae28f9af81-1027644718.us-west-2.elb.amazonaws.com:3000/add`. The add screen will load as before and we can also see our audit service at `http://a0ac21827191511e78d220ae28f9af81-1027644718.us-west-2.elb.amazonaws.com:3000/audit`.
 
 Excellent! We now have a fully automated build pipeline to our system running on AWS!
 
@@ -1692,13 +1944,13 @@ Our deployed system is shown in the diagram below:
 
 Note that the configuration is very similar to our local setup, only that we have now deployed our system to the AWS cloud. Within AWS Kubernetes is running on three machine instances, one master and two worker nodes. Our containers are distributed across these nodes, in fact we don't event care too much which instances they are running on, Kubernetes will manage workload and distribution for us.
 
-`kops` is a powerful tool that allows us to manage multiple Kubernets clusters and takes a lot of the grunt work out of so doing. `kops` stores it's configuration in an S3 bucket so that it is centrally available - this is known as the `kops` state store. Both `'kops` and Kubernetes use the information in the state store to configure and update the cluster and underlying infrastructure. To edit the contents of the state store we should always use the `kops` interface, rather than editing the files on S3 directly, for example to edit the cluster information we could run:
+`kops` is a powerful tool that allows us to manage multiple Kubernetes clusters and takes a lot of the grunt work out of so doing. `kops` stores it's configuration in an S3 bucket so that it is centrally available - this is known as the `kops` state store. Both `'kops` and Kubernetes use the information in the state store to configure and update the cluster and underlying infrastructure. To edit the contents of the state store we should always use the `kops` interface, rather than editing the files on S3 directly, for example to edit the cluster information we could run:
 
 ```sh
 $ kops edit cluster
 ```
 
-`kops` uses a set of rules to specify sensible default values for the Kubernets cluster, hiding a lot of the detailed configuration. Whilst this is useful to spin up a staging cluster it is advisable to fully understand the configuration at a more detailed level when implementing production grade clusters, particularly with regard to system security.
+`kops` uses a set of rules to specify sensible default values for the Kubernetes cluster, hiding a lot of the detailed configuration. Whilst this is useful to spin up a staging cluster it is advisable to fully understand the configuration at a more detailed level when implementing production grade clusters, particularly with regard to system security.
 
 To view a list of all of the resources that `kops` created for us by running the `delete` command without the `--yes` flag:
 
@@ -1712,13 +1964,13 @@ In our previous recipes we used NodePort as the service type, this is because `m
 
 Throughout this chapter and the `microservices` chapter we have been working with the same codebase. It is important to note that the codebase has been deployed in development mode using the `fuge` tool, to a local minikube cluster and now to a full blown Kubernetes cluster on AWS - WITHOUT CHANGE! i.e. we have not needed to provide separate environment configuirations for `dev`, `test`, `staging` etc.. This is because the code was developed to use the same service discovery mechanism in all environments. We also harnessed the power of containers not only for deployment but also in development to provide our Mongo and Redis databases.
 
-`kops` is just one tool that helps us to automate Kubernets cluster deployment, others include:
+`kops` is just one tool that helps us to automate Kubernetes cluster deployment, others include:
 
-* `kube-aws` - from the folks at CoreOS, as the name implies targets creating Kubernets clusters on AWS: https://coreos.com/kubernetes/docs/latest/kubernetes-on-aws-render.html
+* `kube-aws` - from the folks at CoreOS, as the name implies targets creating Kubernetes clusters on AWS: https://coreos.com/kubernetes/docs/latest/kubernetes-on-aws-render.html
 * Google Container Engine - turnkey cloud based Kubernetes deployment https://cloud.google.com/container-engine/
 * Kargo - Supports deployment to bare metal and various cloud providers https://github.com/kubernetes-incubator/kargo
 
-Finally the long form way is to install Kubernets from scratch: https://kubernetes.io/docs/getting-started-guides/scratch/.
+Finally the long form way is to install Kubernetes from scratch: https://kubernetes.io/docs/getting-started-guides/scratch/.
 
 ### There's more
 Before we delete our cluster from AWS it is worth exploring it a little more, firstly with the Kubernetes dashboard.
