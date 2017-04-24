@@ -2548,17 +2548,21 @@ DNS resolution behavior, so set a view environment variables up in the
 
 ```js
 const env = {
-  DNS_HOST: '127.0.0.1',
-  DNS_PORT: '53053',
   DNS_NAMESPACE: 'micro',
   DNS_SUFFIX: 'svc.cluster.local'
+}
+
+if (process.env.NODE_ENV !== 'production') {
+  Object.assign(env, {  
+    DNS_HOST: '127.0.0.1',
+    DNS_PORT: '53053'
+  })
 }
 
 Object.assign(process.env, env)
 ```
 
 Our `micro/report/env.js` file will be required before `concordant` is initialized.
-
 
 Our `micro/report/index.js` should look like so:
 
@@ -2648,9 +2652,14 @@ Output similar to the following should be displayed:
 
 In this recipe we created a queue based microservice that used Redis as a lightweight queueing mechanism. We used a Redis container and discovered this container using DNS. It is interesting to note that in this case, neither the service or consumer end had direct knowledge of each other, rather each simply placed messages onto an intermediary queue.
 
-Our event service again used `concordant` DNS to discover the Redis service as before, supplying the portName and service name for discovery. We are also supplying the name of the internal list structure that Redis should use for these messages, in this case the queue is called `eventservice`.
+Our `eventservice` used `concordant` DNS to discover the Redis service as before,supplying the port and service name for discovery. We are also supplying the name of the internal list structure that Redis should use for these messages,in this case the queue is called `eventservice`.
 
 The `eventservice` simply records each event into a MongoDB database and provides a simple report function on this database when requested.
+
+The `report` tool/service we added also sets uses concordant. In the `report/env.js` file we set up some environment variables that `concordant`
+to contact the DNS server. If the `NODE_ENV` environment variable is set 
+to `production` we don't set the `DNS_HOST` and `DNS_PORT`, which causes
+concordant to use standard DNS resolution. We utilize this dynamic in the *There's more* section of the *Deploying a full system* recipe in **Chapter 11 Deploying Systems**.
 
 Now that we have constructed a system with several services, a frontend and an offline reporting tool let's take a look at the overall architecture:
 
