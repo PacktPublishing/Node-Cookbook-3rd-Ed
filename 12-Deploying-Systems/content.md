@@ -66,7 +66,7 @@ We also need the code from the **Chapter 10 Building Microservice Systems** avai
 
 Our final system from **Chapter 10 Building Microservice Systems** is depicted in below, recall that it comprises a frontend, three services and a reporting tool.
 
-![image](./images/finalsystem.png)]
+![image](./images/finalsystem.png)
 
 Our build process will need a base Docker image suitable for running Node application code. The first thing we'll do is pull an official Node base image from the Docker Hub repository. 
 
@@ -236,7 +236,7 @@ $ docker history adderservice
 
 This should output something similar to the following image:
 
-![image](./images/docker-history.png)]
+![image](./images/docker-history.png)
 
 Not only does this command show the layers created by our Dockerfile, it also shows the commands that were used to build up the base image, in this case our base `node:slim` image.
 
@@ -286,7 +286,7 @@ $ docker history adderservice
 
 We should be able to see how our layers have changed, as in the following figure:
 
-![image](./images/docker-history2.png)]
+![image](./images/docker-history2.png)
 
 If we look at the `IMAGE` column, we can see that the ID for the uppermost two layers is different. This means that the difference between these two images is just these two layers. Notice also that these layers consist of a total of 1.475 kBytes. It is important to understand that when this change to a container is deployed, on the delta, in this case only 1.475 kBytes will be changed.
 
@@ -536,17 +536,17 @@ $ docker build -t adderservice .
 
 Firstly we need to create an account on DockerHub, to do this head over to `http://hub.docker.com` and sign up for an account:
 
-![image](./images/dh_signup.png)]
+![image](./images/dh_signup.png)
 
 Once we have our account we need to create a repository for our `adderservice` images. To do this hit the `Create Repositoy` button as illustrated below:
 
-![image](./images/dh_mainblank.png)]
+![image](./images/dh_mainblank.png)
 
 We need to complete the form using `adderservice` as the repository name, leaving the "Visibility" of the repository as "public". 
 
 Once the repository is created we should see a screen similar to the following:
 
-![image](./images/dh_blankrepo.png)]
+![image](./images/dh_blankrepo.png)
 
 Of course the username will be different in each case! 
 
@@ -571,7 +571,7 @@ Docker will push our image to the hub.
 
 We can navigate to the `tags` tab to confirm that the push was succesful, as illustrated below:
 
-![image](./images/dh_pushed.png)]
+![image](./images/dh_pushed.png)
 
 We should also now be able pull this image:
 
@@ -707,8 +707,7 @@ To enable this let's run:
 $ kubectl config set-context minikube --namespace=micro
 ```
 
-Next let's describe the deployment topology by adding the following code to 
-the `adderservice-dep.yml` file:
+Next let's describe the deployment topology by adding the following code to the `adderservice-dep.yml` file:
 
 ```
 apiVersion: extensions/v1beta1
@@ -727,6 +726,7 @@ spec:
         image: <dockerhub-account>/adderservice
         ports:
         - containerPort: 8080
+```
 
 In doing this we need to replace `<dockerhub-account>` with the account namespace that we used to upload our `adderservice` to DockerHub in the previous recipe. 
 
@@ -776,7 +776,7 @@ $ minikube ip
 192.168.99.100
 ```
 
-Next we need to get the port number that Minikube has exposed our service on. To determine this we run run:
+Next we need to get the port number that Minikube has exposed our service on. To determine this we run:
 
 ```sh
 $ kubectl get services
@@ -798,7 +798,7 @@ Our service has returned the correct result. Excellent! we have just deployed ou
 
 We achieved a lot in this recipe, and there are a lot of concepts to understand if we are new to Kubernetes. Whilst a full description of Kubernetes is outside the scope of this book, the following diagram illustrates what our single service deployment looks like:
 
-![image](./images/KubeOneService.png)]
+![image](./images/KubeOneService.png)
 
 The structure is as follows:
 
@@ -840,11 +840,11 @@ $ minikube dashbaord
 
 If we use the menu on the left hand side to select the `micro` namespace we can see a summary of our deployment, it should look as follows:
 
-![image](./images/kube_dash1.png)]
+![image](./images/kube_dash1.png)
 
 If we click on the `logs` icon in the `adderservice` pod line, we can view the log output from the service, which is depicted below:
 
-![image](./images/kube_dash2.png)]
+![image](./images/kube_dash2.png)
 
 Let's take some time to explore the dashboard, ensuring the dashboard output mentally matches the diagram in the `How it Works` section for this recipe.
 
@@ -908,7 +908,7 @@ $ curl http://192.168.99.100:30532/add/1/2
 
 Now if we open the dashboard (by running `minikube dashboard`) and view the logs we should see our inserted message in the log output:
 
-![image](./images/kube_logs.png)]
+![image](./images/kube_logs.png)
 
 
 ### See also
@@ -2004,7 +2004,7 @@ $ kops delete cluster <domain name> --yes
 
 Our deployed system is shown in the diagram below:
 
-![image](./images/BuildDetailAWS.png)]
+![image](./images/BuildDetailAWS.png)
 
 Note that the configuration is very similar to our local setup, only that we have now deployed our system to the AWS cloud. Kubernetes is running on three AWS machine instances: one master and two worker nodes. Our containers are distributed across these nodes, in fact we don't event care too much which instances they are running on as Kubernetes manages workload and distribution for us.
 
