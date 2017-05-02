@@ -1,0 +1,23 @@
+{
+  "name": "app",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "ejs": "^2.5.6",
+    "koa": "^2.2.0",
+    "koa-bodyparser": "^4.2.0",
+    "koa-generic-session": "^1.11.5",
+    "koa-pino-logger": "^2.1.0",
+    "koa-router": "^7.1.1",
+    "koa-static": "^3.0.0",
+    "koa-views": "^6.0.1",
+    "pino": "^4.2.4"
+  }
+}

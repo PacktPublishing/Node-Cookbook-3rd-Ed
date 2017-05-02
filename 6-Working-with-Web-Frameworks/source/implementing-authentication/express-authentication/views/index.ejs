@@ -1,0 +1,16 @@
+<html>
+  <head>
+    <title> <%= title %> </title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <h1> <%= title %> </h1>
+    <p> Welcome to <%= title %> </p>
+    <% if (user) { %>
+    <p> Hi <%= user.name %>! </p>
+    <p> <a href=/auth/logout> Logout </a> </p>
+    <% } else { %>
+    <p> <a href=/auth/login> Login </a> </p>
+    <% } %> 
+  </body>
+</html>
