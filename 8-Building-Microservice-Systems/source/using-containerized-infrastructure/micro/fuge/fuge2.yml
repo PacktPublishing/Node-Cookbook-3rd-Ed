@@ -1,0 +1,31 @@
+fuge_global:
+  run_containers: false
+  tail: true
+  monitor: true
+  monitor_excludes:
+    - '**/node_modules/**'
+    - '**/.git/**'
+    - '*.log'
+adderservice:
+  type: process
+  path: ../adderservice
+  run: node index.js
+  ports:
+    - main=8080
+webapp:
+  type: process
+  path: ../webapp
+  run: npm start
+  ports:
+    - main=3000
+auditservice:
+  type: process
+  path: ../auditservice
+  run: 'node index.js'
+  ports:
+    - main=8081
+mongo:
+  image: mongo
+  type: container
+  ports:
+    - main=27017:27017

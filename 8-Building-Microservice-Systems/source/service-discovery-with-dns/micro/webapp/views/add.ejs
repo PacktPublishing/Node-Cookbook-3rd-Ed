@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Add</title>
+    <link rel='stylesheet' href='/stylesheets/style.css' />
+  </head>
+  <body>
+    <h1>Add it up!</h1>
+    <form id='calc-form' action='/add/calculate' method='post'>
+      <input type='text' id='first', name='first' value=<%= first %>></input>
+      <input type='text' id='second', name='second' value=<%= second %>></input>
+    </form>
+    <button type="submit" form="calc-form" value="Submit">Submit</button>
+    <h2>result = <%= result %></h2>
+  </body>
+</html>
