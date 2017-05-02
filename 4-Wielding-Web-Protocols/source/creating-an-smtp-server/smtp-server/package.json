@@ -1,0 +1,15 @@
+{
+  "name": "smtp",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "David Mark Clements",
+  "license": "MIT",
+  "dependencies": {
+    "smtp-protocol": "^2.4.7"
+  }
+}
