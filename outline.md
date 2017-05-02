@@ -367,15 +367,16 @@ ADVANCED topics.
 
 -   Containerization with Docker
 -   Continuous deployment
--   AWS
--   Heroku
+-   Deploying to Bare Metal
+-   Deploying to PaaS
+-   Deploying to the cloud
 
 **Skills learned:**
 
 -   Small scale deployment
 -   Large scale deployment
 -   CI work flow set up
--   AWS administration basics
--   Heroku deployment basics
+-   Cloud administration basics
+-   PaaS deployment basics
 
 
