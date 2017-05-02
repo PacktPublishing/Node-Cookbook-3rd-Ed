@@ -1,0 +1,2 @@
+cd webapp && npm start
+cd adderservice && node service

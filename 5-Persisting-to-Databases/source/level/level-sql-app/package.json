@@ -1,0 +1,20 @@
+{
+  "name": "level-app",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "end-of-stream": "^1.1.0",
+    "levelup": "^1.3.3",
+    "sqldown": "^2.1.0",
+    "sqlite": "^2.3.0",
+    "through2": "^2.0.3",
+    "xxhash": "^0.2.4"
+  }
+}
