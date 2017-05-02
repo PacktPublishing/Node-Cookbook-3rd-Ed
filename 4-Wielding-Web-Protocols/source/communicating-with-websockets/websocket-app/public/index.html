@@ -1,0 +1,31 @@
+<input id="msg"><button id="send">Send</button>
+<div id="output"></div>
+<script>
+(function () {
+  var ws = new WebSocket('ws://localhost:8080')
+  var output = document.getElementById('output')
+  var send = document.getElementById('send')
+
+  function log (event, msg) {
+    return '<div>' + event + ': ' + msg + '</div>';
+  }
+
+  send.addEventListener('click', function () {
+    var msg = document.getElementById('msg').value
+    ws.send(msg)
+    output.innerHTML += log('Sent', msg)
+  })
+
+  ws.onmessage = function (e) {
+    output.innerHTML += log('Recieved', e.data)
+  }
+
+  ws.onclose = function (e) {
+    output.innerHTML += log('Disconnected', e.code + '-' + e.type)
+  }
+
+  ws.onerror = function (e) {
+    output.innerHTML += log('Error', e.data);
+  }
+}())
+</script>

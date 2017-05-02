@@ -1,0 +1,16 @@
+{
+  "name": "inttest",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Peter Elger",
+  "license": "ISC",
+  "devDependencies": {
+    "superagent": "^3.5.2",
+    "tap": "^10.3.1"
+  }
+}

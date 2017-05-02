@@ -1,0 +1,17 @@
+<html>
+  <head>
+    <title> Login </title>
+    <link rel="stylesheet" href="../styles.css">
+  </head>
+  <body>
+    <h1> Login </h1>
+    <% if (fail) { %> 
+    <h2> Try Again </h2>
+    <% } %>
+    <form method=post action=login>
+      User: <input name=un> <br>
+      Pass: <input type=password name=pw> <br>
+      <input type=submit value="login">
+    </form>
+  </body>
+</html>
