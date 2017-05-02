@@ -1,0 +1,15 @@
+{
+  "name": "watching-files-and-directories",
+  "version": "1.0.0",
+  "description": "",
+  "main": "watcher.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "David Mark Clements",
+  "license": "MIT",
+  "dependencies": {
+    "human-time": "0.0.1"
+  }
+}

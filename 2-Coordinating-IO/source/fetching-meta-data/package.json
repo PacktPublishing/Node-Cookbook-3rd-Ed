@@ -1,0 +1,14 @@
+{
+  "name": "fetching-meta-data",
+  "version": "1.0.0",
+  "description": "",
+  "main": "meta.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "David Mark Clements",
+  "license": "MIT",
+  "dependencies": {
+    "tableaux": "^1.0.1"
+  }
+}

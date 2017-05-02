@@ -1,0 +1,16 @@
+{
+  "name": "piping",
+  "version": "1.0.0",
+  "main": "base64.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "David Mark Clements",
+  "license": "MIT",
+  "dependencies": {
+    "base64-encode-stream": "^1.0.0"
+  },
+  "devDependencies": {},
+  "keywords": [],
+  "description": ""
+}
