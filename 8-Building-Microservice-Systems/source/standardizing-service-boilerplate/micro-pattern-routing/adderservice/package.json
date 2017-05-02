@@ -1,0 +1,21 @@
+{
+  "name": "adderservice",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Peter Elger",
+  "license": "ISC",
+  "dependencies": {
+    "bloomrun": "^3.0.4",
+    "net-object-stream": "^2.0.0",
+    "pump": "^1.0.2",
+    "through2": "^2.0.3"
+  },
+  "devDependencies": {
+    "tap": "^10.3.1"
+  }
+}

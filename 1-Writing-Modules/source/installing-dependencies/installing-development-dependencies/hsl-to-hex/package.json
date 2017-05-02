@@ -1,0 +1,25 @@
+{
+  "name": "hsl-to-hex",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "David Mark Clements",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/davidmarkclements/hsl-to-hex.git"
+  },
+  "bugs": {
+    "url": "https://github.com/davidmarkclements/hsl-to-hex/issues"
+  },
+  "homepage": "https://github.com/davidmarkclements/hsl-to-hex#readme",
+  "description": "",
+  "dependencies": {
+    "hsl-to-rgb-for-reals": "^1.1.0"
+  },
+  "devDependencies": {
+    "standard": "^6.0.8"
+  }
+}

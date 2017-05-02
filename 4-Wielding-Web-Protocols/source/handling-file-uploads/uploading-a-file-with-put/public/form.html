@@ -1,0 +1,35 @@
+<form id="upload">
+  <input type="file" name="userfile1"><br>
+  <input type="submit">
+</form>
+<pre id="status"></pre>
+<script>
+(function () {
+  var fieldName = 'userfile1'
+  var field = document.querySelector('[name=' + fieldName + ']')
+  var uploadForm = document.getElementById('upload')
+  var status = document.getElementById('status')
+  var file
+  field.addEventListener('change', function () {
+    file = this.files[0]
+  })
+  uploadForm.addEventListener('submit', function (e) {
+    e.preventDefault()
+    if (!file) return
+    var xhr = new XMLHttpRequest()
+    xhr.file = file
+    xhr.open('put', window.location, true)
+    xhr.setRequestHeader("x-field", fieldName)
+    xhr.setRequestHeader("x-filename", file.fileName || file.name)
+    xhr.onload = updateStatus
+    xhr.send(file)
+    file = ''
+    uploadForm.reset()
+  })
+  function updateStatus() {
+    status.innerHTML += this.status === 200 
+      ? this.response
+      : this.status + ': ' + this.response
+  }
+}())
+</script>
