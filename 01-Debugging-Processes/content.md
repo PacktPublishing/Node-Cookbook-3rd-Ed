@@ -1,13 +1,11 @@
-# 9 Debugging Processes
+# 1 Debugging Processes
 
-This chapter covers the following topics
+This chapter covers the following recipes
 
-* Using Chrome Devtools to debug Node
-* Turning on internal debug flags
-* Instrumenting code with debug logs
-* Enhancing stack traces
-* Debugging Core Node libraries
-
+* Debugging Node with Chrome Devtools
+* Enhancing Stack Trace output
+* Enabling Debug Logs
+* Enabling Core Debug Logs
 
 ## Introduction
 
@@ -87,7 +85,6 @@ module.exports = (age, gap) => {
 }
 ```
 
-
 > #### Web Frameworks ![](../tip.png)
 > We're only using express here as an example,
 > to learn more about Express and other Frameworks
@@ -141,12 +138,12 @@ We should then see something like the following:
 Now let's set a break inside our route handler, on line 7. 
 
 If we click the number 7 in the LOC column to the left of the code,
-it should an arrow like shape over and around the number, also making color
-the color of the 7 white. Over on the right hand column, in the Breakpoints
+an arrow like shape will appear over and around the number (which will turn white). 
+Over on the right hand column, in the Breakpoints
 pane we should also see a checkbox with "index.js:7" next to it, while beneath
 that is the code from the line we've set a breakpoint on.
 
-In short, the Devtools GUI should now something look like the following:
+In short, the Devtools GUI should now look something like the following:
 
 ![](images/devtools-2.png)
 
@@ -370,7 +367,7 @@ a legacy version of Node.
 #### Immediately pausing a process on start
 
 In many cases we want to debug a process from initialization,
-or we may want to set up breakpoints before anything can happens.
+or we may want to set up breakpoints before anything can happen.
 
 From Node 8 onwards we use the following to start Node in an 
 immediately paused state: 
@@ -393,7 +390,7 @@ In Node v4 and lower, we'd simply use `--debug-brk` instead of `--debug`
 
 #### node debug
 
-There may be rare occasions when don't have easy access to a GUI, 
+There may be rare occasions when we don't have easy access to a GUI, 
 in these scenarios command line abilities become paramount.
 
 Let's take a look at Nodes built in command line debugging interface.
@@ -554,7 +551,10 @@ It's now (again) obvious where the mistake lies, there is no
 
 ### See also
 
-* TBD
+* *Creating an Express Web App* in **Chapter 7 Working With Web Frameworks**
+* *Writing Module Code* in **Chapter 2 Writing Modules**
+* *Profiling Memory* in **Chapter 9 Optimizing Performance**
+* *CPU Profiling with Chrome Devtools* in the *There's More* section of *Finding Bottlenecks with Flamegraphs* in **Chapter 9 Optimizing Performance**
 
 ## Enhancing Stack Trace output
 
@@ -903,16 +903,17 @@ stack context (like `produce` and `router.get` function.
 
 ### See also
 
-* TBD
+* *Creating an Express Web App* in **Chapter 7 Working With Web Frameworks**
+* *Interfacing with standard I/O* in **Chapter 3 Coordinating I/O** 
 
 ## Enabling Debug Logs
 
-More 13450 modules directly depend on the third party `debug` module
+More than 13450 modules directly depend on the third party `debug` module
 (at time of writing). Many other modules indirectly use the `debug` module
-by there use of those 13450. Some highly notable libraries, like
+by the use of those 13450. Some highly notable libraries, like
 Express, Koa and Socket.io also use the `debug` module. 
 
-In many code bases there's a wealth of often uptapped 
+In many code bases there's a wealth of often untapped 
 tracing and debugging logs that we can use to infer and understand how
 our application is behaving. 
 
@@ -952,7 +953,7 @@ app.listen(3000)
 ```
 
 > #### Web Frameworks ![](../tip.png)
-> We're only using express here as an example,
+> We're only using Express here as an example,
 > to learn more about Express and other Frameworks
 > see **Chapter 7 Working With Web Frameworks** 
 
@@ -1192,13 +1193,15 @@ and `v` (this log format version).
 ![](images/pino-debug.png)
 
 > #### Debug Namespace to Log Level Mapping ![](../tip.png)
->See the [`pino-debug`](http://npm.im/pino-debug) readme for 
+> See the [`pino-debug`](http://npm.im/pino-debug) readme for 
 mapping namespaces to custom log levels.
 
 
 ### See also
 
-* TBD
+* *Creating an Express Web App* in **Chapter 7 Working With Web Frameworks**
+* *Interfacing with standard I/O* in **Chapter 3 Coordinating I/O**
+* *Adding Logging* in **Chapter 7 Working With Web Frameworks**
 
 ## Enabling Core Debug Logs
 
@@ -1555,9 +1558,9 @@ the timer to keep the event loop open. The `utcDate._onTimeout` method
 sets `dateCache` to `undefined`, so at the end of the timeout, 
 `dateCache` is cleared. 
 
-If we look down the Call Stack, we should be able to infer that the `utcDate` function is called when a request
-is made, and is to do with HTTP header generation (specifically the `Date`
-HTTP header). 
+If we look down the Call Stack, we should be able to infer that the `utcDate` 
+function is called when a request is made, and is to do with HTTP header generation 
+(specifically the `Date` HTTP header). 
 
 The net effect is that a process may receive, say, 10000 requests in a second,
 and only the first of those 10000 has to perform the relatively expensive
@@ -1567,5 +1570,6 @@ And that's the sort of things we can learn by debugging core.
 
 ### See also
 
-* TBD
-
+* *Creating an Express Web App* in **Chapter 7 Working With Web Frameworks**
+* *Working with Files* in **Chapter 3 Coordinating I/O**
+* *Communicating over sockets* in **Chapter 3 Coordinating I/O**
