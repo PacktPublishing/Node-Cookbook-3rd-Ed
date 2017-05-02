@@ -1,0 +1,16 @@
+{
+  "name": "pumpified-pipeline",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "base64-encode-stream": "^1.0.0",
+    "pumpify": "^1.3.5"
+  }
+}

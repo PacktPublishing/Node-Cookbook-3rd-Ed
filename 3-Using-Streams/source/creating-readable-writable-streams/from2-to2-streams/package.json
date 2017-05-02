@@ -1,0 +1,16 @@
+{
+  "name": "from2-to2-streams",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "from2": "^2.3.0",
+    "to2": "^1.0.0"
+  }
+}
