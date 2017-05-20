@@ -12,15 +12,21 @@ This chapter covers the following topics
 
 ## Introduction
 
-In idiomatic Node, the module is the fundamental unit of logic. Applications or systems should consist of many generic modules composed together while domain specific logic ties modules together at the application level. In this chapter we'll learn how Node's module system works, how to create modules for various scenarios and how we can reuse and share our code.
+In idiomatic Node, the module is the fundamental unit of logic. Any typical application or system consists of generic code and application code. As a best practice, generic shareable code should be held in discrete modules, which can be composed together at the application level, with minimal amounts of domain specific logic. In this chapter we'll learn how Node's module system works, how to create modules for various scenarios and how we can reuse and share our code.
 
+## Scaffolding a module
 
-## Scaffolding a Module
+Let's begin our exploration by setting up a typical file and directory structure
+for a Node module. At the same time we'll be learning how automatically generate
+a `package.json` file (we refer to this throughout the book as "initializing a folder
+as a package") and to configure `npm` (Node's package managing tool) with some defaults
+which can then be used as part of package generation process. 
+
+In this recipe, we'll create the initial scaffolding for a full Node module.
 
 ### Getting ready
 
 > #### Installing Node ![](../tip.png)
-> 
 > If we don't already have Node installed, we can go to <https://nodejs.org> to pick up the latest version for our operating system.
 
 If Node is on our system, then so is the `npm` executable. 
@@ -37,13 +43,10 @@ npm config set init.author.name "<name here>"
 
 This will speed up module creation and ensure each package we create has a consistent author name, thus avoiding typos and variation of our name. 
 
-
 > #### npm stands for.. ![](../info.png)
-> 
 > Contrary to popular belief, `npm` is not an acronym for
 > Node Package Manager, in fact it stands for "npm is Not 
 > An Acronym", which is why it's not called NINAA.
-
 
 ### How to do it
 
@@ -57,8 +60,7 @@ mkdir hsl-to-hex
 cd hsl-to-hex
 ```
 
-Every Node module must have a `package.json` file, which holds
-meta data about the module. 
+Every Node module must have a `package.json` file, which holds metadata about the module. 
 
 Instead of manually creating a `package.json` file, we can simply execute the following command in our newly created module folder:
 
@@ -112,7 +114,7 @@ Let's find out some more ways to automatically manage the content of the `packag
 
 #### Reinitializing
 
-Sometimes additional meta data can be available after we've created a module. A typical scenario can arise when we initialize our module as a git repository and add a remote endpoint after creating the module.
+Sometimes additional metadata can be available after we've created a module. A typical scenario can arise when we initialize our module as a git repository and add a remote endpoint after creating the module.
 
 > ##### Git and GitHub  ![](../info.png)
 > 
@@ -155,7 +157,6 @@ This time the Git remote we just added was detected and became the default answe
 A repository field in the `package.json` is an important addition when it comes to publishing open source modules since it will be rendered as a link on the modules information page on <http://npmjs.com>. 
 
 A repository link enables potential users to peruse the code prior to installation. Modules that can't be viewed before use are far less likely to be considered viable.
-
 
 #### Versioning
 
@@ -225,14 +226,19 @@ npm version 1.0.0
 
 ### See also
 
-* TODO LATER
-
+* *Installing Dependencies* in this chapter
+* *Writing module code* in this chapter
+* *Publishing a module* in this chapter
 
 ## Installing Dependencies
 
+In most cases, it is most wise to compose a module out of other modules. 
+
+In this recipe we're going to install a dependency. 
+
 ### Getting ready
 
-For this recipe, all we need is a command prompt open in the `hsl-to-hex` folder from the **Scaffolding a Module** recipe. 
+For this recipe, all we need is a command prompt open in the `hsl-to-hex` folder from the **Scaffolding a module** recipe. 
 
 ### How to do it
 
@@ -268,7 +274,7 @@ type package.json #windows
 
 Tail output should give us:
 
-```  },
+```json
   "bugs": {
     "url": "https://github.com/davidmarkclements/hsl-to-hex/issues"
   },
@@ -302,6 +308,9 @@ When we run `npm install` in a folder with a `package.json` file, a `node_module
 > Typically if we've installed Node 4 or above, we'll be using `npm` version 3.
 
 ### There's more
+
+Let's explore development dependencies, creating module management scripts
+and installing global modules without requiring root access. 
 
 #### Installing Development Dependencies
 
@@ -462,7 +471,7 @@ Since the `test` script is special, we can simply run
 npm test
 ```
 
-#### Eliminating The Need for Sudo
+#### Eliminating the need for `sudo`
 
 The `npm` executable can install both local and global
 modules. Global modules are mostly installed so their 
@@ -489,7 +498,7 @@ The `prefix` setting stores the location for globally installed modules, we can 
 npm config get prefix
 ```
 
-Usually the output will be `/usr/local'. To avoid the use of `sudo` all we have to do is set ownership permissions on any subfolders in `/usr/local` used by `npm`:
+Usually the output will be `/usr/local`. To avoid the use of `sudo` all we have to do is set ownership permissions on any subfolders in `/usr/local` used by `npm`:
 
 ```sh
  sudo chown -R $(whoami) $(npm config get prefix)/{lib/node_modules,bin,share}
@@ -521,15 +530,22 @@ The `source` essentially refreshes the terminal environment to reflect the chang
 
 ### See also
 
-* TODO LATER
+* *Scaffolding a module* in this chapter
+* *Writing module code* in this chapter
+* *Publishing a module* in this chapter
+
 
 ## Writing module code
 
-### Getting Ready
+Now it's time to engage in actual implementation details. 
+
+In this recipe we're going to write some code for our `hsl-to-hex` module.
+
+### Getting ready
 
 Let's ensure that we have a folder called `hsl-to-hex`, with a `package.json` file in it. The `package.json` file should contain `hsl-to-rgb-for-reals` as a dependency. If there isn't a `node_modules` folder, we need to make sure we run `npm install` from the command line with the working directory set to the `hsl-to-hex` directories path.
 
-To get started let's create a file called `index.js in the `hsl-to-hex` folder, then open it in our favourite text editor. 
+To get started let's create a file called `index.js in the `hsl-to-hex` folder, then open it in our favorite text editor. 
 
 ### How to do it
 
@@ -545,7 +561,7 @@ Typically all dependencies should be declared at the top of the file.
 
 Now let's define an API for our module, we're taking hue, saturation and luminosity values and outputting a CSS compatible hex string.
 
-Hue is in degrees, between 0 and 359. Since degrees a cyclical in nature, we'll support numbers greater than 359 or less than 0 by "spinning" them around until they fall within the 0 to 359 range. 
+Hue is in degrees, between 0 and 359. Since degrees are cyclical in nature, we'll support numbers greater than 359 or less than 0 by "spinning" them around until they fall within the 0 to 359 range. 
 
 Saturation and luminosity are both percentages, we'll represent these percentages with whole numbers between 0 and 100. For these numbers we'll need to enforce a maximum and a minimum, anything below 0 will become 0, anything above 100 will become 100.
 
@@ -669,10 +685,9 @@ node -p "require('./')(180, 100, 50)"
 
 The algorithmic heavy lifting is performed by our dependency `hsl-to-rgb-for-reals`. This is often the case in the landscape of Node's ecosystem. Many fundamental computer science problems have already been solved (often multiple times) by third party contributors. 
 
-We add some additional sanity to the inputs (like rotating 360 degrees back to 0 and enforcing minimum and maximums) and then convert the output from decimal values to hex values, prefixing them with a hash (`#`). 
+Our `index.js` exports a single function,  the `hsl` function. This function applies sanity to the inputs (like rotating 360 degrees back to 0 and enforcing minimum and maximums) and then convert the output from decimal values to hex values, prefixing them with a hash (`#`). 
 
 Since the `hsl-to-rgb-for-reals` module returns an array of values between 0 and 255, we can use the native `map` method to iterate over each element in the array and convert it from base 10 to base 16. Then we `join` the resulting array into a string.
-
 
 In our quick command line checks, we call the `node` binary with the `-p` flag.
 This simply evaluates a supplied expression, and outputs its value. In each
@@ -700,7 +715,7 @@ to the `exports` object. So there are two reference to the initial exports objec
 
 The value returned from `require` is the `module.exports` property.
 
-In our code we overwrote the `module.exports` property with the `hsl` function, which is why we can call the result of `require` immediately (for example `require('./')(180, 100, 50)`). An alternative approach is to simply append properties to the `exports` object, but this doesn't allow for exporting a function, only an object.
+In our code we overwrote the `module.exports` property with the `hsl` function, which is why we can call the result of `require` immediately (for example `require('./')(180, 100, 50)`).
 
 The following diagram serves to visualize the module loading process at a high level:
 
@@ -709,6 +724,9 @@ The following diagram serves to visualize the module loading process at a high l
 
 
 ### There's more
+
+Let's add tests for our module, and then take a look at some newer language features
+which we can use in our test writing.
 
 #### Adding tests
 
@@ -731,7 +749,7 @@ mkdir test
 ```
 
 > #### Test writing ![](../tip.png)
-> For an excellent article on test writing and TAP output, check out Eric Elliots blog post [Why I use Tape instead of Mocha & so should you](https://medium.com/javascript-scene/why-i-use-tape-instead-of-mocha-so-should-you-6aa105d8eaf4#.gjt1h4hj9)
+> For an excellent article on test writing and TAP output, check out Eric Elliots blog post [Why I use Tape instead of Mocha & so should you](https://medium.com/javascript-scene/6aa105d8eaf4) at <https://medium.com/javascript-scene/6aa105d8eaf4> 
 
 Now, in the `test` folder let's create an `index.js` file, with the following code:
 
@@ -830,7 +848,6 @@ We also get to see a coverage report which was enabled with the `--cov` flag.
 > #### coverage ![](../info.png)
 > 
 > Coverage is a percentage of the amount of logic paths that were touched by our tests. This can be measured in several ways, for instance did we cover all the if/else branches? Did we cover every line of code? This can provide a sort of quality rating for our tests. However there are two things to consider when it comes to coverage. First, 100% coverage does not equate to 100% of possible scenarios. There could be some input that causes our code to crash or freeze. For example, what if we passed in a hue of `Infinity`. In our case we've handled that scenario, but haven't tested it. Yet we have 100% coverage. Secondly, in many real world cases, getting the last 20% of coverage can become the most resource intensive part of development and it's debatable whether that last 20% will deliver on the time and effort investment required. 
-
 
 #### Modernizing syntax
 
@@ -1050,9 +1067,20 @@ Finally, EcmaScript 6 supplies two additional assignment keywords to the JavaScr
 > #### Block Scope In JavaScript ![](../info.png)
 > For more info about block scope a look at Dr. Axel Rauschmayer's article at <http://www.2ality.com/2015/02/es6-scoping.html>
 
+> #### Public Code and EcmaScript 6 ![](../info.png)
+> In the next recipe we'll look at how to publish a module. If we plan to make our
+> module for public consumption, using language features which aren't available across
+> different Node versions prohibits the user base of our module. Generally, it's better
+> to use language features which cater to the lowest common denominator and only carefully
+> using newer parts of the language once market share of that feature has been determined
+> at an acceptably high level. 
+
 ### See also
 
-* TODO LATER
+* *Scaffolding a module* in this chapter
+* *Installing Dependencies* in this chapter
+* *Publishing a module* in this chapter
+* *Debugging Node with Chrome Devtools* in **Chapter 1 Debugging Processes**
 
 ## Publishing a module
 
@@ -1066,7 +1094,7 @@ If we don't have an [npmjs.org](http://npmjs.org) account we'll need to head ove
 
 ### How to do it
 
-If we've just signed up for an npm account (as explained in the previous [Getting Ready](#getting-ready-2) section) we'll want to authorise our `npm` client with [npmjs.org](http://npmjs.org).
+If we've just signed up for an npm account (as explained in the previous [Getting ready](#getting-ready-2) section) we'll want to authorise our `npm` client with [npmjs.org](http://npmjs.org).
 
 On the command line, we simply need to run:
 
@@ -1077,7 +1105,7 @@ Then supply the username, password, and email address we signed up with.
 
 Every module should have a Readme explaining how it works. 
 
-Let's create a Readme.md file with the following markdown:
+Let's create a `Readme.md` file with the following markdown:
 
 <pre><code>
 # hsl-to-hex
@@ -1508,7 +1536,11 @@ In all likelihood this will install `hsl-to-hex` from our own system, since we'r
 
 ### See also
 
-* TODO LATER
+* *Scaffolding a module* in this chapter
+* *Installing Dependencies* in this chapter
+* *Writing module code* in this chapter
+* *Using a private repository* in this chapter
+* *Detecting dependency vulnerabilities* in **Chapter 8 Dealing with Security**
 
 ## Using a private repository
 
@@ -1557,7 +1589,6 @@ npm set registry http://localhost:4873
 
 
 Finally, let's enter the directory of the `hsl-to-hex` module we've been building throughout this chapter, and publish it locally. 
-
 
 From the `hsl-to-hex` module folder, we run:
 
@@ -1643,7 +1674,10 @@ If we navigate to <http://localhost:4873> we should see the `@ncb/hsl-to-hex` mo
 
 ### See also
 
-* TODO LATER
+* *Publishing a module* in this chapter
+* *Scaffolding a module* in this chapter
+* *Installing Dependencies* in this chapter
+* *Writing module code* in this chapter
 
 
 
