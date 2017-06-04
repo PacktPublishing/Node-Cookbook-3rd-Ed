@@ -1,7 +1,7 @@
 'use strict'
 
-const {createGzip} = require('zlib')
-const {createCipher} = require('crypto')
+const { createGzip } = require('zlib')
+const { createCipher } = require('crypto')
 const pumpify = require('pumpify')
 const base64 = require('base64-encode-stream')
 
@@ -21,5 +21,5 @@ pipe.on('data', (data) => {
 })
 
 pipe.on('finish', () => {
-  console.log('all data was succesfully flushed to stream3')
+  console.log('all data was successfully flushed to stream3')
 })

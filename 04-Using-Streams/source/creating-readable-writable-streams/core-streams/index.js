@@ -1,10 +1,10 @@
 'use strict'
 
-const {Readable, Writable} = require('readable-stream')
+const { Readable, Writable } = require('readable-stream')
 
 const rs = Readable({
   read: () => {
-    rs.push(Buffer('Hello, World!'))
+    rs.push(Buffer.from('Hello, World!'))
     rs.push(null) 
   }
 })

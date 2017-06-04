@@ -4,7 +4,7 @@ const from = require('from2')
 const to = require('to2')
 
 const rs = from(() => {
-  rs.push(Buffer('Hello, World!'))
+  rs.push(Buffer.from('Hello, World!'))
   rs.push(null) 
 })
 
