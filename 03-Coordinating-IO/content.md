@@ -1,15 +1,16 @@
-# 2 Coordinating I/O
+# 3 Coordinating I/O
 
 This chapter covers the following topics
 
-* File reading, writing, appending
-* File system metadata
-* STDOUT, STDIN, STDERR
-* Communicating with sockets
+* Interfacing with standard I/O
+* Working with files
+* Fetching meta-data
+* Watching files and directories
+* Communicating over sockets
 
 ## Introduction
 
-Operationally, Node.js is C with JavaScript's clothes on.
+Operationally, Node.js is C/C++ with JavaScript's clothes on.
 Just like C and other low-level environments, Node interacts with the Operating System at a fundamental level: Input and Output.
 
 In this chapter we'll explore some core API's provided by Node, along with
@@ -18,12 +19,11 @@ the file system, and the network stack.
 
 ## Interfacing with standard I/O
 
-Standard I/O relates to the predefined input, output and error data channels that connect a process to a shell terminal. Of course these can be redirected and piped
-to other programs for further processing, storage and so on. 
+Standard I/O relates to the predefined input, output and error data channels that connect a process to a shell terminal, commonly known as STDIN, STDOUT and STDERR. Of course these can be redirected and piped to other programs for further processing, storage and so on. 
 
-Node provides access standard I/O on the global `process` object. 
+Node provides access to standard I/O on the global `process` object. 
 
-In this recipe we're going to take some input, use it form output, and simultaneously log to the standard error channel. 
+In this recipe we're going to take some input, use it to form some data which we'll send to STDOUT, while simultaneously logging to STDERR. 
 
 ### Getting Ready
 
@@ -97,7 +97,7 @@ aGkKdGhlcmUK
 
 The standard I/O channels are implemented using Node.js Streams.
 
-We'll find out more about these in **Chapter 3 Using Streams**, we also have an example in the **There's more** section of this recipe of using the standard
+We'll find out more about these in **Chapter 4 Using Streams**, we also have an example in the **There's more** section of this recipe of using the standard
 I/O channels as streams. 
 
 Suffice it to say, that Node `Stream` instances (instantiated from Node's core `stream` module) inherit from `EventEmitter` (from Node's core `events` module), and emit a `data` event for every chunk of data received.
@@ -119,7 +119,7 @@ Let's take a look at how Node Streams wrap Standard I/O channels, and how to det
 
 #### Piping
 
-As mentioned in the main recipe, the standard I/O channels available on the global `process` object are implementations of a core Node abstraction: streams. We'll be covering these in much greater detail in **Chapter 3 Using Streams** but for now let's see how we could achieve an equivalent effect using Node Streams' `pipe` method.
+As mentioned in the main recipe, the standard I/O channels available on the global `process` object are implementations of a core Node abstraction: streams. We'll be covering these in much greater detail in **Chapter 4 Using Streams** but for now let's see how we could achieve an equivalent effect using Node Streams' `pipe` method.
 
 For this example we need the third party `base64-encode-stream` module, so let's open a terminal and run the following commands:
 
@@ -170,8 +170,8 @@ true
 > result. There's also the related `-e` flag which only evaluates a 
 > supplied command line string, but doesn't output it's return value.
 
-We're running `node` directly, so the Standard In channel is correctly
-identified as a TTY. 
+We're running `node` directly, so our STDIN is correctly identified as
+a TTY input.
 
 Now let's try the following:
 
@@ -190,9 +190,10 @@ Knowing whether a process is directly connected to a terminal can be useful in c
 
 ### See also
 
-* TODO
-* ...chapter 3
-* .. anywhere else the process object is discussed
+* *Creating a Node.js WebSocket client* in the *There's More* section of *Communicating with WebSockets* in **Chapter 5 Wielding Web Protocols**
+* *Using the pipe method* in **Chapter 4 Using Streams**
+* *Getting symlink information* in the *There's More* section of *Fetching meta-data* in this chapter 
+
 
 ## Working with files
 
@@ -201,8 +202,8 @@ to server side programming.
 
 Node's `fs` module provides this ability. 
 
-In this recipe we'll learn how to read, write and append to files,
-synchronously then we'll follow up in the **There's More** section showing how to perform the same operations asynchronously and incrementally.
+In this recipe we'll learn how to read, write and append to files in a 
+synchronous manner. In the **There's More** section we'll explore how to perform the same operations asynchronously and incrementally.
 
 ### Getting Ready
 
@@ -211,7 +212,7 @@ We'll need a file to read.
 We can use the following to populate a file with 1MB of data:
 
 ```sh
-$ node -p "Buffer(1e6).toString()" > file.dat
+$ node -p "Buffer.allocUnsafe(1e6).toString()" > file.dat
 ```
 
 > #### Allocating Buffers ![](../info.png)
@@ -220,9 +221,11 @@ $ node -p "Buffer(1e6).toString()" > file.dat
 > *deallocated memory*, data in RAM that was previously discarded. 
 > This means the buffer could contain anything.
 > From Node v6 and above, passing a number to `Buffer` is
-> deprecated, instead we should use `Buffer.allocUnsafe` 
+> deprecated. Instead we use `Buffer.allocUnsafe` 
 > to achieve the same effect, or just `Buffer.alloc` to have
 > a zero-filled buffer (but at the cost of slower instantiation).
+> To state the obvious, the file we generated for ourselves 
+> (`file.dat`) should not be shared with anyone else.
 
 We'll also want to create a source file, let's call it `null-byte-remover.js`.
 
@@ -297,13 +300,15 @@ Finally, we use `fs.appendFileSync` to record the date and amount of bytes remov
 
 ### There's more
 
+Let's explore asynchronous I/O.
+
 #### Asynchronous file operations
 
 Suppose we wanted some sort of feedback, to show that the process was doing something. 
 
 We could use an interval to write a dot to `process.stdout` every 10 milliseconds. 
 
-If we and add the following to top of the file:
+If we add the following to top of the file:
 
 ```js
 setInterval(() => process.stdout.write('.'), 10).unref()
@@ -397,14 +402,18 @@ chunk and stripped result is discarded, whilst the next chunk enters
 process memory. This all happens over multiple ticks of the event loop,
 allowing room for processing of the interval timer queue.
 
-We'll be delving much deeper into Streams in **Chapter 3 Using Streams**,
+We'll be delving much deeper into Streams in **Chapter 4 Using Streams**,
 but for the time being we can see that `fs.createReadStream` and `fs.createWriteStream` are, more often that not, the most suitable way to read
 and write to files.
 
 ### See also
 
-* TODO
-* chapter 3...etc
+* *Receiving POST Data* in **Chapter 5 Wielding Web protocols**
+* *Deploying a full system* in **Chapter 11 Deploying Node.js**
+* *Multipart POST uploads* in **Chapter 5 Wielding Web protocols**
+* *Processing big data* in **Chapter 4 Using Streams**
+* *Creating an SMTP server* in **Chapter 5 Wielding Web protocols**
+* *Fetching meta-data* in this chapter
 
 ## Fetching meta-data
 
@@ -499,7 +508,7 @@ file in order to obtain information about it, then return that data, like so:
 ```js
 function toMeta({file, dir}) {
   const stats = fs.statSync(path.join(dir, file))
-  let {birthtime, ino, mode, nlink, size} = stats
+  var {birthtime, ino, mode, nlink, size} = stats
   birthtime = birthtime.toUTCString()
   mode = mode.toString(8)
   size += 'B'
@@ -657,7 +666,7 @@ in bold, if it isn't we write a in a dulled down white color.
 Let's find out how to examine symlinks, check whether files exists and see how to
 actually alter file system metadata.
 
-#### Getting symlink information
+#### Getting symlink information 
 
 There are other types of stat calls, one such call is `lstat` (the 'l' stands for link).
 
@@ -672,7 +681,7 @@ First we'll modify the `toMeta` function to use `fs.lstatSync` instead of
 ```js
 function toMeta({file, dir}) {
   const stats = fs.lstatSync(path.join(dir, file))
-  let {birthtime, ino, mode, nlink, size} = stats
+  var {birthtime, ino, mode, nlink, size} = stats
   birthtime = birthtime.toUTCString()
   mode = mode.toString(8)
   size += 'B'
@@ -793,9 +802,10 @@ exists(process.argv[2])
 
 > #### Promises ![](../info.png)
 > For extra fun here (because the paradigm fits well in this case),
-> we used the ES2015 native `Promise` abstraction. Find out more about
-> promises at https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects/Promise
-
+> we used the ES2015 native `Promise` abstraction. Find out more about promises at https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects/Promise
+> In general we tend to use a minimal subset of ES2015 (ES6) throughout so we can focus more
+> on using Node and less on syntax, avoiding either extra discourse or potential confusion. 
+> We should also note Promises are currently a poor choice for implementing production server logic in Node, due to (standards specified) opaque behaviors (error swallowing, asynchronous stack unwinding) leading to difficulties in production root cause analysis. 
 
 Now if we run the following:
 
@@ -827,7 +837,7 @@ If there's a problem accessing, an error will be logged, if not `null` will be l
 
 
 > #### Modes and Bitmasks ![](../info.png)
-> For more on `fs.access` see the docs  at https://nodejs.org/api/fs.html#fs_fs_access_path_mode_callback, to learn about bitmasks check out https://abdulapopoola.com/2016/05/30/understanding-bit-masks/
+> For more on `fs.access` see the docs at https://nodejs.org/api/fs.html#fs_fs_access_path_mode_callback, to learn about bitmasks check out https://abdulapopoola.com/2016/05/30/understanding-bit-masks/
 
 
 #### Manipulating metadata
@@ -838,7 +848,7 @@ Let's create a small program that creates a file, sets the UID and GID to `nobod
 
 ```js
 const fs = require('fs')
-const {execSync} = require('child_process')
+const { execSync } = require('child_process')
 
 const file = process.argv[2]
 if (!file) { 
@@ -866,7 +876,7 @@ We used `fs.accessSync` to synchronously check for file existence, using a
 `try/catch` since `fs.accessSync` throws when a file does not exist.
 
 > #### try/catch ![](../tip.png)
-> In this particular context, a try/catch is fine. However as a general rule we should avoid try/catch as much as possible. See [How to know when (not) to throw](http://www.nearform.com/nodecrunch/10-tips-coding-node-js-3-know-throw-2/) for more details.
+> In this particular context, a try/catch is fine. However as a general rule we should avoid try/catch when possible. While Node 6 and above successfully handle the performance implications of try/catch there are other points to be aware of. See [How to know when (not) to throw](http://www.nearform.com/nodecrunch/10-tips-coding-node-js-3-know-throw-2/) for more details.
 
 If the file does not exist, we call our `makeIt` function. 
 
@@ -891,13 +901,14 @@ function makeIt() {
 This achieve the same result, but directly manages the file handle (an OS-level reference to the file). 
 
 We use `fs.openSync` to create the file and get a file descriptor (`fd`), 
-then instead of fs.chmodSync and fs.chownSync both of which expect a file
+then instead of `fs.chmodSync` and `fs.chownSync` both of which expect a file
 path, we use `fs.fchmodSync` and `fs.fchownSync` which take a file descriptor.
 
 
 ### See also
 
-* TODO
+* *Watching files and directories* in this chapter
+* *Receiving POST Data* in **Chapter 5 Wielding Web protocols**
 
 ## Watching files and directories
 
@@ -929,7 +940,7 @@ We'll also create a file to watch:
 $ echo "some content" > my-file.txt
 ```
 
-Finally we want to create a file called `watcher.js` (inside the `watching-files-and-directories` folder) and open it in our favourite editor.
+Finally we want to create a file called `watcher.js` (inside the `watching-files-and-directories` folder) and open it in our favorite editor.
 
 ### How to do it
 
@@ -945,7 +956,7 @@ Next we'll set up some references:
 ```js
 const interval = 5007
 const file = process.argv[2]
-let exists = false
+var exists = false
 ```
 
 Do a quick check to make sure we've been supplied a file:
@@ -1166,11 +1177,12 @@ mkdir my-subfolder
 
 ### See also
 
-* Chapter 2, Fetching Metadata
-* TODO - more
+* *Fetching meta-data* in this chapter 
+* *Setting up a development environment* in **Chapter 10 Building Microservice systems**
 
 
 ## Communicating over sockets
+
 One way to look at a socket is as a special file. Like a file it's a readable and writable data container. On some Operating Systems network sockets are literally a special type of file whereas on others the implementation is more abstract.
 
 At any rate, the concept of a socket has changed our lives because it allows
@@ -1181,7 +1193,7 @@ In this recipe we'll build a TCP client and server.
 ### Getting Ready
 
 Let's create two files `client.js` and `server.js` and open them in our
-favourite editor.
+favorite editor.
 
 ### How to do it
 
@@ -1294,7 +1306,7 @@ Let's learn a little more about sockets, and the different types of sockets that
 #### `net` sockets are streams
 
 Previous recipes in this chapter have alluded to streams, 
-we'll be studying these in depth in **Chapter 3 Using Streams**.
+we'll be studying these in depth in **Chapter 4 Using Streams**.
 
 However we would be remiss if we didn't mention that TCP sockets
 implement the streams interface.
@@ -1440,13 +1452,12 @@ We'll notice that the server (like the client) no longer listens for a `close` e
 this is because the sockets are bound to different ports so there's not way
 (without a higher level protocol like TCP) of triggering a close from the other side.
 
+
 ### See also
 
-* TODO
-* Interfacing with standard I/O
-* making clients and servers chapter
-* streams chapter?
-* wielding express
-* getting hapi
-* microservices chapter? 
+* *Interfacing with standard I/O* in this chapter 
+* *Setting up a development environment* in **Chapter 10 Building Microservice systems**
+* *Using the pipe method* in **Chapter 4 Using Streams**
+* *Decoupling I/O* in **Chapter 4 Using Streams**
+* *Pattern Routing* in the *There's More* section of *Standardizing service boilerplate* in **Chapter 10 Building Microservice Systems**
 
