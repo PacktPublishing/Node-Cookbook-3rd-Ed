@@ -1,3 +1,5 @@
+'use strict'
+
 const http = require('http')
 
 const host = process.env.HOST || '0.0.0.0'

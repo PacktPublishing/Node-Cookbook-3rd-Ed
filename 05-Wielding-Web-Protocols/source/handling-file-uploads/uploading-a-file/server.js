@@ -1,3 +1,5 @@
+'use strict'
+
 const http = require('http')
 const fs = require('fs')
 const path = require('path')
@@ -33,9 +35,7 @@ function post (req, res) {
     return
   }
   console.log('parsing multipart data')
-  const parser = mrs(req, res, part, () => {
-    console.log('finished parsing')
-  })
+  const parser = mrs(req.headers, part)
   var total = 0
   pump(req, parser)
 

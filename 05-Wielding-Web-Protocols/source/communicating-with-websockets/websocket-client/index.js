@@ -1,3 +1,5 @@
+'use strict'
+
 const WebSocket = require('ws')
 const readline = require('readline')
 const ws = new WebSocket(process.argv[2] || 'ws://localhost:8080')

@@ -1,14 +1,13 @@
-# 4 Wielding Web Protocols
+# 5 Wielding Web Protocols
 
-This chapter covers the following topics
+This chapter covers the following recipes
 
 * Creating an HTTP server
-* Processing GET requests
-* Processing POST requests
-* Handling a file upload over HTTP
-* Making HTTP requests
+* Receiving POST data
+* Handling file uploads
+* Making an HTTP POST request
+* Communicating with WebSockets
 * Creating an SMTP server
-* Creating a WebSocket server-client application
 
 ## Introduction
 
@@ -31,7 +30,7 @@ and servers in the "Application Layer" of the TCP/IP stack.
 > This chapter focuses on Node's direct relationship with Network protocols.
 > It's intended to develop understanding of fundamental concepts. 
 > For creating more extensive and enterprise focused HTTP infrastructure
-> check out **Chapter 6. Weilding Web Frameworks**. 
+> check out **Chapter 7. Working with Web Frameworks**. 
 
 ## Creating an HTTP server
 
@@ -63,7 +62,7 @@ Now we'll define a host and port which our HTTP server will attach to:
 const host = process.env.HOST || '0.0.0.0'
 const port = process.env.PORT || 8080
 ```
-Next, let's create the actually HTTP server:
+Next, let's create the actual HTTP server:
 
 ```js
 const server = http.createServer((req, res) => {
@@ -105,7 +104,7 @@ Finally we'll tell our server to listen on the previously defined
 server.listen(port, host)
 ```
 
-We can not try out our server.
+We can now try out our server.
 
 We start our server like so:
 
@@ -170,7 +169,7 @@ descriptions.
 
 ### There's more
 
-How can we bind to a any free port, what about serving dynamic content by
+How can we bind to a any free port? what about serving dynamic content by
 handling more complex URL patterns? 
 
 #### Bind to a random free port
@@ -222,7 +221,7 @@ const qs = require('querystring')
 const url = require('url')
 ```
 
-Next let's add a mocked our user list resource:
+Next let's add a mocked out user list resource:
 
 ```js
 const userList = [
@@ -268,9 +267,9 @@ function users (query, res) {
 ``` 
 
 By default the `query` portion of a URL string that has been parsed with
-`url.parse` is a string. So we also need to parse the query string it 
-self, we use `qs.parse` to do this, and use deconstruction to pull out
-a `type` property. Imagine we have a route `/users?type=blue`, our
+`url.parse` is a string. So to find the `type` argument in the quesystring 
+we use `qs.parse` to convert it to an object, then use ES2015 deconstruction assign
+the `type` property to a `type` reference. Imagine we have a route `/users?type=blue`, our
 `query` parameter will be `?type=blue`, and the result of passing
 that to `qs.parse` will be an object: `{type: 'blue'}`. This means our
 `type` reference will be the string: `'blue'`. If there is no query string, 
@@ -296,7 +295,7 @@ For bonus points, we can refine our code a little more.
 The `url.parse` module can run the querystring `parse` function for us. 
 
 Let's copy `rest-server-dynamic-content/index.js` to 
-`rest-server-dyncamic-content/terser-index.js` to begin refining.
+`rest-server-dynamic-content/terser-index.js` to begin refining.
 
 First we'll remove the `querystring` module, our require 
 statements at the top of the file should look like so:
@@ -306,13 +305,14 @@ const http = require('http')
 const url = require('url')
 ```
 
-Next pass a second argument to `url.parse`, with a value of `true`, 
-in our `http.createServer` request handler function we alter the line
+Next in our `http.createServer` request handler function we alter the line
 where `url.parse` occurs to the following:
 
 ```js
   const {pathname, query} = url.parse(req.url, true)
 ```
+
+We've added a second argument to `url.parse`, with a value of `true`. 
 
 Finally we no longer need to manually parse the querystring in our 
 `users` route handling function, so we'll update `users` to:
@@ -328,18 +328,20 @@ This server will behave in exactly the same way.
 
 ### See also
 
-TBD
+* *Creating an Express web app* in **Chapter 7 Working with Web Frameworks**
+* *Creating a Koa web app* in **Chapter 7 Working with Web Frameworks**
+* *Creating a Hapi web app* in **Chapter 7 Working with Web Frameworks**
+* *Receiving POST data* in this chapter
 
+## Receiving POST data
 
-## Receiving POST Data
-
-If we want to be able to receive POST data we have to instruct our
+If we want to be able to receive POST data, we have to instruct our
 server on how to accept and handle a POST request. 
 
 In a language where I/O blocking is the primary runtime behavior,
 accessing POST body data would be as straight forward as accessing a property.
 
-For instance in PHP we could access our POST values with `$_POST['fieldname']`,
+For instance, in PHP we could access our POST values with `$_POST['fieldname']`,
 the execution thread would block until an array value was filled. 
 
 Contrariwise, Node provides low level interaction with the asynchronous flow of HTTP data 
@@ -347,7 +349,7 @@ allowing us to interface with the incoming message body as a stream,
 leaving it entirely up to the developer to turn that stream into usable data.
 
 > ### Streams ![../info.png]
-> For more information on streams see **Chapter 3. Using Streams**
+> For more information on streams see **Chapter 4 Using Streams**
 
 ### Getting ready
 
@@ -397,12 +399,12 @@ function reject (code, msg, res) {
 ```
 
 We are synchronously loading `form.html` at initialization time instead of accessing 
-the disk on each request. When building servers, initialization is the only time it's
+the disk on each request. When creating servers in Node, initialization is the only time when it's
 a good idea to perform synchronous I/O.  
 
 If we navigate to `http://localhost:8080` we'll be presented with a form. 
 
-But if we fill out the form and submit we'll encounter a "Method Not Allowed" response.
+But if we fill out the form and submit, we'll encounter a "Method Not Allowed" response.
 This is because the `method` attribute on our HTML form is set to `POST`. 
 If the method is anything other than `GET`, our request handler 
 (the function passed to `http.createServer`) will fall through to calling the `reject` 
@@ -571,6 +573,9 @@ overload the memory of our server, resulting in a Denial Of Service attack.
 
 ### There's More
 
+POST data can also be sent as JSON, let's take a look at how to receive POST requests
+with an `application/json` mime type.
+
 #### Accepting JSON
 
 REST architectures (among others) typically handle the `application/json` content type in preference
@@ -666,11 +671,14 @@ Our form and server should now largely behave in the same manner as the main rec
 Except our frontend is a tiny Single Page App and JSON (the backbone of modern web architecture)
 is being used for communication between server and client.
 
-### See Also
+### See also
 
-* TBD
+* *Handling file uploads* in this chapter
+* *Implementing Authentication* in **Chapter 7 Working with Web Frameworks**
+* *Creating an HTTP server* in this chapter
+* *Processing big data* in **Chapter 4 Using Streams**
 
-## Handling File Uploads
+## Handling file uploads
 
 We cannot process an uploaded file in the same way we process other POST data.
 When a file input is submitted in a form, the browser embeds the file(s) into a multipart message. 
@@ -680,18 +688,19 @@ to be combined into one payload. If we attempted to receive the upload as a stre
 file, we would have a file filled with multipart data instead of the file or files themselves. 
 
 We need a multipart parser, the writing of which is more than a recipe can cover.
-So we'll be `multipart-read-stream` module which sits on top of the well-established `busboy`
+So we'll be using `multipart-read-stream` module which sits on top of the well-established `busboy`
 module to convert each piece of the multipart data into an independent stream, which we'll
 then pipe to disk.
 
 
 ### Getting Ready
 
-Let's create a new folder called `uploading-a-file` and create an `uploads` directory inside that:
+Let's create a new folder called `uploading-a-file` and create a `server.js` file and an `uploads` directory inside that:
 
 ```sh
 $ mkdir uploading-a-file
 $ cd uploading-a-file
+$ touch server.js
 $ mkdir uploads
 ```
 
@@ -705,7 +714,7 @@ $ npm install --save multipart-read-stream pump
 ```
 
 > #### Streams ![](../tip.png)
-> For more about streams (and why `pump` is essential) see the previous chapter, **Chapter 3. Using Streams**
+> For more about streams (and why `pump` is essential) see the previous chapter, **Chapter 4 Using Streams**
 
 Finally we'll make some changes to our `form.html` file from the last recipe:
 
@@ -787,9 +796,7 @@ function post (req, res) {
     return
   }
   console.log('parsing multipart data')
-  const parser = mrs(req, res, part, () => {
-    console.log('finished parsing')
-  })
+  const parser = mrs(req.headers, part)
   var total = 0
   pump(req, parser)
 
@@ -803,7 +810,7 @@ function post (req, res) {
     const dest = fs.createWriteStream(path.join(__dirname, 'uploads', filename))
     pump(file, dest, (err) => {
       total -= 1
-      res.write(err 
+      res.write(err
         ? `Error saving ${name}!\n`
         : `${name} successfully saved!\n`
       )
@@ -838,8 +845,7 @@ a 415 HTTP code (Unsupported Media Type) if the content type isn't
 `multipart/form-data`.
 
 We create our `parser` by instantiating the `multipart-request-stream`
-module (`mrs`), passing it `req`, `res` and `part` (a function we declare shortly after), 
-and finally an inline fat-arrow function that will be called when all multipart data has been parsed.
+module (`mrs`), passing it `req.headers`, and `part` (a function we declare shortly after).
 
 We set up a `total` variable, which we use to track files from 
 their point of discovery to when they've been completely written
@@ -851,8 +857,8 @@ each time the `parser` stream encounters a multipart boundary that
 contains file data. 
 
 In the `part` function we check to see that the `name` has a non-falsey
-value. This is because the browser will include all file fields even if their
-not populated, in the multipart data. If the a file section has no name, then
+value. This is because the browser will include all file fields even if they're
+not populated in the multipart data. If a file section has no name, then
 we can simply skip it. The `file` argument passed to `part` is a stream,
 in the event of an empty file section, we call the  `resume` method (a stream method) 
 to make the stream run to completion, allowing us to process the next file section 
@@ -863,12 +869,12 @@ Once we've verified the section has file data, we add one to `total`.
 Then we create a filename based on the HTML elements field name, the current
 epoch time stamp and the original file name. 
 
-We create a write stream that writes to the `uploads` folder (`dest`) 
-and again use `pump` to pipe data from the `file` stream
-provided by `multipart-read-stream` to the `part` function to the `dest` stream.
+We create a write stream called `dest` that writes the incoming file into the `uploads` folder. 
+We use `pump` again to pipe data from the `file` stream (as passed to the `part` function by
+the `multipart-read-stream` parser) to the `dest` stream.
 
 This effectively writes a particular section of the multipart data to the 
-`uploads` folder with the appropriate file. Using streams to do this is means
+`uploads` folder with the appropriate file. Using streams to do this means
 no matter how big the file is, memory and CPU usage will remain flat.   
 
 In the final parameter to the second call to `pump`, we provide a fat arrow
@@ -913,7 +919,7 @@ which also emits a `field` event. We can listen to this to process
 any non-file elements contained in the multipart data. 
 
 In `server.js`, let's add a `field` event listener directly under 
-the assignment our `parser` variable, making the top of our `post` function
+the assignment of our `parser` variable, making the top of our `post` function
 look like the following:
 
 ```js
@@ -948,7 +954,7 @@ It would be magnificent if we could achieve this by changing our form's method
 attribute from POST to PUT, but alas, no, there is no specification for this.
 
 However thanks to XMLHttpRequest Level 2 (xhr2), we can now transfer binary data
-via JavaScript in modern browsers (see http://caniuse.com/xhr2 (IE9 and Operara mini are lacking support)).
+via JavaScript in modern browsers (see http://caniuse.com/xhr2 (IE9 and Opera mini are lacking support)).
 
 We can grab a file pointer using a `change` event listener on the input file element, 
 and then we open a PUT request and send the file upon form submission. 
@@ -1019,10 +1025,10 @@ at the end of the file:
 
 Our script attaches a `change` listener to the file input element. 
 
-When the user selects a file, we grab a handle for the file from a `files`
-array that exists on the `change` listner functions context (`this`). 
+When the user selects a file, we the context (`this`) of the handler function for 
+the `change` listener to take the first file in the files array (`this.files`).  
 
-Once a user submits the form our `submit` listeners, prevents default behavior
+Once a user submits the form our `submit` listener prevents default behavior
 (stops the browser from automatically submitting), checks whether a file
 is selected (doing nothing if no file has been selected),
 initializes an xhr object and opens a PUT request to our server.
@@ -1108,7 +1114,7 @@ function put (req, res) {
 }
 ```
 
-After some `Content-Length` checks we grab the originl filename and field 
+After some `Content-Length` checks we grab the original filename and field 
 as supplied through the HTTP headers and construct a filename in
 similar fashion to our output filenames in the main recipe. Also similar
 to the main recipe, we create a `dest` stream.
@@ -1122,21 +1128,23 @@ As outlined in *Chapter 3 Using Streams* the `pump` module will propagate errors
 to all streams in the pipeline. We need to catch an error on the `counter` stream
 before `pump` does that, since it will close the `req` stream which will implicitly
 end the response. So we listen directly for an `error` event on the `counter` stream
-and send a 413: Too Large response within the error event handler.
+and send a `413: Too Large` response within the error event handler.
 
 Then we set up a pipeline from `req` to `counter` to our output `dest`, 
 when the pipeline ends we send a success message, or failure if some other 
 error has occurred.
 
-### See Also
+### See also
 
-* TBD
-
+* *Receiving POST data* in this chapter
+* *Implementing authentication* in **Chapter 7 Working with Web Frameworks**
+* *Creating an HTTP server* in this chapter
+* *Piping streams in production* in **Chapter 4 Using Streams** 
 
 ## Making an HTTP POST request
 
 Making a GET request with Node is trivial, in fact HTTP GET 
-requests have been covered in **Chapter 3 - Using Streams** in the context 
+requests have been covered in **Chapter 4 Using Streams** in the context 
 of stream processing. 
 
 HTTP GET requests are so simple we can fit a request that prints to 
@@ -1152,7 +1160,7 @@ In this recipe we'll look into constructing POST requests.
 
 ### Getting Ready
 
-Let's create a folder called `post-request`, create an `index.js` inside 
+Let's create a folder called `post-request`, then create an `index.js` inside 
 the folder and open it in our favorite text editor.
 
 ### How to do it
@@ -1243,8 +1251,8 @@ takes an options object (`opts`) describing the request and a callback.
 > the rest of the code remains the same. 
 
 In the `headers` of the `opts` object we set `Content-Type` and
-`Content-Length` headers. Whilst the request will still be successful
-without providing `Content-Length` it is good practice and allows the
+`Content-Length` headers. While the request will still be successful
+without providing `Content-Length` it is good practice and allows the server to
 make informed assumptions about the payload. However, setting `Content-Length`
 to a number lower than the payload size will result in an error. This is
 why it's important to use `Buffer.byteLength` because this gives the exact
@@ -1274,13 +1282,13 @@ to the `end` event on the `res` object to add two final newlines to the output
 
 ### There's more
 
-How would we parse an entire data set at once? Can stream a payload to 
+How would we parse an entire data set at once? Can we stream a payload to 
 a POST endpoint? How would we go about making a multipart POST upload in Node? 
 
 #### Buffering a GET Request
 
 Sometimes it may be necessary to receive response data in it's entirety 
-before it can parsed. 
+before it can be parsed. 
 
 Let's create a folder called `buffering-a-request` with a fresh `index.js`
 file. 
@@ -1335,17 +1343,17 @@ data received by checking `size` with `buffer.length`. Finally
 we parse the whole payload with `JSON.parse` and grab the `guid` property
 from the subsequent object returned from `JSON.parse`. 
 
-> #### Parsing remote data ![](../images/tip.png)
+> #### Parsing remote data ![](../tip.png)
 > In a production setting, we should never call `JSON.parse` without
 > wrapping a `try/catch` block around it. This is because any invalid
 > JSON will cause `JSON.parse` to throw, which will cause the process
 > to crash. The [`fast-json-parse`](http://npm.im/fast-json-parse) 
 > supplies, safe, high performance and clean JSON parsing.    
 
-#### Streaming Payloads
+#### Streaming payloads
 
 Since the instance returned from `http.request` is a writable stream,
-we can take an input stream and pipe it to to the POST request as data. 
+we can take an input stream and pipe it to the POST request as data. 
 
 In this case we want to notify the server that we'll be incrementally
 writing the request body to the server in chunks. 
@@ -1393,7 +1401,7 @@ When we run our script, we should see something like the following.
 
 For fun and profit, let's build our own multipart request which we can
 post to the multipart upload server we created in the 
-[Receiving Post Data](#receiving-post-data) recipe (if we haven't completed that
+[Receiving POST data](#receiving-post-data) recipe (if we haven't completed that
 recipe now might be a good time to read up). 
 
 Let's create a new folder called `multipart-post-uploads`, 
@@ -1493,8 +1501,8 @@ everything with the `Content-Type` of `application/octet-stream` and
 `Content-Transfer-Type` of binary. 
 
 Then we pipe from `stream` to `req`, passing an additional options
-argument to `pipe`, with an `end` property set to `false`. This will prevents
-`req` being closed when `stream` finishes. Since we may have additional files, 
+argument to `pipe`, with an `end` property set to `false`. This will prevent
+`req` from being closed when `stream` finishes. Since we may have additional files, 
 the `req` stream needs to stay open. 
 
 When `stream` ends we call `cb`. At this point, our flow control library `steed`,
@@ -1503,10 +1511,11 @@ has been processed by `steed.series` we end the request stream (`req`) with the
 multipart end boundary.
 
 We can test this out by sending the source `index.js` twice to 
-our multipart server from the [Receiving Post Data](#receiving-post-data) recipe.
+our multipart server from the [Receiving POST data](#receiving-post-data) recipe.
 
-First we can run the upload server from, in the `uploading-a-file` folder
-from that recipe we run: 
+First let's start the upload server. 
+
+In the `uploading-a-file` folder, which was created in the [Receiving POST data](#receiving-post-data) recipe, we run:
 
 ```sh
 $ node server.js
@@ -1522,13 +1531,14 @@ This will send the `package.json` file and the source `index.js`
 file to our server.
 
 We can check the `uploads` folder in the `uploading-a-file` directory,
-to determine whether the `index.js` and `package.json` file we're correclty
+to determine whether the `index.js` and `package.json` file were correctly
 uploaded.
 
-### See Also
+### See also
 
-TBD
-
+* *Receiving POST data* in this chapter
+* *Using the pipe method* in **Chapter 4 Using Streams**
+* *Processing big data* in **Chapter 4 Using Streams**
 
 ## Communicating with WebSockets
 
@@ -1544,7 +1554,7 @@ server that will receive and respond to WebSocket requests from the browser.
 
 ### Getting Ready
 
-Let's new folder called `websocket-app` with a `server.js` file, 
+Let's create a new folder called `websocket-app` with a `server.js` file, 
 plus a folder called `public` containing a `index.html` file.
 
 ```sh
@@ -1635,7 +1645,7 @@ At the bottom of `public/index.html` let's add the following:
   })
 
   ws.onmessage = function (e) {
-    output.innerHTML += log('Recieved', e.data)
+    output.innerHTML += log('Received', e.data)
   }
 
   ws.onclose = function (e) {
@@ -1649,7 +1659,7 @@ At the bottom of `public/index.html` let's add the following:
 </script>
 ```
 
-Let's try it out buy starting our server:
+Let's try it out by starting our server:
 
 ```sh
 $ node server.js
@@ -1865,8 +1875,9 @@ content and cursor position).
 
 ### See also
 
-TBD
-
+* *Creating an HTTP server* in this chapter
+* *Interfacing with standard I/O* in **Chapter 3 Coordinating I/O**
+* *Processing big data* in **Chapter 4 Using Streams**
 
 ## Creating an SMTP server
 
@@ -2022,7 +2033,7 @@ SMTP is based upon a series of plain text communications between an
 SMTP client and server over a TCP connection. The `smtp-protocol` module
 carries out these communications for us.
 
-When we call the `createServer` method we pass an event handler 
+When we call the `createServer` method, we pass an event handler 
 that is passed a request object (`req`). This object is an event 
 emitter (inherits from the core `events` module `EventEmitter` 
 constructor). We listen for `to`, `message`, and `error` events. 
@@ -2256,4 +2267,6 @@ to end our SMTP session.
 
 ### See also
 
-TBD
+* *Using the pipe method* in **Chapter 4 Using Streams**
+* *Interfacing with standard I/O* in **Chapter 3 Coordinating I/O**
+* *Processing big data* in **Chapter 4 Using Streams**
