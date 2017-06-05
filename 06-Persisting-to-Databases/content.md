@@ -1,11 +1,11 @@
-# 5 Persisting to Databases
+# 6 Persisting to Databases
 
-This chapter covers the following topics
+This chapter covers the following recipes
 
-* Relational data storage with a MySQL (or MariaDB) server
-* Object-Relational data storage with Postgres
-* NoSQL Document storage with MongoDB
-* Storing to Redis, the in memory key-value data structure store 
+* Connecting and sending SQL to a MySQL server
+* Connecting and sending SQL to a Postgres server
+* Storing and Retrieving Data with MongoDB
+* Storing and Retrieving Data with Redis
 * Embedded Persistance with LevelDB
 
 ## Introduction
@@ -56,7 +56,7 @@ On macOS we can use
 $ type -a mysql
 ```
 
-On Windows we can use the GUI and check the package manger via the control panel. 
+On Windows we can use the GUI and check the package manager via the control panel. 
 
 We can see if the mysql server is running using the following command: 
 
@@ -204,7 +204,7 @@ If we uncomment `debug`, we can see the raw data being sent to and from
 the server. We only need uncomment `password` if our MySQL server has a 
 password set.
 
-> The `mysql` module API ![](../info.png)
+> #### The `mysql` module API ![](../info.png)
 > Check out the `mysql` module's GitHub page for a list of all the possible 
 options at https://github.com/felixge/node-mysql.
 
@@ -265,7 +265,7 @@ $ node index.js "Author Name" "Quote Text Here"
 Quotation marks are essential to divide the command-line arguments, 
 but for the sake of brevity, we won't be implementing any validation checks. 
 
-> Command-line parsing with minimist ![](../tip.png) 
+> #### Command-line parsing with minimist ![](../tip.png) 
 > For more advanced command-line functionality, check out the excellent 
 `minimist` module, http://npm.im/minimist
 
@@ -308,7 +308,7 @@ $ mysql -u root -D quotes -e "select * from quotes;"
 
 This should give something like the following figure: 
 
-![](images/mysql-insert-quotes.png)
+![](images/insert-quotes.png)
 *Inserting a record to MySQL via Node*
 
 #### Querying a MySQL Databases
@@ -362,22 +362,20 @@ $ node index.js "%"
 
 * TBD
 
-## Connecting and sending SQL to a MySQL server
-Structured Query Language has been a standard since 1986, 
-and it's the prevailing language for relational databases. 
-MySQL is the most popular SQL relational database server around,
-often appearing in the prevalent Linux Apache MySQL PHP (LAMP) stack. 
+## Connecting and sending SQL to a Postgres server
 
-If a relational database was conceptually relevant to our goals in
-a new project, or we were migrating a MySQL-backed project from another
-framework to Node, the `mysql` module would be particularly useful. 
+Postgres is a object-relational databases. It gives us everything that
+MySQL does, along with enhanced commands, and the ability to store 
+and query object data. This allows us to use the same database for 
+for both relational and document type data. 
 
-In this task, we will discover how to connect to a MySQL server
-with Node and execute SQL queries across the wire. 
+In this recipe we're going to implement the same quotes application
+as we did in the previous recipe. In the **There's More** section we'll 
+explore Postgres' additional object storage potential.
 
 ### Getting Ready
 
-We'll need to install a Postgress server. 
+We'll need to install a Postgres server. 
 
 On macOS we can use homebrew (http://brew.sh): 
 
@@ -391,7 +389,7 @@ https://www.postgresql.org/download/windows/.
 For Linux systems we can obtain an appropriate package
 from https://www.postgresql.org/download/linux/.
 
-Once installed we'll want to create a database named after
+Once installed (and started) we'll want to create a database named after
 our system username. 
 
 After installation, in the usual command terminal run:
@@ -400,7 +398,7 @@ After installation, in the usual command terminal run:
 $ createdb `whoami` 
 ```
 
-Once we have Postgres up and running, let's create a folder called `postgress-app` 
+Once we have Postgres up and running, let's create a folder called `postgres-app` 
 with an `index.js` file.
 
 Then, we'll initialize the folder with a `package.json` file and 
@@ -486,9 +484,11 @@ function list (db, params) {
 
 Now we should be able to try out our app with:
 
+```sh
+$ node index.js "Neal Stephenson" "To condense fact from the vapor of nuance."
 ```
-$ node index.js "" ""
-```
+
+This will output any quotes by Neal Stephenson, including the one we just added.
 
 ### How it works
 
@@ -497,7 +497,7 @@ SQL compared to MySQL.
 
 Accepted convention in Postgres is to expect a database named after the 
 user account that owns a gives process. This is why in the getting ready 
-section we ran `cretedb whoami` on the command line. 
+section we ran <code>createdb &#x0060;whoami&#x0060;</code> on the command line. 
 
 When we instantiate `pg.Client` (storing the instance to the `db` variable) 
 it reads the `USER` (or `USERNAME` on Windows) environment variable and 
@@ -522,7 +522,7 @@ using `db.escapeLiteral`.
 
 ### There's More
 
-Postgres is a hybrid Object-Relational database, we can store and query both 
+Postgres is a hybrid object-relational database, we can store and query both 
 relational and object data, whilst the `pg` module can interface with Postgres
 with both pure JavaScript and C bindings. 
 
@@ -631,7 +631,7 @@ db.connect((err) => {
 })
 ``` 
 
-The only thing we've changed her is the SQL queries (and their inputs). 
+The only thing we've changed here is the SQL queries (and their inputs). 
 
 We've altered the name of the table we create (from `quotes` to `quote_docs`),
 and we define two fields instead of three. The `id` field remains the same, 
@@ -644,12 +644,12 @@ is storing data blobs wholesale (such as log storage), but `jsonb` if we
 want to interact with the data inside the database. 
 
 We also added `CONSTRAINT` statements to validate the objects passed 
-to Postgress. 
+to Postgres. 
 
 In the second query, we only need to pass in one value, an object with
 `author` and `quotes` properties. So in our inputs array (second argument
 to the second occurence `db.query`), we simply pass the `params` object.
-Postgress takes this object, converts it to JSON, and then stores it 
+Postgres takes this object, converts it to JSON, and then stores it 
 as the `jsonb` datatype. 
 
 Now let's modify the `list` function to query the object data:
@@ -722,7 +722,7 @@ Where `./data` is a folder that holds the database files.
 This allows us to observe the activities of `mongod` as it 
 interacts with our code.
 
-> Managing the MongoDB Service ![](../info.png)
+> #### Managing the MongoDB Service ![](../info.png)
 > More information on starting and correctly stopping MongoDB can 
 > be found at https://docs.mongodb.com/manual/tutorial/manage-mongodb-processes/. 
 
@@ -747,7 +747,7 @@ const {MongoClient} = require('mongodb')
 const client = new MongoClient()
 ```
 
-We used object desructuring to pull the `MongoClient` constructor 
+We used object destructuring to pull the `MongoClient` constructor 
 from the `mongodb` exported object.
 
 To receive an author and quote, we'll load the two command line arguments 
@@ -933,7 +933,7 @@ top ten most inspiring quotes.
 
 In reality, this would be implemented with some kind of user interface (for
 example, in a browser), but we'll again emulate user interactions using 
-the command line;
+the command line.
 
 Let's create a new file named `votes.js`. 
 
@@ -1103,7 +1103,7 @@ Let's kick off `index.js` with the following code:
 
 ```js
 const uuid = require('uuid')
-const steed = reqire('steed')()
+const steed = require('steed')()
 const redis = require('redis')
 const client = redis.createClient() 
 const params = {
@@ -1158,7 +1158,7 @@ Finally, we'll write the `list` function:
 function list (cb) {
   client.smembers(`Author: ${params.author}`, (err, keys) => {
     if (err) return cb(err)
-    steed.each(keys, (next) => (key) => {
+    steed.each(keys, (key, next) => {
       client.hgetall(key, (err, {author, quote}) => {
         if (err) return next(err)
         console.log(`${author} ${quote} \n`)
@@ -1167,13 +1167,18 @@ function list (cb) {
     }, cb)
   })
 }
-
 ```
 
 We should now be able to add a quote (and see the resulting stored quotes):
 
 ```sh
 $ node index.js "Steve Jobs" "Stay hungry, stay foolish."
+```
+
+This should output the quote we just added:
+
+```sh
+Steve Jobs Stay hungry, stay foolish.
 ```
 
 ### How it works
@@ -1188,10 +1193,11 @@ which allows us to create multiple hashes.
 
 Essentially when called with `params.author` set to "Steve Jobs" and 
 `params.quote` set to "Stay hungry, stay foolish." the following command 
-is being sent to Redis and executed:
+is being sent to Redis and executed (where `HASH` is the string we 
+generate with `Math.random().toString(32).replace('.', '')`):
 
 ```
-HMSET author "Steve Jobs" quote "Stay hungry, stay foolish." 
+HMSET Quotes:HASH author "Steve Jobs" quote "Stay hungry, stay foolish." 
 ```
 
 Every time we store a new quote with `client.hmset`, we add the `key` for that quote 
@@ -1299,7 +1305,7 @@ redis server with the following command:
 $ ./redis-server ../redis.conf
 ```
 
-As an alternative if we want quickly set a temporary password, we can use the following:
+As an alternative if we want to quickly set a temporary password, we can use the following:
 
 ```sh
 $ echo "requirepass ourpassword" | ./redis-server -
@@ -1393,13 +1399,13 @@ quotes application via the command line.
 So to add a quote our command will be
 
 ```sh
-$ node index "<Author>" "<Quote>"
+$ node index.js "<Author>" "<Quote>"
 ```
 
 To list quotes by a certain author, the command will be 
 
 ```sh
-$ node index "<Author>"
+$ node index.js "<Author>"
 ```
 
 So let's implement the command line interface portion:
@@ -1461,12 +1467,12 @@ function list (author) {
 Now we should be able to test like so:
 
 ```sh
-$ node index.js "Shaggy" "Like...no way man!" 
+$ node index.js "Shaggy" "Like...no way man\!" 
 ```
 
 ### How it works
 
-When we call `level` and pass it a path a folder is created that 
+When we call `level` and pass it a path, a folder is created that 
 holds all the data for our database. 
 
 Getting parameters from `process.argv` is fairly common fare, 
@@ -1505,9 +1511,9 @@ line interface).
 
 The `lt` property is set to the character which is the 
 next code point up from the first character in the authors name. 
-For instance of the author was "Adam Smith", the `lt` property would 
+For instance if the author was "Adam Smith", the `lt` property would 
 be the letter "B" (`String.fromCharCode('Adam Smith'.charCodeAt(0) + 1)` returns `'B'`).
-So here we'll telling LevelDB to give us everything key whose lexicographical value 
+So here we're telling LevelDB to give us every key whose lexicographical value 
 is less than (but not including) the next code point up. 
 
 In essence, this means our `quotes` stream will output all quotes by a given author.
@@ -1517,7 +1523,7 @@ Then we pipe from the `quotes` stream through the `format` stream to `process.st
 
 The eager incremental processing afforded by LevelDB allows us to apply
 Node's stream paradigm over the top of LevelDB. Using streams means we 
-can begin receiving, processing and sending results immediately, not matter
+can begin receiving, processing and sending results immediately, no matter
 how many results there are.  
 
 For the sake of aesthethetics its nice to have a newline at the end of all

@@ -1,5 +1,5 @@
 const uuid = require('uuid')
-const steed = reqire('steed')()
+const steed = require('steed')()
 const redis = require('redis')
 const client = redis.createClient() 
 const params = {
@@ -27,7 +27,7 @@ if (params.author) {
 client.quit()
 
 function add ({author, quote}) {
-  const key = `Quotes: ${uuid())}`
+  const key = `Quotes: ${uuid()}`
   client.hmset(key, {author, quote})
   client.sadd(`Author: ${params.author}`, key)
 }
@@ -35,7 +35,7 @@ function add ({author, quote}) {
 function list (cb) {
   client.smembers(`Author: ${params.author}`, (err, keys) => {
     if (err) return cb(err)
-    steed.each(keys, (next) => (key) => {
+    steed.each(keys, (key, next) => {
       client.hgetall(key, (err, {author, quote}) => {
         if (err) return next(err)
         console.log(`${author} ${quote} \n`)
