@@ -1,14 +1,14 @@
-# 8 Building Microservice Systems
+# 10 Building Microservice Systems
 
-This chapter covers the following topics
+This chapter covers the following recipes:
 
 * Creating a simple RESTful microservice
 * Consuming a Service
-* Setting up a Development Environment
-* Standardizing services boilerplate
-* Using Containerized Infrastructure
+* Setting up a development environment
+* Standardizing service boilerplate
+* Using containerized infrastructure
 * Service discovery with DNS
-* Adding a queue based service
+* Adding a Queue Based Service
 
 ## Introduction
 
@@ -18,21 +18,21 @@ Not only does breaking a system into small independent processes suit a single-t
 event-loop platform such as Node, but there can be significant advantages in 
 adopting a microservices architecture such as:
 
-* Focus - Each service should do one thing only and do it well. This means that an individual microservice should contain a small amount of code that is easy for an individual developer to reason about.
+* **Focus** - Each service should do one thing only and do it well. This means that an individual microservice should contain a small amount of code that is easy for an individual developer to reason about.
 
-* Decoupling - Services run in their own process space and are therefore decoupled from the rest of the system. This makes it easy to replace an individual microservice without greatly perturbing the rest of the system.
+* **Decoupling** - Services run in their own process space and are therefore decoupled from the rest of the system. This makes it easy to replace an individual microservice without greatly perturbing the rest of the system.
 
-* Fine Grained Continuous Delivery / Deployment - Services are individually deployable, this leads to a model whereby deployment can be an ongoing process. thus removing the need for 'Big Bang' deployments.
+* **Fine Grained Continuous Delivery / Deployment** - Services are individually deployable, this leads to a model whereby deployment can be an ongoing process. thus removing the need for 'Big Bang' deployments.
 
-* Individually scalable - systems may be scaled at the service level leading to more efficient use of compute resources.
+* **Individually scalable** - Systems may be scaled at the service level leading to more efficient use of compute resources.
 
-* Language independent - microservice systems may be composed of services written in multiple languages, allowing developers to select the most appropriate tool for each specific job.
+* **Language independent** - Microservice systems may be composed of services written in multiple languages, allowing developers to select the most appropriate tool for each specific job.
 
 Of course it is not always appropriate to use microservices, certainly the 'golden hammer' anti-pattern should be avoided at all costs. However it is a powerful approach when applied correctly. 
 
 In this chapter we will learn how to construct a simple RESTful microservice as well as how this service might be consumed. We will also look at how to set up a local development environment using the Fuge toolkit. Then we'll advance to building services that communicate over protocols other than simple HTTP. Finally we will create a simple service discovery mechanism to allow us to consume our services without hard coding system configuration into each service.
 
-Before diving into let's take a brief moment to review our definition of a microservice and how this concept plays into a reference architectural frame. 
+Before diving in, let's take a brief moment to review our definition of a microservice and how this concept plays into a reference architectural frame. 
 
 The following figure depicts a typical microservice system.
 
@@ -40,19 +40,19 @@ The following figure depicts a typical microservice system.
 
 Our reference architecture contains the following elements that are typical to most microservice style systems:
 
-* Clients - typically web based or mobile applications, make HTTP connections to an API layer.
+* **Clients** - typically web based or mobile applications, make HTTP connections to an API layer.
 
-* Static assets - such as images, style sheets and other elements that are used to render the user interface.
+* **Static assets** - such as images, style sheets and other elements that are used to render the user interface.
 
-* API layer - This is usually a thin layer that provides the routing between client requests and microservices that ultimately respond to these requests.
+* **API layer** - This is usually a thin layer that provides the routing between client requests and microservices that ultimately respond to these requests.
 
-* Service Discovery - A mechanism for discovering and routing to microservices. This can be as simple as a shared configuration file or a more dynamic mechanism such as DNS
+* **Service Discovery** - A mechanism for discovering and routing to microservices. This can be as simple as a shared configuration file or a more dynamic mechanism such as DNS
 
-* Direct response services - These types of services are typically reached via a point to point protocol such as HTTP or raw TCP and will usually perform a distinct action and return a result.
+* **Direct response services** - These types of services are typically reached via a point to point protocol such as HTTP or raw TCP and will usually perform a distinct action and return a result.
 
-* Async services - These types of services are typically invoked via a bus based technology such as RabbitMQ or Apache Kafka. These may or may not return a response to the caller.
+* **Async services** - These types of services are typically invoked via a bus based technology such as RabbitMQ or Apache Kafka. These may or may not return a response to the caller.
 
-* Data sources and External APIs - Services will usually interact with one or more data sources or external systems in order to generate responses to requests
+* **Data sources and External APIs** - Services will usually interact with one or more data sources or external systems in order to generate responses to requests
 
 Based on this logical architecture we will use the following definition for a microservice:
 
@@ -108,7 +108,7 @@ npm install restify --save --no-optional
 This will install the `restify` module and also add the dependency to `package.json`
 
 > #### --no-optional.. ![](../info.png)
-> By default `restify` installs DTrace probes, this can be disabled during install with the --no-optional flag. Whilst DTrace is great not all systems support it which is why we have chosen to disable it in this example. We can find out more about dtrace here: http://dtrace.org/blogs/about/
+> By default `restify` installs DTrace probes, this can be disabled during install with the --no-optional flag. While DTrace is great not all systems support it which is why we have chosen to disable it in this example. We can find out more about dtrace here: http://dtrace.org/blogs/about/
 
 Now it's time to actually write our service. Using our favorite editor 
 let's add the following code to the `service.js` file:
@@ -168,16 +168,16 @@ Our code configured `restify` to serve `GET` requests matching a specific url pa
 server.get('/add/:first/:second', respond)
 ```
 
-The `:first` and `:second` placeholders instruct `restify` to match path elements in these positions to parameters with are added to `req.params`. We can see this working in the respond function where we were able to access the parameters using the form `req.params.first`
+The `:first` and `:second` placeholders instruct `restify` to match path elements in these positions to parameters which are added to `req.params`. We can see this working in the respond function where we were able to access the parameters using the form `req.params.first`
 
 Finally our service sent a response using the `res.send` function.
 
 > #### Restify and Express ![](../info.png)
-> Restify and Express have very similar API's. We can learn more about 
+> Restify and Express have very similar APIs. We can learn more about 
 > `req.params` and `res.send` in the *Creating an Express Web App* 
 > recipe in **Chapter 7 Working with Web Frameworks** 
 
-Whilst this is a trivial service it should serve to illustrate the fact that a microservice is really nothing more than a Node module that runs as an independent process. 
+While this is a trivial service it should serve to illustrate the fact that a microservice is really nothing more than a Node module that runs as an independent process. 
 
 A microservice system is a collection of these cooperating processes. Of course it gets more complicated in a real system where we have lots of services and have to manage problems such as service discovery and deployment, however keep in mind that the core concept is really very simple.
 
@@ -187,7 +187,7 @@ Let's look at alternative ways to create and test a RESTful microservice.
 
 #### Using the Core HTTP Module
 
-Whilst we have used `restify` to create this simple service, there are several alternative approaches that we could have used such as:
+While we have used `restify` to create this simple service, there are several alternative approaches that we could have used such as:
 
 * The Node core `http` module
 * The `Express` framework [http://expressjs.com/](http://expressjs.com/)
@@ -237,7 +237,7 @@ We can use `curl` as before to test our service:
 $ curl http://localhost:8080/add/1/2
 ```
 
-Whilst using the core `http` module can give us the same results, we
+While using the core `http` module can give us the same results, we
 have to implement additional lower level logic. Neglecting edge cases or misunderstanding fundamentals can lead to brittle code. The framework support provided by the `restify` module also supplies us with conveniences such as parameter parsing, automated error handling, middleware support and so forth.
 
 #### Testing Microservices with a Browser 
@@ -246,11 +246,14 @@ We don't necessarily need to use the `curl` command to test our microservices, W
 
 ### See also
 
-* TBD
+* *Creating an HTTP server* in **Chapter 5 Weidling Web Protocols**
+* *Creating an Express Web App* in **Chapter 7 Working with Web Frameworks**
+* *Creating a Hapi Web App* in **Chapter 7 Working with Web Frameworks**
+* *Consuming a service* in this chapter
 
-## Consuming a Service
+## Consuming a service
 
-In this recipe we are going to create a web application layerthat will consume our microservice. This is the API and client tier in our reference architecture depicted in the figure in the introduction to the chapter. 
+In this recipe we are going to create a web application layer that will consume our microservice. This is the API and client tier in our reference architecture depicted in the figure in the introduction to the chapter. 
 
 We will be using the Express web framework to do this and also the Express Generator to create an application skeleton.
 
@@ -311,7 +314,7 @@ $ npm install --save --no-optional restify
 We'll be using `express` for the web application, and `restify`
 (in this case) to create a RESTful client.
 
-To install the rest of our dependencies (as speicifed in the `package.json` that was generated by `express-generator`) we run:
+To install the rest of our dependencies (as specified in the `package.json` that was generated by `express-generator`) we run:
 
 ```sh
 $ npm install
@@ -462,7 +465,7 @@ Let's write an integration test for our system
 
 So far we have omitted unit and integration testing from our code.
  
-Whilst testing is not the focus of this chapter, robust testing is an absolute requirement for any system. 
+While testing is not the focus of this chapter, robust testing is an absolute requirement for any system. 
 
 Let's create a quick integration test for our `webapp` and `adderservice`. To do this we will use the `superagent` and `tap` modules. 
 
@@ -540,7 +543,10 @@ This of course is no sustitute for robust unit testing which should be implement
 
 ### See also
 
-* TBD
+* *Creating an Express Web App* in **Chapter 7 Working with Web Frameworks**
+* *Adding Tests* in the *There's More* section of *Writing module code* in **Chapter 2 Writing Modules** 
+* *Creating a simple RESTful microservice* in this chapter
+* *Setting up a development environment* in this chapter
 
 ## Setting up a development environment
 
@@ -624,7 +630,7 @@ Let's try the `ps` command:
 
 ![](./images/fuge-ps.png)
 
-This shows us an a list of managed processes based on our the
+This shows us a list of managed processes based on our the
 earlier configuration.
 
 We can see that `fuge` understands that it's managing our `webapp` 
@@ -712,7 +718,7 @@ we'll also take a look a lightweight alternative to Fuge.
 
 ### A minimal alternative to fuge
 
-If all we want is to an easy to start services and tail processes logs with a color scheme, and we're willing to forgo the watch and reload functionality, manage docker containers separately and avoid other bundled functionality then
+If all we need is a convenient way to start services and tail processes logs with a color scheme, and we're willing to go without the watch and reload functionality, manage docker containers separately and avoid other bundled functionality then
 the `lil-pids` may be of use to us. 
 
 Let's install `lil-pids` so we can check it out:
@@ -862,7 +868,10 @@ The utillity of this becomes apparent once we have a larger (greater than 5) num
 
 ### See also
 
-* TBD
+* *Debugging Node with Chrome Devtools* in **Chapter 1 Debugging Processes**
+* *Watching files and directories* in **Chapter 2 Coordinating I/O**
+* *Consuming a service* in this chapter
+* *Creating a simple RESTful microservice* in this chapter
 
 ## Standardizing service boilerplate
 
@@ -892,7 +901,7 @@ throughout this chapter. Let's dive in!
 
 Let's begin by updating our `adderservice`.  
 
-We'll going to add an `index.js` and `wiring.js` file in the `micro/adderservice` folder: 
+We'll add an `index.js` and `wiring.js` file in the `micro/adderservice` folder: 
 
 ```sh
 $ cd micro/adderservice
@@ -1017,7 +1026,7 @@ The system should start up as before. If we open up a browser and point it to ht
 
 ### How it works
 
-Whilst we have only made minor code changes to the system, organizationally these changes are important. 
+While we have only made minor code changes to the system, organizationally these changes are important. 
 
 We removed any hard coded service configuration information from the code. 
 
@@ -1031,7 +1040,7 @@ an environment variable (ADDERSERVICE_SERVICE_PORT is destructured from the
   })
 ```
 
-This means that the port which the service is listening on is now supplied by the environment. Whilst it might be fine to hard code this information for a small system, it quickly becomes unmanageable in a larger system so this approach to service configuration is important. 
+This means that the port which the service is listening on is now supplied by the environment. While it might be fine to hard code this information for a small system, it quickly becomes unmanageable in a larger system so this approach to service configuration is important. 
 
 Of course when we start the `adderservice` the environment needs to be set up correctly otherwise our process will fail to start. 
 
@@ -1067,7 +1076,7 @@ By this we mean that it would be perfectly possible to replace our `wiring.js` f
 
 We also altered our system so it communicates using JSON. 
 
-We did this by making our `add` function in `micro/adderservice/service.js` invoke its callback with an object containin a key (`result`) instead of passing the result as a string. This is then passed into `res.send` in `micro/adderservice/wiring.js`. At this point `restify` recognizes that `res.send` was passed an object and serializes it to send it as a response. 
+We did this by making our `add` function in `micro/adderservice/service.js` invoke its callback with an object containing a key (`result`) instead of passing the result as a string. This is then passed into `res.send` in `micro/adderservice/wiring.js`. At this point `restify` recognizes that `res.send` was passed an object and serializes it to send it as a response. 
 
 On the counterpart API side, in the `micro/webapp/routes/add.js` file, 
 we switch from using `restify.createStringClient` to using `restify.createJSONClient` which makes an HTTP requests, buffers the 
@@ -1125,7 +1134,7 @@ Since `tap` is installed as a development dependency of our service,
 the `package.json` test field, when executed with `npm test` will 
 have access to the `tap` executable.
 
-Of course this is a very simplistic test, however the point is that the unit test is not in anyway concerned with how the service is exposed. Becuse we extracted the wiring logic into `wiring.js` we can test out service logic independent of context.
+Of course this is a very simplistic test, however the point is that the unit test is not in anyway concerned with how the service is exposed. Because we extracted the wiring logic into `wiring.js` we can test out service logic independent of context.
 
 #### Pattern Routing
 
@@ -1233,10 +1242,16 @@ serialization protocol as defined by the `net-object-stream` module.
 
 So let's update the `micro/webapp/routes/add.js` to use this interface.
 
+First let's go to the root of our project, 
+
+```sh
+$ cd .. # we should now be in the micro folder
+```
+
 We need to install `net-object-stream` into the `webapp` folder:
 
 ```sh
-$ cd ../webapp # assuming we're in the micro/adderservice folder
+$ cd webapp 
 $ npm install --save net-object-stream
 ```
 
@@ -1361,13 +1376,19 @@ details before this could be production worthy.
 
 ### See also
 
-* TBD
+* *Communicating over sockets* in **Chapter 2 Coordinating I/O**
+* *Processing big data* in **Chapter 4 Using Streams**
+* *Piping streams in production* in **Chapter 4 Using Streams** 
+* *Creating transform streams* in **Chapter 4 Using Streams**
+* *Adding Tests* in the *There's More* section of *Writing module code* in **Chapter 2 Writing Modules** 
+* *Setting up a development environment* in this chapter
+* *Using containerized infrastructure* in this chapter 
 
 ## Using containerized infrastructure
 
 Container technology has recently gained rapid adoption within the industry and for good reason. Containers provide a powerful abstraction and isolation mechanism that can lead to robust and repeatable production deployments.
 
-The container model for software deployment has become synonymous with microservices and distributed systems in general. Largely because the architectural model is a natural fit with the underlying container model. Whilst a full discussion of the merits of containers is outside the scope of this book some of the key benefits to bear in mind are:
+The container model for software deployment has become synonymous with microservices and distributed systems in general. Largely because the architectural model is a natural fit with the underlying container model. While a full discussion of the merits of containers is outside the scope of this book some of the key benefits to bear in mind are:
 
 * Isolation - containers provide a clean isolated environment for our services to run in. The container 'brings' the correct environment with it so we can be sure that if it runs on my machine it will run on ours!
 
@@ -1619,7 +1640,7 @@ We'll populate `micro/webapp/views/audit.ejs` with the following content:
 
 The `micro/webapp/routes/audit.js` route will make a request
 to the `micro/auditservice` `/list` endpoint and pass the response
-data to the `audit.ejs` template using `res.render. The following
+data to the `audit.ejs` template using `res.render`. The following
 is the code for our `micro/webapp/routes/audit.js` file:
 
 ```js
@@ -1709,7 +1730,7 @@ where we load various routes we add the following line:
 var audit = require('./routes/audit')
 ```
 
-Then in the secion where we mount URI paths to route handler with `app.use`, 
+Then in the section where we mount URI paths to route handler with `app.use`, 
 we add the line: 
 
 ```js
@@ -1749,7 +1770,7 @@ Let's issue the `start all` command to Fuge to spin the system up.
 
 If we now point a browser to http://localhost:3000/audit a blank audit history is displayed. We can add some history by opening http://localhost:3000/add and submitting some calculations. 
 
-Then if we navigate to http://localhost:3000/audit againa list of the calculations will be displayed as shown below:
+Then if we navigate to http://localhost:3000/audit again a list of the calculations will be displayed as shown below:
 
 ![](./images/auditlog.png)
 
@@ -1768,11 +1789,11 @@ When the `/audit/list` route is loaded in the browser, the route handler in `mic
 `service.list` function which is written in `micro/auditservice/service.js` which in turn makes a request to MongoDB to fetch a list of entries. This list is
 ultimately fed into the `micro/webapp/views/audit.ejs` template for rendering. 
 
-Whilst this approach to using infrastructure is convenient in development, containers are a game changer when it comes to production deployment. We will investigate this topic in more detail in the **Chapter 11 Deploying Systems**.
+While this approach to using infrastructure is convenient in development, containers are a game changer when it comes to production deployment. We will investigate this topic in more detail in the **Chapter 11 Deploying Systems**.
 
 Our audit service was able to connect to the MongoDB container in just the same way as if there were a local installation of MongoDB so no changes to the code were required in order to use the Docker container.
 
-Whilst containers are incredibly useful for deployment and intrastructure encapsulation in development working with Node processes natively tends to allow for more rapid iteration. This is why we use Fuge to run both our container and our Node processes. 
+While containers are incredibly useful for deployment and intrastructure encapsulation in development working with Node processes natively tends to allow for more rapid iteration. This is why we use Fuge to run both our container and our Node processes. 
 
 We connected to the Mongo container using this url:
 
@@ -1788,7 +1809,7 @@ We are using Fuge to run our microservices in development as a convenience. This
 
 #### Running Containers in the background
 
-If we would prefer to have some of our containers execute in the background whilst still using fuge we can do this by tweaking our fuge configuration. 
+If we would prefer to have some of our containers execute in the background while still using fuge we can do this by tweaking our fuge configuration. 
 
 For demonstration purposes, we'll copy `micro/fuge/fuge.yml` to `micro/fuge/fuge2.yml`.
 
@@ -1838,7 +1859,7 @@ We can start the rest of our system in the Fuge shell:
 fuge> start all
 ```
 
-Then we can confirm that everything is running as before by navigating our browser to and using the routes we've been creating in the this and previous recipes. 
+Then we can confirm that everything is running as before by navigating our browser to and using the routes we've been creating in this and previous recipes. 
 
 If we exit the Fuge shell the mongo container will continue to run.
 
@@ -1846,7 +1867,11 @@ The key point to note here is that we can leave our infrastructure containers ru
 
 ### See also
 
-* TBD
+* *Storing and Retrieving Data with MongoDB* in **Chapter 6 Persisting to Databases*
+* *Watching files and directories* in **Chapter 2 Coordinating I/O**
+* *Setting up a development environment* in this chapter
+* *Creating a simple RESTful microservice* in this chapter
+* *Service discovery with DNS* in this chapter
 
 ## Service discovery with DNS
 
@@ -1868,12 +1893,12 @@ So far in this chapter we have been using environment variables to connect our s
 const url = `mongodb://${MONGO_SERVICE_HOST}:${MONGO_SERVICE_PORT}/audit`
 ```
 
-There is a reason for this format: it's the same format used by both Kubernetes and Docker Swarm; two of the current leading container deployment technologies. Kubernetes is a container deployment and orchestration system that was developed at Google. Swarm is developed by Docker. Whilst there are alternative container deployment technologies, at the time of writing Kubernetes is gaining significant adoption across the industry.
+There is a reason for this format: it's the same format used by both Kubernetes and Docker Swarm; two of the current leading container deployment technologies. Kubernetes is a container deployment and orchestration system that was developed at Google. Swarm is developed by Docker. While there are alternative container deployment technologies, at the time of writing Kubernetes is gaining significant adoption across the industry.
 
 There are significant benefits to having consistency betwen development and production. Fuge facilitates parity between development and production by
 reproducing the same environment variable naming scheme for port and hosts.
 
-Kubernetes supports two methods for service discovery. One is the (now familiar) use of environment variables, the other (more flexible approach) is via the use of DNS records. Whilst Kubernetes is a very capable deployment stack, it's not optimized for local development. However, Fuge can also provide DNS using the same format as Kubernetes. This allows us to run our microservice system in development and whilst remaining confident that we can run the same code in production without any requiring any alterations to our code.
+Kubernetes supports two methods for service discovery. One is the (now familiar) use of environment variables, the other (more flexible approach) is via the use of DNS records. While Kubernetes is a very capable deployment stack, it's not optimized for local development. However, Fuge can also provide DNS using the same format as Kubernetes. This allows us to run our microservice system in development and while remaining confident that we can run the same code in production without any requiring any alterations to our code.
 
 In this recipe we are going to convert our system to use DNS for service discovery.
 
@@ -2168,7 +2193,7 @@ DNS is one of the oldest service discovery mechanisms available and has of cours
 > #### DNS record types .. ![](../info.png)
 > A full list of DNS record types can be found on Wikipedia at this URL https://en.wikipedia.org/wiki/List_of_DNS_record_types
 
-Under the hood the  `concordant` module firstly performs an `SRV` query, this returns the port number for the service and a `CNAME` record (canonical name record). It then perform a host lookup - `A` record - against the `CNAME` to obtain an IP address for the service. Once we have these two pieces of information we can proceed to connect to and consume the service. The `concordant` module takes care of all of this detail for us, however it is important to understand what is happening internally.
+Under the hood the  `concordant` module firstly performs an `SRV` query, this returns the port number for the service and a `CNAME` record (canonical name record). It then performs a host lookup - `A` record - against the `CNAME` to obtain an IP address for the service. Once we have these two pieces of information we can proceed to connect to and consume the service. The `concordant` module takes care of all of this detail for us, however it is important to understand what is happening internally.
 
 There's a distinct format for forming services endpoint, for instance
 the `adderservice` and `auditservice` constants in the `resolve` route middleware found in the `micro/routes/add.js`file are declared like so: 
@@ -2196,12 +2221,12 @@ _<port name>._<protocol>.<service name>.<namespace>.svc.cluster.local
 > #### Kubernetes naming .. ![](../info.png)
 > Full documentation on Kubernetes DNS can be found at the official Kubernetes site at this URL https://kubernetes.io/docs/admin/dns/
 
-In we look at the mongo configuration in our Fuge configuration file, we can see that we have named our mongo port `main` and the service is called `mongo`. The underlying protocol is `tcp` so the mapping to this hostname is fairly straightforward.
+If we look at the mongo configuration in our Fuge configuration file, we can see that we have named our mongo port `main` and the service is called `mongo`. The underlying protocol is `tcp` so the mapping to this hostname is fairly straightforward.
 
 Our `resolve` function is using exactly the same naming scheme to dynamically resolve the service the `adderservice`, `auditservice` and `mongo` endpoints.
 
 In each case we cached the DNS lookups (and the database or HTTP clients).
-Whilst this removes additional latency and network traffic which would occur from constant DNS requests, it doesn't allow for dynamic system
+While this removes additional latency and network traffic which would occur from constant DNS requests, it doesn't allow for dynamic system
 reconfiguration. In other words, by caching an endpoint forever, we lose
 one of the main benefits of DNS. For the sake of simplicity we didn't 
 implement a comprehensive caching strategy in this recipe. In a 
@@ -2217,12 +2242,12 @@ In this recipe we have used DNS as our service discovery mechanism. We did this 
 
 Some other options for consideration are: 
 
-* Consul.io by Hasicorp, provides a robust service discovery mechanism providing both HTTP and DNS based registration and lookup.
-* etcd, distributed key value store. This is used internally by Kubernetes
-* Zookeeper, distributed key value store from the Apache project
-* SWIM, Scaleable Weakly consistent Infection style process group Membership protocol. Peer to peer based service discovery protocol
+* Consul.io by HashiCorp (https://www.consul.io/), provides a robust service discovery mechanism providing both HTTP and DNS based registration and lookup.
+* etcd (https://github.com/coreos/etcd) distributed key value store. This is used internally by Kubernetes
+* Zookeeper, distributed key value store from the Apache project (https://zookeeper.apache.org/)
+* Peer to peer based service discovery protocols such as the Raft Consensus Algorithm (https://raft.github.io/raft.pdf), the SWIM protocol(http://www.cs.cornell.edu/~asdas/research/dsn02-SWIM.pdf) or the Dat protocol (https://github.com/datproject/docs/blob/master/papers/dat-paper.pdf). 
 
-We will be covering service discovery further and in more detail in **Chapter 11 Deplying Systems**.
+We will be covering service discovery further and in more detail in **Chapter 11 Deploying Systems**.
 
 #### Viewing the environment and DNS Zone
 
@@ -2264,7 +2289,11 @@ As we can see Fuge is supplying both SRV and A records for discovery which Conco
 
 ### See also
 
-* TBD
+* *Storing and Retrieving Data with MongoDB* in **Chapter 6 Persisting to Databases*
+* *Creating an HTTP server* in **Chapter 2 Coordinating I/O**
+* *Using containerized infrastructure* in this chapter
+* *Setting up a development environment* in this chapter
+* *Adding a Queue based service* in this chapter
 
 ## Adding a Queue Based Service
 
@@ -2274,8 +2303,7 @@ We will be using Redis as a our queue mechanism, specifically we're using a Redi
 structure with the `LPUSH` and `BRPOP` commands to make a FIFO queue. 
 
 > #### Redis and Node ![](../info.png) 
-> We cover using Redis with Node in the *Storing and Retrieving Data with Redis* in 
-> **Chapter 6 Persisting to Databases* holds.
+> We cover using Redis with Node in the *Storing and Retrieving Data with Redis* in **Chapter 6 Persisting to Databases* holds.
 
 ### Getting Ready
 
@@ -2460,11 +2488,19 @@ That takes care of our events service, which is exposed over a Redis queue.
 
 Next we have to hook this into our web application (`webapp`). We are going to do this by adding a small piece of middleware to our express server. 
 
+Let's enter the root of our project
+
+```sh
+$ cd .. #assuming we're currently in micro/eventservice
+```
+
+We should now be in the `micro` folder.
+
 Let's enter the `webapp` folder and create a `lib` directory, with a file
 called `event-logger.js`
 
 ```sh
-$ cd ../webapp # assuming cwd is eventservice
+$ cd webapp
 $ npm i --save redis
 $ mkdir lib
 $ touch lib/event-logger.js
@@ -2674,14 +2710,14 @@ Each service in our system is tasked with a single area. The `adderservice` adds
 Each of our point to point services (`adderservice` and `auditservice`) must be accessed using a clearly defined message structure. As capability is added to a service, additional messages may be added but the code in the service is never directly accessible by the consumer. For our bus based service (`eventservice`) the consumer is not even directly connected, it simply passes a message and forgets.
 
 #### Vertical separation
-Our services are maintain strong vertical bounds. This includes keeping state separate at the data layer. This is an important concept. Notice that whilst the same MongoDB container is being used the `auditservice` and the `eventservice` use completely separate collections. No two services should modify the same collection/table. If data from one area is needed by another service, lateral communication happens between services.
+Our services are maintain strong vertical bounds. This includes keeping state separate at the data layer. This is an important concept. Notice that while the same MongoDB container is being used the `auditservice` and the `eventservice` use completely separate collections. No two services should modify the same collection/table. If data from one area is needed by another service, lateral communication happens between services.
 
 For instance the reporting tool (a symbolic service) does not connect to MongoDB to extract data. Rather it asks the `eventservice` to perform this task. As a system grows in functionality it's important that this vertical separation always be maintained. If the discipline of full stack vertical separation is not adhered to, the usual result is a distributed monolith. This typically leads to a terrible combination of the negative tradeoffs of both large monolithic applications and distributed systems.
 
 #### Stateless
 Notice that (other than DNS and client caching) all of our services are stateless. Whist this is a simple example system, we should always strive to make our services stateless. Practically this usually means loading user context on demand or passing user state information through from the client. Keeping our services stateless means that we can scale each service horizontally as demand requires.
 
-#### A Note on Security
+#### A Note on security
 A full discussion of security as pertaining to microservices is outside the scope of this chapter. However it's important to note that all the usual rules pertaining to online application security apply. In our reference architecture we have applied what is sometimes referred to as the API gateway pattern. We avoid exposing microservices directly to public networks, and only expose the minimal API surface area required. We suggest at a minimum that the following practices be given consideration when implementing a microservice system:
 
 * Use the API gateway pattern and minimize the exposed application surface area
@@ -2794,4 +2830,13 @@ If we now run a second `docker ps -a` command we can see that the stopped contai
 
 ### See also
 
-* TBD
+* *Storing and Retrieving Data with MongoDB* in **Chapter 6 Persisting to Databases*
+* *Storing and Retrieving Data with Redis* in **Chapter 6 Persisting to Databases*
+* *Guarding against Cross Site Scripting (XSS)* **Chapter 8 Dealing with Security**
+* *Anticipating malicious input* **Chapter 8 Dealing with Security**
+* *Hardening headers in Web Frameworks* **Chapter 8 Dealing with Security**
+* *Creating a simple RESTful microservice* in this chapter
+* *Service discovery with DNS* in this chapter
+* *Using containerized infrastructure* in this chapter
+* *Setting up a development environment* in this chapter
+* *Deploying a full system* in **Chapter 11 Deploying Systems**
