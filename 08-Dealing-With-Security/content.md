@@ -1,17 +1,12 @@
-# 10 Dealing with Security
+# 8 Dealing with Security
 
-This chapter covers the following topics
+This chapter covers the following recipes
 
-* Dependency Auditing
-* Server hardening
-* Important HTTP headers
-* Avoiding server fingerprinting
-* Cross Site Scripting (XSS)
-* Code Injection
-* Input validation
-* Lesser known vulnerabilities
-* Cross Site Request Forgery (CSRF)
-* Cross Origin Resources (CORS)
+* Detecting Dependency Vulnerabilities
+* Hardening Headers in Web Frameworks
+* Anticipating Malicious Input
+* Guarding Against Cross Site Scripting (XSS)
+* Preventing Cross Site Request Forgery
 
 ## Introduction 
 
@@ -34,12 +29,12 @@ even for the most conscientious, mature and popular modules and
 frameworks. 
 
 In this recipe we demonstrate how to detect vulnerabilities
-in a projects dependency tree.
+in a project's dependency tree.
 
 ### Getting Ready
 
 We'll create a folder called `app`, initialize it as 
-a package install `express`:
+a package and install `express`:
 
 ```sh
 $ mkdir app
@@ -87,7 +82,7 @@ This should output something like the following image.
 
 The `auditjs` tool traverses the entire dependency tree, 
 and makes requests to the [OSS Index](https://ossindex.net/)
-which aggregates vulnerability announcemounts from npm,
+which aggregates vulnerability announcements from npm,
 the Node Security Project, the National Vulnerability Database,
 and Snyk.io, and others.  
 
@@ -108,7 +103,7 @@ What other methods can we use to manage dependency security?
 #### Module Vetting
 
 We can arbitrarily check modules for vulnerabilities (at least the vulnerability
-database mantained by [snyk.io](http://snyk.io)) without installing them.
+database maintained by [snyk.io](http://snyk.io)) without installing them.
 
 Let's install the `snyk` CLI tool: 
 
@@ -156,7 +151,7 @@ with little transparency.
 This could lead to unintended vulnerabilities where user input is 
 passed through a dependency tree that eventually leads to shell 
 commands that could inadvertently allow for malicious input to control
-our server. Whilst the chances of this happening seem rare, the 
+our server. While the chances of this happening seem rare, the 
 implications are severe. Depending on our use case, if we can eliminate
 the risk, we're better off for it.
 
@@ -211,7 +206,10 @@ the key is accessed.
 
 ### See also
 
-* TBD
+* *Installing Dependencies* in **Chapter 2 Writing Modules**
+* *Creating an Express Web App* in **Chapter 7 Working with Web Frameworks**
+* *Creating a Hapi Web App* in **Chapter 7 Working with Web Frameworks**
+
 
 ## Hardening Headers in Web Frameworks
 
@@ -332,7 +330,7 @@ Ok, let's press Ctrl+C to stop our server, and then start it again:
 $ npm start
 ```
 
-In another tab let's make the same HEAD request: 
+In another terminal let's make the same HEAD request: 
 
 ```sh
 $ curl -I http://localhost:3000
@@ -363,7 +361,6 @@ Connection: close
 
 Note the removal of `X-Powered-By` and the addition of several 
 new `X-` prefixed headers. 
-
 
 ### How it works
 
@@ -429,7 +426,7 @@ that bypass security mechanisms by veiling themselves in an alternative
 MIME type format, and then somehow switching back and being executed
 in their original format to run malicious code. A very sophisticated
 manifestation of this attack comes in the form of the [Rosetta Flash](https://miki.it/blog/2014/7/8/abusing-jsonp-with-rosetta-flash/)
-attack created in 2004 to demonstrate the vulnerability.
+attack created in 2004 to demonstrate the vulnerability (see https://miki.it/blog/2014/7/8/abusing-jsonp-with-rosetta-flash/).
 Setting the `X-Content-Type-Options` to `nosniff` instructs the browser
 to never guess and override the MIME type, rendering such attacks impossible.
 
@@ -574,9 +571,10 @@ headers discussed in the main recipe.
 
 #### Hardening Koa
 
-> #### Web Frameworks ![](../info.png)
+> #### Warning: Koa v2 requires Node 8 or higher ![](../info.png)
 > Due to Koa's use of ES2015 `async/await` this example will only
-> run in Node 8 or higher.  
+> run in Node 8 or higher. For more information about Koa see 
+> *Creating a Koa Web App* in **Chapter 7 Working with Web Frameworks**. 
 
 If we're using Koa, we can avail of `koa-helmet`, which is,
 as the name suggests, `helmet` for `koa`.
@@ -725,7 +723,11 @@ Connection: keep-alive
 
 ### See also
 
-* TBD
+* *Enabling Debug Logs* in **Chapter 1 Debugging Processes**
+* *Creating an HTTP server* in **Chapter 5 Wielding Web Protocols**
+* *Creating a Koa Web App* in **Chapter 7 Working with Web Frameworks**
+* *Creating an Express Web App* in **Chapter 7 Working with Web Frameworks**
+* *Creating a Hapi Web App* in **Chapter 7 Working with Web Frameworks**
 
 
 ## Anticipating Malicious Input
@@ -1290,9 +1292,9 @@ $ cp index.js index-fixed.js
 We'll make the top of `index-fixed.js` should look like the following:
 
 ```js
-
 const http = require('http')
-const ajv = new (require('ajv'))
+const Ajv = require('ajv')
+const ajv = new Ajv
 const schema = {
   title: 'UserReg',
   properties: {
@@ -1316,8 +1318,7 @@ const {STATUS_CODES} = http
 
 > ##### JSONSchema ![](../info.png) 
 > The `ajv` module uses the JSONSchema format
-> for declare object schemas.
-> Find out more at <http://json-schema.org>
+> for declaring object schemas. Find out more at <http://json-schema.org>
 
 The `register` function, we'll alter like so:
 
@@ -1385,7 +1386,10 @@ Our server stays alive, while an error message is logged:
 
 ### See also
 
-* TBD
+* *Receiving POST Data* in **Chapter 5 Wielding Web Protocols**
+* *Creating an HTTP server* in **Chapter 5 Wielding Web Protocols**
+* *Creating an Express Web App* in **Chapter 7 Working with Web Frameworks**
+* *Implementing Authentication* in **Chapter 7 Working with Web Frameworks**
 
 ## Guarding Against Cross Site Scripting (XSS)
 
@@ -1607,7 +1611,7 @@ If we move the `pt>` characters from the `handoverToken` parameter into
 the `prev` parameter, in Chrome, and open Chrome Devtools we'll see 
 an error message as shown in the following image:
 
-![](xss-4.png)
+![](images/xss-4.png)
 
 By spreading the `<script>` tag across two injected parameters, we 
 were able to bypass Chromes XSS auditor (at least the time of writing,
@@ -1636,7 +1640,7 @@ some JavaScript which will run directly in the browser when the page loads.
 The injected code accesses the `<div>` element with an `id` attribute of`
 `stat` and sets the `innerHTML` to an alternative status. The HTML5 specification indicates that the value of an `id`
 field should become a global variable (see https://html.spec.whatwg.org/#named-access-on-the-window-object).
-Whilst we could use `document.getElementById` we use the shorthand version
+While we could use `document.getElementById` we use the shorthand version
 for our purposes (although as a development practice this a brittle approach).
 
 Finally, the `lang` token is `script%3E%3Ca%20href=%22`. 
@@ -1869,7 +1873,7 @@ Now if we try the malicious URL from the main recipe,
 http://localhost:3000/?prev=%22%3E%3Cscri&handoverToken=pt%3Estat.innerHTML=%22it%27s%20all%20good...%3Cbr%3Erelax%20:)%22%3C&lang=script%3E%3Ca%20href=%22
 we'll get an "Unprocessable Entity" response. 
 
-Whilst strict parameter validation does make it far more difficult to craft 
+While strict parameter validation does make it far more difficult to craft 
 a malicious URL it is not as safe as escaping the HTML and avoiding 
 protocol handlers - for instance the following URL can still execute
 JavaScript when the link is clicked: 
@@ -1898,7 +1902,13 @@ We can use jsesc to do this https://github.com/mathiasbynens/jsesc.
 
 ### See also
 
-* TBD
+* *Creating an HTTP server* in **Chapter 5 Wielding Web Protocols**
+* *Creating an Express Web App* in **Chapter 7 Working with Web Frameworks**
+* *Implementing Authentication* in **Chapter 7 Working with Web Frameworks**
+
+
+* *Creating an Express Web App* in **Chapter 7 Working with Web Frameworks**
+* *Implementing Authentication* in **Chapter 7 Working with Web Frameworks**
 
 ## Preventing Cross Site Request Forgery
 
@@ -2071,7 +2081,7 @@ server.listen(3001)
 
 ### How to do it
 
-First lets explore the problem. We'll start both the vulnerable and
+First let's explore the problem. We'll start both the vulnerable and
 adversarial servers. 
 
 If, on the command line, we are in the directory directly above the `app`
@@ -2293,8 +2303,9 @@ the CSRF token. The SameSite cookie directive does not have that problem.
 
 ### See also
 
-* TBD
-
+* *Receiving POST Data* in **Chapter 5 Wielding Web Protocols**
+* *Creating an Express Web App* in **Chapter 7 Working with Web Frameworks**
+* *Implementing Authentication* in **Chapter 7 Working with Web Frameworks**
 
 
 

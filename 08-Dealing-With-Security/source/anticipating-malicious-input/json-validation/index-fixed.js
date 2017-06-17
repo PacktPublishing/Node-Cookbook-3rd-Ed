@@ -1,7 +1,8 @@
 'use strict'
 
 const http = require('http')
-const ajv = new (require('ajv'))
+const Ajv = require('ajv')
+const ajv = new Ajv
 const schema = {
   title: 'UserReg',
   properties: {
