@@ -250,7 +250,7 @@ We don't necessarily need to use the `curl` command to test our microservices, W
 
 ## Consuming a Service
 
-In this recipe we are going to create a web application layerthat will consume our microservice. This is the API and client tier in our reference architecture depicted in the figure in the introduction to the chapter. 
+In this recipe we are going to create a web application layer that will consume our microservice. This is the API and client tier in our reference architecture depicted in the figure in the introduction to the chapter. 
 
 We will be using the Express web framework to do this and also the Express Generator to create an application skeleton.
 
@@ -697,7 +697,7 @@ Not only is this highly useful when developing systems with a significant number
 developers part. This is modus operandi that Fuge embraces: enhanced developer experience of microservice systems.
 
 > #### Fuge and Docker ![](../tip.png)
-> Fuge can also manage Docker containers locally for us, alongside the Node processes. This is the subject of a a recipe later in this chapter, *Using Containerized Infrastructure*
+> Fuge can also manage Docker containers locally for us, alongside the Node processes. This is the subject of a recipe later in this chapter, *Using Containerized Infrastructure*
 
 It should be noted that Fuge is a development tool, something that is used locally. Fuge should not be used for running microservices in a production environment.
 
@@ -1070,7 +1070,7 @@ We also altered our system so it communicates using JSON.
 We did this by making our `add` function in `micro/adderservice/service.js` invoke its callback with an object containin a key (`result`) instead of passing the result as a string. This is then passed into `res.send` in `micro/adderservice/wiring.js`. At this point `restify` recognizes that `res.send` was passed an object and serializes it to send it as a response. 
 
 On the counterpart API side, in the `micro/webapp/routes/add.js` file, 
-we switch from using `restify.createStringClient` to using `restify.createJSONClient` which makes an HTTP requests, buffers the 
+we switch from using `restify.createStringClient` to using `restify.createJSONClient` which makes an HTTP request, buffers the 
 data into a single string and then deserializes the string (which is
 expected to be a JSON string) into a JavaScript object. 
 
@@ -1416,7 +1416,7 @@ This will pull the official MongoDB image from the central Docker Hub repository
 
 > #### MongoDB and Node ![](../info.png) 
 > We cover Mongo in detail in the *Storing and Retrieving Data with MongoDB* in 
-> **Chapter 6 Persisting to Databases* holds 
+> *Chapter 6 Persisting to Databases* holds 
 
 Once the download has completed we can verify that the image is available by running:
 
@@ -1873,7 +1873,7 @@ There is a reason for this format: it's the same format used by both Kubernetes 
 There are significant benefits to having consistency betwen development and production. Fuge facilitates parity between development and production by
 reproducing the same environment variable naming scheme for port and hosts.
 
-Kubernetes supports two methods for service discovery. One is the (now familiar) use of environment variables, the other (more flexible approach) is via the use of DNS records. Whilst Kubernetes is a very capable deployment stack, it's not optimized for local development. However, Fuge can also provide DNS using the same format as Kubernetes. This allows us to run our microservice system in development and whilst remaining confident that we can run the same code in production without any requiring any alterations to our code.
+Kubernetes supports two methods for service discovery. One is the (now familiar) use of environment variables, the other (more flexible approach) is via the use of DNS records. Whilst Kubernetes is a very capable deployment stack, it's not optimized for local development. However, Fuge can also provide DNS using the same format as Kubernetes. This allows us to run our microservice system in development whilst remaining confident that we can run the same code in production without any requiring any alterations to our code.
 
 In this recipe we are going to convert our system to use DNS for service discovery.
 
@@ -2674,7 +2674,7 @@ Each service in our system is tasked with a single area. The `adderservice` adds
 Each of our point to point services (`adderservice` and `auditservice`) must be accessed using a clearly defined message structure. As capability is added to a service, additional messages may be added but the code in the service is never directly accessible by the consumer. For our bus based service (`eventservice`) the consumer is not even directly connected, it simply passes a message and forgets.
 
 #### Vertical separation
-Our services are maintain strong vertical bounds. This includes keeping state separate at the data layer. This is an important concept. Notice that whilst the same MongoDB container is being used the `auditservice` and the `eventservice` use completely separate collections. No two services should modify the same collection/table. If data from one area is needed by another service, lateral communication happens between services.
+Our services maintain strict vertical boundaries. This includes keeping state separate at the data layer. This is an important concept. Notice that whilst the same MongoDB container is being used the `auditservice` and the `eventservice` use completely separate collections. No two services should modify the same collection/table. If data from one area is needed by another service, lateral communication happens between services.
 
 For instance the reporting tool (a symbolic service) does not connect to MongoDB to extract data. Rather it asks the `eventservice` to perform this task. As a system grows in functionality it's important that this vertical separation always be maintained. If the discipline of full stack vertical separation is not adhered to, the usual result is a distributed monolith. This typically leads to a terrible combination of the negative tradeoffs of both large monolithic applications and distributed systems.
 
@@ -2686,7 +2686,7 @@ A full discussion of security as pertaining to microservices is outside the scop
 
 * Use the API gateway pattern and minimize the exposed application surface area
 
-* Never expose internal service details in client code. For instance frontend code that runs in web browsers or on mobile devices should not have any awareness services. Frontend code should communicate via an API only. This means that we should avoid using inherently insecure architectural patterns such as client side service discovery.
+* Never expose internal service details in client code. For instance frontend code that runs in web browsers or on mobile devices should not have any awareness of services. Frontend code should communicate via an API only. This means that we should avoid using inherently insecure architectural patterns such as client side service discovery.
 
 * Identify and classify services based on the sensitivity of the data that they handle. Consider the deployment and management policy for services based on this classification.
 
@@ -2764,7 +2764,7 @@ $ docker commit <container id> mymongo
 $ docker images
 ```
 
-We can now see a fresh container image `mymongo` in the docker image list. This technique has can be useful. For example creating a database container with pre-populated test data for sharing amongst a development team.
+We can now see a fresh container image `mymongo` in the docker image list. This technique can be useful. For example creating a database container with pre-populated test data for sharing amongst a development team.
 
 #### Cleaning up containers
 
@@ -2773,7 +2773,7 @@ Once a container has stopped running, it doesn't just disappear.
 We can stop all running containers with:
 
 ```sh
-$ docker kill $(docke ps -a -q)
+$ docker kill $(docker ps -a -q)
 ```
 
 Next, to view all containers run:
