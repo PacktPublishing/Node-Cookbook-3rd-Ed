@@ -1,12 +1,13 @@
-# 6 Working with Web Frameworks
+# 7 Working with Web Frameworks
 
-This chapter covers the following topics
+This chapter covers the following recipes:
 
-* Creating web applications with common web frameworks
-* Configuring web frameworks such as Express, Hapi and Koa
-* Recommended logging practices
-* Implementing views in web frameworks
-* Building an example authentication based web application (with Express, Hapi and Koa)
+* Creating an Express Web App
+* Creating a Hapi Web App
+* Creating a Koa Web App
+* Adding a view layer
+* Adding Logging
+* Implementing Authentication
 
 ## Introduction
 
@@ -27,7 +28,7 @@ sessions, authentication and validation.
 
 Express has long been the most popular choice of web framework,
 which is unsurprising since it was the first Node web framework
-of a high enough quality for mass consumption whilst also drawing
+of a high enough quality for mass consumption while also drawing
 from familiar paradigms presented in the Sinatra web framework
 for Ruby on Rails.
 
@@ -208,8 +209,7 @@ We only use the static middleware in development mode
 (based on the value of the `dev` reference, which is
 assigned based on whether the `NODE_ENV` environment
 variable is set to "production"). This assumes a production
-scenario where a reverse proxy (such as nginx or apache)
-(or, even better a CDN) handles static file serving. Whilst 
+scenario where a reverse proxy (such as Nginx or Apache or, even better a CDN) handles static file serving. While 
 Node has come a long way in recent years, Node's strength
 remains in generating dynamic content - it still doesn't 
 usually make sense to use it for static assets in production. 
@@ -306,14 +306,6 @@ in attempts to fetch the `public/styles.css` file.
 
 #### Route Parameters and POST requests
 
-> #### CAUTION!![](../info.png)
-> This example is for demonstration purposes only!
-> Never place user input directly into HTML output 
-> in production without sanitizing it first. Otherwise, 
-> we make ourselves vulnerable to XSS attacks.
-> See *Guarding Against Cross Site Scripting (XSS)* 
-> in **Chapter 8 Dealing with Security** for details.
-
 Let's copy our `app` folder to `params-postable-app`,
 and then install the `body-parser` middleware module:
 
@@ -322,6 +314,14 @@ $ cp -fr app params-postable-app
 $ cd params-postable-app
 $ npm install --save body-parser
 ```
+
+> #### CAUTION!![](../info.png)
+> This example is for demonstration purposes only!
+> Never place user input directly into HTML output 
+> in production without sanitizing it first. Otherwise, 
+> we make ourselves vulnerable to XSS attacks.
+> See *Guarding Against Cross Site Scripting (XSS)* 
+> in **Chapter 8 Dealing with Security** for details.
 
 In the `index.js` file, we'll load the middleware and use it.
 
@@ -408,7 +408,7 @@ in the URL bar and on the page.
 > Never place user input directly into HTML output 
 > in production without sanitizing it first. Otherwise, 
 > we make ourselves vulnerable to XSS attacks.
-> See **Chapter 8 Dealing with Security** for details
+> See * *Anticipating Malicious Input* and *Guarding Against Cross Site Scripting (XSS)* in **Chapter 8 Dealing with Security** for details.
 
 #### Creating Middleware
 
@@ -496,9 +496,12 @@ implementing custom protocols on top of HTTP.
 
 ### See also
 
-* *Creating a Web Server* in **Chapter 5 Wielding Web Protocols**
+* *Hardening Headers in Web Frameworks* in **Chapter 8 Dealing With Security*
+* *Creating an HTTP Server* in **Chapter 5 Wielding Web Protocols**
 * *Anticipating Malicious Input* in **Chapter 8 Dealing with Security** 
 * *Guarding Against Cross Site Scripting (XSS)* in **Chapter 8 Dealing with Security**
+* *Consuming a Service* in **Chapter 10 Building Microservice Systems**
+* *Standardizing service boilerplate* in **Chapter 10 Building Microservice Systems**
 * *Adding a View Layer* in this Chapter
 * *Implementing Authentication* in this Chapter
 
@@ -507,11 +510,14 @@ implementing custom protocols on top of HTTP.
 Hapi is a fairly recent addition to the "enterprise" 
 web framework offerings. The Hapi web framework has a reputation
 for stability, but tends to perform slower (for instance,
-see https://raygun.com/blog/node-performance/) whilst 
+see https://raygun.com/blog/node-performance/) while 
 also requiring more boilerplate than alternatives.
 With a contrasting philosophy and approach to Express 
-(and other "middleware" centric frameworks like Koa and Restify) 
-Hapi may be better suited to certain scenarios and preferences.
+(and other "middleware" frameworks like Koa and Restify) 
+Hapi may be better suited to certain scenarios and preferences. 
+For instance, teams in large organizations that have a leaning towards
+Object Oriented Programming, particular where Java is the prevailing
+tradition, may find Hapi more fitting to the cultural proclivities.
 
 In this recipe, we'll create a simple Hapi web application. 
 
@@ -721,7 +727,7 @@ In `routes/index.js` we set the `method` to `GET`,
 the `path` to `/` (because it's our index route) and the `handler`
 to a function which accepts `request` and `reply` arguments.
 
-The `request` and `reply` parameters whilst analogous to the 
+The `request` and `reply` parameters while analogous to the 
 parameters passed to the `http.createServer` request handler function
 (often called `req` and `res`) are quite distinct. Unlike Express
 which *decorates* `req` and `res`, Hapi creates separate abstractions
@@ -967,7 +973,7 @@ However the following should respond with `{"statusCode":404,"error":"Not Found"
 $ curl http://localhost:8080/styles.css
 ```
 
-This approach does uses more ports than necessary in production,
+This approach does uses more ports than necessary in production, which
 may lead to reduced performance and does beg some security questions.
 However, we could side step these problems while still getting the
 benefits of labelling (in this specific case) by reintroducing the
@@ -1008,7 +1014,12 @@ function devStatic (server) {
 
 ### See also
 
-* TBD
+* *Hardening Hapi* in the *There's More* section of *Hardening Headers in Web Frameworks* in **Chapter 8 Dealing With Security** 
+* *Creating an HTTP Server* in **Chapter 5 Wielding Web Protocols**
+* *Anticipating Malicious Input* in **Chapter 8 Dealing with Security** 
+* *Guarding Against Cross Site Scripting (XSS)* in **Chapter 8 Dealing with Security**
+* *Adding a View Layer* in this Chapter
+* *Implementing Authentication* in this Chapter
 
 ## Creating a Koa Web App
 
@@ -1023,13 +1034,13 @@ It's a minimalist web framework compared to Express
 (and far more minimalist compared to Hapi). Koa is more closely
 comparable to the Connect web framework (which was the precursor
 to Express). This means that functionality which tends to come
-as standard in other web frameworks (such as route handling) is 
+as standard in other web frameworks (such as route handling)
 is installed separately as Koa middleware.
 
 In this recipe, we're going to create a Koa (v2) web application.
 
 > #### Node 8+ Only ![](../info.png)
-> This recipe focuses on Koa 2, using up to date `async/await`
+> This recipe focuses on Koa 2, using up-to-date `async/await`
 > syntax which is only supported from Node 8 onwards.  
 
 ### Getting Ready
@@ -1340,7 +1351,12 @@ to the string "Koa").
 
 ### See also
 
-* TBD
+* *Hardening Koa* in the *There's More* section of *Hardening Headers in Web Frameworks* in **Chapter 8 Dealing With Security** 
+* *Creating an HTTP Server* in **Chapter 5 Wielding Web Protocols**
+* *Anticipating Malicious Input* in **Chapter 8 Dealing with Security** 
+* *Guarding Against Cross Site Scripting (XSS)* in **Chapter 8 Dealing with Security**
+* *Adding a View Layer* in this Chapter
+* *Implementing Authentication* in this Chapter
 
 ## Adding a view layer
 
@@ -1353,7 +1369,7 @@ to integrate data with HTML to produce the desired combined
 output.
 
 In this recipe we'll learn how to use views with Express,
-and in the **There's More** section we'll explore the same
+and in the *There's More* section we'll explore the same
 with the Hapi and Koa.
 
 ### Getting Ready
@@ -1361,7 +1377,7 @@ with the Hapi and Koa.
 For this recipe we're going to copy the express
 application from our **Creating an Express Web App**
 recipe (we'll cover view layers for Hapi and Koa
-in the **There's More** section).
+in the *There's More* section).
 
 Let's copy the folder called `express-views` and 
 add the `ejs` module:
@@ -1419,7 +1435,7 @@ with the following content:
 > and then consciously unescape inputs at a later stage 
 > (e.g. when optimizing). For more on escaping inputs see 
 > the *Guarding Against Cross Site Scripting (XSS)* in 
-> **Chapter 10 Dealing with Security**.
+> **Chapter 8 Dealing with Security**.
 
 Finally we'll modify the GET route in our
 `routes/index.js` file to use the template engine:
@@ -1500,7 +1516,7 @@ main `index.js` file.
 ### There's more
 
 Let's see how to render views with Hapi and Koa,
-plus a way organize and render views in a framework 
+plus a way to organize and render views in a framework 
 independent way.
 
 #### Adding a view layer to Koa
@@ -1536,10 +1552,8 @@ const router = require('koa-router')()
 const index = require('./routes/index')
 ```
 
-Then, beneath were assign the `port` constant in `index.js`,
-we'll use the `views` middleware, and pass it the path
-to the `views` folder, along with an options object 
-specifying the relevant file extension of our view files: 
+Next just beneath where we assign the `port` constant in `index.js`
+we'll add the following code:
 
 ```js
 app.use(views(join(__dirname, 'views'), {
@@ -1749,9 +1763,12 @@ displaying it in a template we would need to HTML escape
 **Chapter 8 Dealing with Security**  
 for more information.
 
-### See Also
+### See also
 
-* TBD
+* *Creating an HTTP Server* in **Chapter 5 Wielding Web Protocols**
+* *Anticipating Malicious Input* in **Chapter 8 Dealing with Security** 
+* *Guarding Against Cross Site Scripting (XSS)* in **Chapter 8 Dealing with Security**
+* *Implementing Authentication* in this Chapter
 
 ## Adding Logging
 
@@ -1761,7 +1778,7 @@ before it can be considered production worthy.
 
 In this recipe we look at using `pino`, which is a
 high performance JSON logger with Express. In the
-**There's More** section we'll look at alternative
+*There's More* section we'll look at alternative
 loggers and integrating logging into Koa and Hapi.
 
 ### Getting Ready
@@ -2001,7 +2018,7 @@ app.use(morgan('common'))
 We pass `common` to configure Morgan to output messages in 
 common Apache log format.
 
-let's start out server with `node index.js` and make a 
+let's start our server with `node index.js` and make a 
 request to http://localhost:3000 we should see something
 similar to the following:
 
@@ -2234,7 +2251,7 @@ Both Express and Koa (and the dependencies they use) use the `debug` module
 heavily. 
 
 The `pino-debug` module can hook into the debug logs, and wrap 
-them in JSON logs, all whilst logging at ten times the speed 
+them in JSON logs, all while logging at ten times the speed 
 of `debug` module. This affords us the opportunity of high resolution
 production logging.
 
@@ -2261,7 +2278,11 @@ us plenty of (low overhead) logging information.
 
 ### See also
 
-* TBD
+* *Enabling debug logs* in **Chapter 1 Debugging Processes**
+* *Enabling core debug logs* in **Chapter 1 Debugging Processes**
+* *Creating an Express Web App* in this chapter
+* *Creating a Hapi Web App* in this chapter
+* *Creating a Koa Web App* in this chapter
 
 ## Implementing Authentication
 
@@ -2940,19 +2961,24 @@ all of the compatible stores for `express-session` will work with
 `koa-generic-session`. The `koa-session` module
 can also use external stores, but has a slightly different API (promise
 returning functions) but by default will store state in the session cookie.
-However unlike `yar` (see the previous *Session Authentication In Hapi*) 
+
+However unlike `yar` (see the previous *Session Authentication In Hapi* recipe) 
 at the time of writing `koa-session` doesn't have a maxmium size limit 
 for cookies, nor does it supply a hybrid approach to cookie and external 
-storage - you either use cookie storage or external storage. 
+storage - we either use cookie storage or external storage. 
 
-This either/or approach is a little more brittle - it makes 
-easy to accidentally become incompatible with some browsers and not others. 
-For instance if all cookies on a particular domain become greater than 4096 
-bytes will mean logins fail on Chrome, Safari, and Firefox but not Internet Explorer.
-On the other hand, a vivid awareness of hard limit could help
-architectural design decisions in preventing state bloat, and allow 
-for stateless (on the server side) sessions. 
+> #### CAUTION! ![](../info.png)
+> This either/or approach to where cookies are stored (in browser or server side) 
+> can lead to accidentally becoming incompatible with some browsers and not others. 
+> For instance if all cookies on a particular domain become greater than 4096 
+> bytes logins will fail on Chrome, Safari, and Firefox but not Internet Explorer.
+> On the other hand, a vivid awareness of hard limit could help architectural 
+> design decisions in preventing state bloat, and allow for stateless (on the server side) sessions. 
 
 ### See also
 
-* TBD
+* *Receiving POST data* in **Chapter 5 Wielding Web Protocols** 
+* *Anticipating Malicious Input* in **Chapter 8 Dealing with Security** 
+* *Guarding Against Cross Site Scripting (XSS)* in **Chapter 8 Dealing with Security**
+* *Adding a View Layer* in this Chapter
+* *Implementing Authentication* in this Chapter
