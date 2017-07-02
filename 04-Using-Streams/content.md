@@ -1,13 +1,13 @@
-# 3 Using Streams
+# 4 Using Streams
 
 This chapter covers the following topics
 
-* Extracting data from streams
-* Handling data larger than fits in memory
-* Decoupling I/O from modules
-* Reducing latency in our apps
-* Composing pipelines
-* Creating different kinds of streams
+* Processing big data
+* Using the pipe method
+* Piping streams in production
+* Creating transform streams
+* Creating Readable and Writable Streams
+* Decoupling I/O
 
 ## Introduction
 
@@ -15,7 +15,7 @@ Streams are one of the best features in Node. They have been a big part of the e
 
 In this chapter we're going to explore why streams are such a valuable abstraction, how to safely compose streams together in a production environment, and convenient utilities to stream creation and management.
 
-Whilst this chapter is somewhat theoretical, the recipes contained are foundational to the rest of the book, throughout proceeding chapters streams are used regularly in practical examples. 
+While this chapter is somewhat theoretical, the recipes contained are foundational to the rest of the book, throughout proceeding chapters streams are used regularly in practical examples. 
 
 ## Processing big data
 
@@ -66,10 +66,11 @@ The core `fs` module has a `createReadStream` method, let's use that to make
 a read stream:
 
 ``` js
+const fs = require('fs')
 const rs = fs.createReadStream(__filename)
 ```
 
-The `__filename` variable is provided by Node, it holds the absolute path
+The `__filename` variable is provided by Node. It holds the absolute path
 of the file currently being executed (in our case it will point to the `index.js` file in the `self-read` folder).
 
 The first thing to notice is that this method appears to be synchronous.
@@ -128,18 +129,23 @@ by the process stays constant.
 > module and it's compatible with all Node versions. This still doesn't quite cater to core module (like `fs`) that rely on the core `stream` module, nevertheless it's a best-effort practice to
 avoid maintenance pain in the future.
 
-### There's more
+> #### Streams Documentation ![](../info.png)
+> For more information about the different stream base classes checkout the Node stream documentation 
+> at <https://nodejs.org/dist/latest-v8.x/docs/api/stream.html>
 
-For more information about the different stream base classes checkout the Node stream docs.
+### There's more 
+
+Let's take a look at different types of stream, the two modes that streams may operate under 
+and the various streams events. We'll also see how Node streams are perfect for processing infinite data sets. 
 
 #### Types of Stream
 
 If we want to make a stream that provides data for other users to read we need to make a *Readable stream*. An example of a readable stream could be a stream that reads data from a file stored on disk.
 
-If we want to make a stream others users can write data to, we need to make a *Writable stream*. An example of a writable stream could be a stream that writes data to a file stored on disk.
+If we want to make a stream that other users can write data to, we need to make a *Writable stream*. An example of a writable stream could be a stream that writes data to a file stored on disk.
 
 > ##### Inspecting all core stream interfaces ![](../tip.png)
-> Node core provides base implementations of all these variations of streams that we can extend to support various use cases. We can use the `node -p "require('stream')"` as a convenient way to take look at available stream implementations
+> Node core provides base implementations of all these variations of streams that we can extend to support various use cases. We can use the `node -p "require('stream')"` as a convenient way to take look at available stream implementations.
 
 Sometimes you want to make a stream that is both readable and writable at the same time. We call these *Duplex streams*. An example of a duplex stream could be a TCP network stream that both allows us to read data from the network and write data back at the same time.
 
@@ -157,7 +163,7 @@ Let's write the following into `index.js`:
 
 ```js
 const rs = fs.createReadStream('/dev/urandom')
-const size = 0
+var size = 0
 
 rs.on('data', (data) => {
   size += data.length
@@ -178,19 +184,46 @@ Scalability is one of the best features about streams in general as most of the 
 #### Flow mode vs pull-based streaming
 
 A Node stream can be in either non-flowing (pulling)
-for flowing (pushing) mode. When we attach a `data` event
+or flowing (pushing) mode. When we attach a `data` event
 to a stream it enters flowing mode, which means as long 
-as there is data, the `data` event will be called. If we
-want it to stop we can call the Readable streams `pause`
+as there is data, the `data` event will be called. 
+
+```js
+myStream.on('data', handlerFunction) 
+```
+
+In the prior example snippet, if `myStream` was just created 
+(and therefore a non-flowing stream by default) it would have
+been put into flowing mode via the act of attaching the `data`
+event.
+
+If we want to stop data flowing through the stream we can call the Readable streams `pause`
 method, and when we want to start again we can call the `resume`
-method (see the **There's More** section of the **Decoupling I/O** 
-recipe for an example).
+method.
+
+```js
+myStream.pause()
+setTimeout(() => myStream.resume(), 1000)
+```
+
+In the previous example, if `myStream` was already in flowing mode, 
+it would attempt to prevent incoming data when `pause` was called. 
+A second later `myStream` would notify incoming streams that it can 
+receive data again.  
+
+See the **There's More** section of the **Decoupling I/O** 
+recipe for a full example and in depth explanation.
+
+Flowing-mode can be problematic, since there are scenarios where
+the stream may be overwhelmed by incoming data - even if the
+stream is paused incoming streams may disrespect the paused status.
 
 An alternative way to extract data from a stream is to 
 wait for a `readable` event and then continually call the
 streams `read` method until it returns `null` (which is
 the stream terminator entity). In this way we *pull* data
 from the stream, and can simply stop pulling if necessary. 
+
 In other words, we don't need to instruct the stream to pause
 and then resume, we can simply stop and start pulling as required.
 
@@ -226,6 +259,12 @@ may trigger multiple times, as data becomes available,
 and once there's no data available the `read` method 
 returns `null`.
 
+The better way to extract data from a stream is to pipe
+(or as we'll see in later recipes, `pump`) the data into 
+a stream which we've created. This way the problems
+with managing memory are managed internally. We'll cover 
+using `pipe` in the next recipe.
+
 #### Understanding stream events
 
 All streams inherit from EventEmitter and emit a series of different events. When working with streams it is a good idea to understand some of the more important events being emitted. Knowing what each event means will make debugging streams a lot easier.
@@ -248,9 +287,12 @@ pause usage.
 
 ### See also
 
-* TBD
+* *Using the pipe method* in this chapter
+* *Piping streams in production* in this chapter
+* *Decoupling I/O* in this chapter
+* *Receiving POST Data* in **Chapter 5 Wielding Web Protocols**
 
-## Using the `pipe` method
+## Using the pipe method
 
 A pipe is used to connect streams together. DOS and Unix-like shells use the vertical bar (|) to pipe the output of one program to another; we can chain several pipes together to process and massage data in number of ways. 
 
@@ -338,14 +380,26 @@ which writes incoming data to the destination stream
 
 When we string several streams together with the `pipe` method
 we're essentially instructing Node to shuffle data through
-those streams. 
+those streams.  
 
 Using `pipe` is safer than using `data` events and then 
 writing to another stream directly, because it also handles
-back pressure for free. Back pressure has to be applied to 
+backpressure for free. Backpressure has to be applied to 
 source streams that process data faster than destination 
 streams, so that the destination streams memory doesn't 
 grow out of control due to a data back log.
+
+> #### Backpressure ![](../info.png)
+> Backpressure is an opposition to flow to some incoming feed
+> (of gas, liquid, or in our case data). It occurs (or should occur) 
+> when a systems limitations are exceeded by the input. In the case of streams
+> we're referring to a memory management capability, where the amount of in-process
+> memory is kept at a constant by holding data in the external pipeline. For instance,
+> if we're reading from disk we simply keep that data on disk until we need read an
+> individual chunk. In this case backpressure is trivial. However there are other cases,
+> say a stream which rapidly generates data which may overwhelm a slower write stream. 
+> In these cases a backpressure strategy is required to prevent memory from filling up 
+> and the process from crashing. The `pipe` method provides this backpressure. 
 
 Our recipe uses five streams, and creates three of them.
 The `process.stdin` and `process.stdout` streams connect
@@ -371,14 +425,19 @@ So when we use  `curl` to fetch the first available version
 of Node, we use a Unix pipe (`|`) to shuffle the data from 
 `curl` into our program. This data comes in through the `process.stdin`
 stream, and is passed on to the `decompress` stream. The `decompress` stream
-understands the GZIP format and deflates the content accordingly. It propagates each decompressed chunk to the next stream: our `convert` stream. 
+understands the GZIP format and deflates the content accordingly. It propagates each decompressed chunk to the next stream: our `convert` stream.
+
+The following illustrates the data flow between processes and disk, 
+as well as the internal data flow within our Node process:
+
+![](images/tar-map-stream-data-flow.png)
+
 The `convert` stream incrementally parses the `tar` archive, calling 
 our function every time a header is encountered, and then outputs content
 in the same tar format with our modified headers. The `compress` stream 
 gzips our new tar and then passes the data through the `process.stdout`
 stream. Back on the command line we've used the IO redirect syntax (`>`)
 to write the data into the `edon.tar.gz` file. 
-
 
 ### There's more
 
@@ -427,7 +486,7 @@ $ node broken.js
 
 We can try out the TCP server in several ways, such as `telnet localhost 3000`
 or with netcat `nc localhost 3000`, but even navigating a browser to
-`http://localhost:3000`, or using curl will work. Let's use `curl`:
+`http://localhost:3000`, or using `curl` will work. Let's use `curl`:
 
 ```sh
 $ curl http://localhost:3000
@@ -473,7 +532,13 @@ We'll see our content, along with the footer, and the server stays alive.
 
 ### See also
 
-* TBD
+* *Piping streams in production* in this chapter
+* *Creating transform streams* in this chapter
+* *Interfacing with standard I/O* in **Chapter 3 Coordinating I/O**
+* *Making an HTTP POST request** in **Chapter 5 Wielding Web Protocols**
+* *Creating an SMTP server* in **Chapter 5 Wielding Web Protocols**
+* *Embedded Persistance with LevelDB * in **Chapter 6 Persisting to Databases**
+
 
 ## Piping streams in production
 
@@ -566,7 +631,7 @@ server.listen(3000)
 
 > #### Piping many streams with `pump` ![](../tip.png)
 > If our pipeline has more than two streams 
-we simply pass all of them to `pump`: `pump(stream1, stream2, stream3, ...)`
+we simply pass all of them to `pump`: `pump(stream1, stream2, stream3, ...)`.
 
 Now let's run our server
 
@@ -574,7 +639,7 @@ Now let's run our server
 $ node index.js
 ```
 
-If we use curl and hit Ctrl+C before finishing the download,
+If we use `curl` and hit Ctrl+C before finishing the download,
 we should be able to trigger the error state, with the server 
 logging that the file was not fully streamed to the user. 
 
@@ -658,8 +723,8 @@ $ touch index.js
 At the top of `index.js` we'll write: 
 
 ```js
-const {createGzip} = require('zlib')
-const {createCipher} = require('crypto')
+const { createGzip } = require('zlib')
+const { createCipher } = require('crypto')
 const pumpify = require('pumpify')
 const base64 = require('base64-encode-stream')
 
@@ -684,13 +749,17 @@ pipe.on('data', (data) => {
 })
 
 pipe.on('finish', () => {
-  console.log('all data was succesfully flushed to stream3')
+  console.log('all data was successfully flushed to stream3')
 })
 ```
 
 ### See also
 
-* TBD
+* *Using the pipe method* in this chapter
+* *Creating transform streams* in this chapter
+* *Handling File Uploads* in **Chapter 5 Wielding Web Protocols**
+* *Pattern Routing* in the *There's More* section of *Standardizing service boilerplate* in **Chapter 10 Building Microservice Systems**
+
 
 ## Creating transform streams
 
@@ -726,7 +795,7 @@ $ touch index.js
 > was written to use the superior Streams 2 API (and is still relevant
 > for the Streams 3 API, there's no need for a `through3`!). In fact,
 > any streams utility module on npm suffixed with the number 2 is named
-> as such for the same reasons (such as `from2`, `to2`, `split2` and so forth)  
+> as such for the same reasons (such as `from2`, `to2`, `split2` and so forth).
 
 ### How to do it
 
@@ -799,9 +868,10 @@ and create `prototypal.js`, `classical`, and `modern.js` files:
 
 ```sh
 $ mkdir core-transform-streams
+$ cd core-transform-streams
 $ npm init -y
 $ npm install readable-stream
-$ touch prototypal.js classical.js modern.js index.js
+$ touch prototypal.js classical.js modern.js
 ```
 
 We'll use these files to explore the evolution of stream creation.
@@ -845,7 +915,7 @@ less noisy approach.
 Let's make the `classical.js` file look as follows:
 
 ```js
-const {Transform} = require('readable-stream')
+const { Transform } = require('readable-stream')
 
 class MyTransform extends Transform {
   _transform (chunk, enc, cb) {
@@ -868,7 +938,7 @@ this allows for a more functional approach (similar to `through2`),
 let's make `modern.js` look as follows:
 
 ```js
-const {Transform} = require('readable-stream')
+const { Transform } = require('readable-stream')
 
 const upper = Transform({
   transform: (chunk, enc, cb) => {
@@ -908,7 +978,7 @@ Let's make `index.js` look like this:
 
 ```js
 const through = require('through2')
-const {serialize} = require('ndjson')
+const { serialize } = require('ndjson')
 
 const xyz = through.obj(({x, y}, enc, cb) => {
   cb(null, {z: x + y})
@@ -919,6 +989,13 @@ xyz.pipe(serialize()).pipe(process.stdout)
 xyz.write({x: 199, y: 3})
 
 xyz.write({x: 10, y: 12})
+```
+
+This will output the following:
+
+```sh
+{"z":202}
+{"z":22}
 ```
 
 We can create an object stream with `through2` using the 
@@ -945,8 +1022,8 @@ $ npm install --save readable-stream
 Now we'll fill it with the following code:
 
 ```js
-const {Transform} = require('readable-stream')
-const {serialize} = require('ndjson')
+const { Transform } = require('readable-stream')
+const { serialize } = require('ndjson')
 
 const xyz = Transform({
   objectMode: true,
@@ -960,9 +1037,20 @@ xyz.write({x: 199, y: 3})
 xyz.write({x: 10, y: 12})
 ```
 
+As before we'll see the following output:
+
+```sh
+{"z":202}
+{"z":22}
+```
+
 ### See also
 
-* TBD
+* *Using the pipe method* in this chapter
+* *Creating Readable and Writable Streams* in this chapter
+* *Embedded Persistance with LevelDB * in **Chapter 6 Persisting to Databases**
+* *Uploading files via PUT* in the *There's More* section of *Handling File Uploads* in **Chapter 5 Wielding Web Protocols** 
+* *Pattern Routing* in the *There's More* section of *Standardizing service boilerplate* in **Chapter 10 Building Microservice Systems**
 
 ## Creating Readable and Writable Streams
 
@@ -974,7 +1062,7 @@ and potentially process them in batch.
 
 In this recipe we're going create Readable and Writable streams
 using the `from2` and `to2` modules, in the **There's More** section
-we'll discover how to do the equivalent with Node's core streams module.
+we'll discover how to do the equivalent with Node's core `stream` module.
 
 ### Getting Ready
 
@@ -1002,7 +1090,7 @@ Next let's create our read stream:
 
 ```js
 const rs = from(() => {
-  rs.push(Buffer('Hello, World!'))
+  rs.push(Buffer.from('Hello, World!'))
   rs.push(null) 
 })
 ```
@@ -1062,7 +1150,7 @@ We should see "Data written: Hello, World!"
 
 The `from2` module wraps the `stream.Readable` base constructor
 and creates the stream for us. It also adds some extra benefits,
-such as a `destroy` function to cleanly free up stream resources
+such as a `destroy` function to cleanly free up stream resources (across all Node versions)
 and the ability to perform asynchronous pushing (see the **There's More** 
 section for more).
 
@@ -1070,7 +1158,7 @@ section for more).
 > Like `through2`, both the `from2` and `to2` modules have `obj` methods which allow for convenient creation of object streams. See the **There's More** section of the **Creating transform streams** recipe for more.
 
 The `to2` module is actually an alias for the `flush-write-stream` 
-module, which similarly supplies a `destroy` function, and the
+module, which similarly supplies a `destroy` function (for all Node versions), and the
 ability to supply a function (the flush function) which supplies
 final writes to the stream before it finishes.
 
@@ -1122,11 +1210,11 @@ $ touch index.js
 At the top of `index.js` we write: 
 
 ``` js
-const {Readable, Writable} = require('readable-stream')
+const { Readable, Writable } = require('readable-stream')
 
 const rs = Readable({
   read: () => {
-    rs.push(Buffer('Hello, World!'))
+    rs.push(Buffer.from('Hello, World!'))
     rs.push(null) 
   }
 })
@@ -1197,7 +1285,7 @@ The way it does this is by waiting for us to call `push` and then calling `_read
 
 ```js
 // WARNING: DOES NOT WORK AS EXPECTED
-const {Readable} = require('readable-stream')
+const { Readable } = require('readable-stream')
 const rs = Readable({
   read: () => {
     setTimeout(() => {
@@ -1285,7 +1373,7 @@ const to = require('to2')
 const duplexify = require('duplexify')
 
 const rs = from(() => {
-  rs.push(Buffer('Hello, World!'))
+  rs.push(Buffer.from('Hello, World!'))
   rs.push(null)
 })
 
@@ -1309,8 +1397,9 @@ two streams that are interrelated in some way.
 
 ### See also
 
-* TBD
-
+* *Creating transform streams* in this chapter
+* *Decoupling I/O* in this chapter
+* *Using the pipe method* in this chapter
 
 ## Decoupling I/O
 
@@ -1321,12 +1410,12 @@ The second is a terse yet powerful common interface, that when
 used as a pattern can provide a clean separation between source
 inputs, transformation layers and target outputs.
 
-For instance, imagine we we're implementing a protocol layer,
+For instance, imagine we're implementing a protocol layer,
 that's most likely going to be used with a TCP server.
 
-We could wrap add a layer of abstraction on top of the `net` module's
+We could add a layer of abstraction on top of the `net` module's
 TCP server, or we could provide a stream that can be piped
-to it from a `net` socket. 
+to it from a `net` socket.
 
 In the latter case, our protocol implementation is decoupled
 from the source, allowing alternative (potentially unforeseen uses).
@@ -1343,12 +1432,15 @@ flexible re-use when it comes to data processing.
 We're going to create two folders, one representing a protocol
 parsing library, the other will be a consumer of the library.
 
-First let's create the `tcp-server` folder, and place an `index.js`
-file inside:
+First let's create the `tcp-server` folder, place an `index.js`
+file inside, initialize it as a package and install the `pump` module:
 
 ```sh
 $ mkdir tcp-server
 $ touch tcp-server/index.js
+$ cd tcp-server 
+$ npm init -y
+$ npm install --save pump
 ```
 
 Next we'll create the `ping-protocol-stream` folder, initialize
@@ -1358,9 +1450,11 @@ it as a package, install `split2`, `through2`and `pumpify` and add an `index.js`
 $ mkdir ping-protocol-stream
 $ cd ping-protocol-stream
 $ npm init -y
-$ npm install --save split2 through2
+$ npm install --save split2 through2 pumpify
 $ touch index.js
 ```
+
+The `tcp-server` and `ping-protocol-stream` folder should be siblings.
 
 ### How to do it
 
@@ -1402,14 +1496,18 @@ Our `tcp-server/index.js` should look like so:
 
 ```js
 const net = require('net')
+const pump = require('pump')
 const ping = require('../ping-protocol-stream')
 
 const server = net.createServer((socket) => {
   const protocol = ping()
-  socket.pipe(protocol).pipe(socket)
+  pump(socket, protocol, socket, closed)
 })
 
-server.listen(3000)
+function closed (err) {
+  if (err) console.error('connection closed with error', err)
+  else console.log('connection closed')
+}
 ```
 
 Now if we start our TCP server (assuming our current working directory on the command line is the parent of the `tcp-server` folder):
@@ -1428,16 +1526,18 @@ $ node -e "process.stdin.pipe(net.connect(3000)).pipe(process.stdout)"
 ```
 
 This will allow us to interact with our server, for instance
-we can type "Ping: Hi" and our server will reply "Pong: Hi", 
-if we type "Something else" our server will respond "Not Implemented", as shown in the image below:
+we can type "Ping: Hi" and our server will reply "Pong: Hi". 
+If we type "Something else" our server will respond "Not Implemented", as shown in the image below:
 
 ![](images/decouple-io.png)
 
+When we press Ctrl+C to exit our makeshift TCP client the terminal where our
+server is running should output "connection closed".
 
 ### How it works
 
 The point of this recipe is to demonstrate input source
-agnositicism and to champion a decoupled approach to 
+independence and to champion a decoupled approach to 
 I/O handling which ties together nicely with the small
 modules approach.
 
@@ -1484,14 +1584,15 @@ streams in anger.
 
 When creating stream modules for external consumption, we want to make sure the user of our module can clean up any left over resources our stream has held.
 
-As opposed to using core stream constructors in Node core to create streams, npm modules like `from2`, `through2` and `to2` add an essential feature: a way to stop or destroy the stream prematurely.
+Ecosystem modules like `from2`, `through2` and `to2` added an essential feature to streams: a way to stop or destroy the stream prematurely. Thanks to these modules showcasing the clear advantages of a `destroy` this ability has been included as standard in Node core since Node 8. However in Node 6 and below the stream factory methods (`Readable`, `Writable` and so forth) do not supply a `destroy` method (this is another reason to always use the `readable-stream` module).
 
-Core streams in Node actually *do not* document a way to do this in general but most used streams support a `destroy` method that will destroy a stream before it emits all of its data. When using the `destroy` method that `from2` provides the stream will stop emitting data and emit a `close` event to indicate that no more data will be emitted. It won't necessarily emit an `end` in this case.
+By default the `destroy` method (whether in Node 8 or a popular ecosystem module like `from2`) will cause the stream to cease from emitting data and then emit a `close`. It won't necessarily emit an `end` in this case.
 
 To showcase the `destroy` method, we'll create an infinite stream (a fun
-sub-genre of readable streams, that allow for infinite data with finite memory).
+sub-genre of readable streams, that allow for infinite data with finite memory) using the `from2` to 
+module.
 
-Let's create a folder called `stream-destruction`, initialize it as a package,install `from2` and create an `index.js` file:
+Let's create a folder called `stream-destruction`, initialize it as a package, install `from2` and create an `index.js` file:
 
 ```sh
 $ mkdir stream-destruction
@@ -1580,7 +1681,7 @@ Now we'll create a file called `backpressure-with-pipe.js`,
 with the following contents:
 
 ```js
-const {Readable, Writable} = require('readable-stream')
+const { Readable, Writable } = require('readable-stream')
 
 var i = 20
 
@@ -1688,4 +1789,6 @@ streams buffer does not exceed 16KB.
 
 ### See also
 
-* TBD
+* *Communicating over sockets* in **Chapter 3 Coordinating I/O**
+* *Piping streams in production* in this chapter
+* *Pattern Routing* in the *There's More* section of *Standardizing service boilerplate* in **Chapter 10 Building Microservice Systems**

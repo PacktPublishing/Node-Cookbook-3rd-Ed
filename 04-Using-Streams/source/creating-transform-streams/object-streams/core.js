@@ -1,7 +1,7 @@
 'use strict'
 
-const {Transform} = require('readable-stream')
-const {serialize} = require('ndjson')
+const { Transform } = require('readable-stream')
+const { serialize } = require('ndjson')
 
 const xyz = Transform({
   objectMode: true,

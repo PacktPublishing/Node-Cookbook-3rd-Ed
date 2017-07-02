@@ -5,7 +5,7 @@ const to = require('to2')
 const duplexify = require('duplexify')
 
 const rs = from(() => {
-  rs.push(Buffer('Hello, World!'))
+  rs.push(Buffer.from('Hello, World!'))
   rs.push(null)
 })
 

@@ -1,6 +1,6 @@
 'use strict'
 
-const {Readable, Writable} = require('readable-stream')
+const { Readable, Writable } = require('readable-stream')
 
 var i = 20
 

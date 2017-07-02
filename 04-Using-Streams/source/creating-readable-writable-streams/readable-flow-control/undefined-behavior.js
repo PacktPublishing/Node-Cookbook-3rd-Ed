@@ -1,7 +1,7 @@
 'use strict'
 
 // WARNING: DOES NOT WORK AS EXPECTED
-const {Readable} = require('readable-stream')
+const { Readable } = require('readable-stream')
 const rs = Readable({
   read: () => {
     setTimeout(() => {

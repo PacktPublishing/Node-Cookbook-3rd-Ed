@@ -1,7 +1,7 @@
 'use strict'
 
 const through = require('through2')
-const {serialize} = require('ndjson')
+const { serialize } = require('ndjson')
 
 const xyz = through.obj(({x, y}, enc, cb) => {
   cb(null, {z: x + y})

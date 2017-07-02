@@ -1,5 +1,5 @@
 {
-  "name": "foo-protocol-stream",
+  "name": "tcp-server",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -10,8 +10,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "pumpify": "^1.3.5",
-    "split2": "^2.1.1",
-    "through2": "^2.0.3"
+    "pump": "^1.0.2"
   }
 }
