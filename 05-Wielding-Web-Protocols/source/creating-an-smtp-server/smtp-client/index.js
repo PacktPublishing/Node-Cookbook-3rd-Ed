@@ -1,3 +1,5 @@
+'use strict'
+
 const os = require('os')
 const readline = require('readline')
 const smtp = require('smtp-protocol')

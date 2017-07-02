@@ -1,3 +1,5 @@
+'use strict'
+
 const http = require('http')
 const payload = `{
   "name": "Cian Ó Maidín",

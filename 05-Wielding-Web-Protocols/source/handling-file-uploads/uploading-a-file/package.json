@@ -11,7 +11,7 @@
   "author": "David Mark Clements",
   "license": "MIT",
   "dependencies": {
-    "multipart-read-stream": "^2.0.0",
+    "multipart-read-stream": "^3.0.0",
     "pump": "^1.0.1"
   }
 }

@@ -1,3 +1,5 @@
+'use strict'
+
 const http = require('http')
 const assert = require('assert')
 const url = 'http://www.davidmarkclements.com/ncb3/some.json'

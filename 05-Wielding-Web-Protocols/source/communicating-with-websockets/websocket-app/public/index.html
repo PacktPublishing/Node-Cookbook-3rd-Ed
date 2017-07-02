@@ -17,7 +17,7 @@
   })
 
   ws.onmessage = function (e) {
-    output.innerHTML += log('Recieved', e.data)
+    output.innerHTML += log('Received', e.data)
   }
 
   ws.onclose = function (e) {
