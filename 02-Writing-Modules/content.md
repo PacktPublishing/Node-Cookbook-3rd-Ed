@@ -70,9 +70,13 @@ npm init
 
 This will ask a series of questions. We can hit enter for every question without supplying an answer. Notice how the default module `name` corresponds to the current working directory, and the default `author` is the `init.author.name` value we set earlier on. 
 
-
 ![](images/fig1.1.png)
 *An `npm init` should look like this*
+
+> ##### Using the `-y` flag  ![](../tip.png) 
+> Often times all the question defaults are just fine. Instead of hitting
+> the enter key for every questions, we can run `npm init -y` to create a
+> `package.json` file immediately based on the defaults.
 
 
 Upon completion we should have a `package.json` file that looks something like the following:
@@ -162,19 +166,18 @@ A repository link enables potential users to peruse the code prior to installati
 
 The `npm` tool supplies other functionality to help with module creation and management workflow. 
 
-For instance the `npm version` command can allow us to manage our module's version number according to semver semantics. 
-
-> #### semver ![](../info.png)
-> semver is a versioning standard. A version consists of three numbers separated by a dot, for example `2.4.16`. The position of a number denotes specific information about the version in comparison to other versions. The three positions are known as `MAJOR.MINOR.PATCH`. The PATCH number is increased when changes have been made that don't break existing functionality nor add any new functionality. For instance, a bug fix would be considered a patch. The MINOR number should be increased when new backwards compatible functionality is added. For instance the adding of a method. The MAJOR number increases when backwards-incompatible changes are made.
-> See <http://semver.org/> for more information.
-
-If we were to a fix a bug we would want to increase the PATCH number. We could either manually edit the `version` field in `package.json`, setting it to `1.0.1`, or we can execute the following: 
+For instance the `npm version` command can allow us to manage our module's version number according to the SemVer standard.  
 
 ```sh
 npm version patch
 ```
 
-This will increase the version field in one command. Additionally, if our module is a Git repository, it will add a commit based on the version (in our case 'v1.0.1') which we can then immediately push. 
+This will increase the version field in one command. Additionally, if our module is a Git repository, it will add a commit based on the version (in our case 'v1.0.1') which we can then immediately push.
+
+> #### SemVer ![](../info.png)
+> SemVer is a versioning standard. A version consists of three numbers separated by a dot, for example `2.4.16`. The position of a number denotes specific information about the version in comparison to other versions. The three positions are known as `MAJOR.MINOR.PATCH`. The PATCH number is increased when changes have been made that don't break existing functionality nor add any new functionality. For instance, a bug fix would be considered a patch. The MINOR number should be increased when new backwards compatible functionality is added. For instance the adding of a method. The MAJOR number increases when backwards-incompatible changes are made.
+> See <http://semver.org/> for more information.
+ 
 
 When we ran the command, `npm` output the new version number. However we can double check the version number of our module without opening `package.json`:
 
@@ -185,17 +188,20 @@ npm version
 This will output something similar to the following:
 
 ```javascript
-{ 'hsl-to-hex': '1.0.1',
-  npm: '2.14.17',
+{ 'hsl-to-hex': '1.0.0',
+  npm: '5.0.3',
   ares: '1.10.1-DEV',
-  http_parser: '2.6.2',
-  icu: '56.1',
-  modules: '47',
-  node: '5.7.0',
-  openssl: '1.0.2f',
-  uv: '1.8.0',
-  v8: '4.6.85.31',
-  zlib: '1.2.8' }
+  cldr: '31.0.1',
+  http_parser: '2.7.0',
+  icu: '59.1',
+  modules: '57',
+  node: '8.1.3',
+  openssl: '1.0.2l',
+  tz: '2017b',
+  unicode: '9.0',
+  uv: '1.12.0',
+  v8: '5.8.283.41',
+  zlib: '1.2.11' }
 ```
 
 The first field is our module along with its version number.
@@ -262,6 +268,17 @@ Ensuring we are in the `hsl-to-hex` folder, we can now install our dependency wi
 npm install --save hsl-to-rgb-for-reals
 ```
 
+> #### The `--save` flag ![](../tip.png)
+> In `npm` versions 1 to 4 the `--save` flag was always necessary to 
+> add the dependency to the `package.json`, ensuring that it could then
+> be installed later using `npm install` in the same folder as (or child folder to)
+> the `package.json` file. However, in `npm` version 5 and up, modules will 
+> be saved to the `package.json` file by default. Throughout this book we 
+> consistently use the `--save` flag, since it doesn't hurt to use it in `npm` 
+> version 5 and up, but is necessary in `npm` version 1 to 4. If we're using 
+> `npm` version 5 with default configuration settings, we can safely disregard
+> the `--save` flag (but *not* the `--save-dev` flag).  
+
 Now let's take a look at the bottom of `package.json`: 
 
 ```sh
@@ -288,6 +305,29 @@ Tail output should give us:
 
 We can see that the dependency we installed has been added to a `dependencies` object in the `package.json` file.
 
+> #### The `package-lock.json` file ![](../info.png)
+> After running the `npm install --save hsl-to-rgb -for-reals` command, 
+> we may notice the addition of a `package-lock.json` file in our `hsl-to-hex` 
+> folder. This will be added if we're using `npm` version 5 or higher (with default settings).
+> We can find out which version of `npm` we have installed by using 
+> `npm --version`. Modules are versioned using the SemVer standard 
+> (see http://semver.org) and by default are added to the `package.json` file with 
+> a caret (`^`). This means any patch version updates to a module are automatically
+> installed, so in our example even though the version listed is `1.1.0` if 
+> `npm install` is run against our `package.json` and a new version `1.1.1` is
+> available that will be installed instead. This behavior applies to the entire
+> dependency tree, so any module in a chain of installed dependency (e.g. one module
+> relying on another relying on another and so forth) could be mutable. It could change
+> without us knowing. This is the original intended design of `npm` because it allows 
+> us to automatically benefit from important bug fixes. However, it requires trust between
+> the consumer of a module and the author and certain environments (such as large 
+> organisations with lengthy legal and technical processes for module verification) may 
+> not allow for such trust. The `package-lock.json` is a snapshot of the dependency tree
+> at installation time. Subsequent installs will use the `package-lock.json` to resolve
+> version thus making the dependency tree immutable. Whether this feature helps or hinders
+> is a matter of context, but it's now a default behavior. If we prefer not have 
+> automatic `package-lock.json` files we can turn off the behavior with `npm config set package-lock false`. See https://docs.npmjs.com/files/package-locks for more information.
+
 ### How it works
 
 The top two results of the npm search are `hsl-to-rgb` and `hsl-to-rgb-for-reals`. The first result is unusable, because the author of the package forgot to export it and is unresponsive to fixing it. The `hsl-to-rgb-for-reals` module is a fixed version of `hsl-to-rgb`.
@@ -299,13 +339,14 @@ On the one hand there are over 200,000 modules and counting, on the other many o
 When we run `npm install` in a folder with a `package.json` file, a `node_modules` folder is created (if it doesn't already exist). Then the package is downloaded from the npm registry and saved into a subdirectory of `node_modules` (for example, `node_modules/hsl-to-rgb-for-reals`). 
 
 
-> #### npm 2 vs npm 3 ![](../info.png)
+> #### npm 2 vs npm 3 and up ![](../info.png)
 >
-> Our installed module doesn't have any dependencies of its own. But if it did the sub-dependencies would be installed differently depending on whether we're using version 2 or version 3 of `npm`. 
+> Our installed module doesn't have any dependencies of its own. But if it did the sub-dependencies would be installed differently depending on whether we're using version 2 of `npm` or or version 3 and higher. 
 >
-> Essentially `npm` 2 installs dependencies in a tree structure, for instance `node_modules/dep/node_modules/sub-dep-of-dep/node_modules/sub-dep-of-sub-dep`. Conversely `npm` 3 follows a maximally flat strategy where sub-dependencies are installed in the top level `node_modules` folder when possible. For example `node_modules/dep`, `node_modules/sub-dep-of-dep` and `node_modules/sub-dep-of-sub-dep`. This results in fewer downloads and less disk space usage. `npm` 3 resorts to a tree structure in cases where there's two version of a sub-dependency, which is why it's called a "maximally" flat strategy. 
+> Essentially `npm` 2 installs dependencies in a tree structure, for instance `node_modules/dep/node_modules/sub-dep-of-dep/node_modules/sub-dep-of-sub-dep`. Conversely `npm` 3 and up follows a maximally flat strategy where sub-dependencies are installed in the top level `node_modules` folder when possible. For example `node_modules/dep`, `node_modules/sub-dep-of-dep` and `node_modules/sub-dep-of-sub-dep`. This results in fewer downloads and less disk space usage. Version 3 and higher of `npm` resorts to a tree structure in cases where there's two version of a sub-dependency, which is why it's called a "maximally" flat strategy. 
 >
-> Typically if we've installed Node 4 or above, we'll be using `npm` version 3.
+> Typically if we've installed Node 4 or above, we'll be using `npm` version 3 or higher.
+
 
 ### There's more
 
