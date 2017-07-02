@@ -360,7 +360,9 @@ $ node index.js "%"
 
 ### See also
 
-* TBD
+* *Connecting and sending SQL to a Postgres server* in this chapter
+* *Storing and Retrieving Data with MongoDB* in this chapter
+* *Storing and Retrieving Data with Redis* in this chapter
 
 ## Connecting and sending SQL to a Postgres server
 
@@ -676,14 +678,16 @@ We've modified the SQL in our `list` function to run a nested query,
 `doc` is the `jsonb` datatype, so we use the `->>` operator to query 
 keys within the objects found. 
 
-> #### The JSONB datatype
+> #### The JSONB datatype ![](../info.png)
 > We're only scratching the surface here, for see <https://www.postgresql.org/docs/9.4/static/functions-json.html>
 > for more information on Postgres JSONB query operators.
 
 
 ### See also
 
-* TBD
+* *Connecting and sending SQL to a MySQL server* in this chapter
+* *Storing and Retrieving Data with MongoDB* in this chapter
+* *Storing and Retrieving Data with Redis* in this chapter
 
 ## Storing and Retrieving Data with MongoDB
 
@@ -1054,12 +1058,14 @@ The `limit` method takes accepts a number representing the maximum amount of rec
 to return and the `each` method loops through all our records. 
 Inside the `each` callback, we output vote counts alongside each author and quote.
 When there are no documents remaining, the `each` method will call the callback
-on final time, setting `doc` to `null` - in this case we fall through both 
+one final time, setting `doc` to `null` - in this case we fall through both 
 `if` statements to the final `db.close` call.
 
 ### See also 
 
-* TBD
+* *Storing and Retrieving Data with Redis* in this chapter
+* *Connecting and sending SQL to a Postgres server* in this chapter
+* *Embedded Persistance with LevelDB* in this chapter 
 
 ## Storing and Retrieving Data with Redis
 
@@ -1332,7 +1338,9 @@ this is taken care of internally.
 
 ### See also
 
-* TBD
+* *Embedded Persistance with LevelDB* in this chapter 
+* *Storing and Retrieving Data with MongoDB* in this chapter
+* *Connecting and sending SQL to a Postgres server* in this chapter
 
 ## Embedded Persistance with LevelDB 
 
@@ -1379,7 +1387,13 @@ const level = require('level')
 The `xxhash` module is an implementaion of a very fast 
 hashing algorithm which we'll be using in part to generate
 keys. The `through2` and `end-of-stream` modules are stream
-utility modules, and appear throughout this book.  
+utility modules. The `through2` module is explained in 
+*Creating Transform Streams* in **Chapter 4 Using Streams** 
+and the `end-of-stream` module reliably detects when
+a stream has ended/finished, errored and so on. The `end-of-stream`
+module is used by the `pump` module which is discussed in *Piping streams in production*,
+also in **Chapter 4 Using Streams**.
+
 
 The `level` module is a combination of LevelDOWN which provides
 native C++ bindings to the LevelDB embedded library, and LevelUP
@@ -1583,4 +1597,7 @@ use browser storage mechanisms) listed at <https://github.com/Level/levelup/wiki
 
 ### See also
 
-* TBD
+* *Creating Transform streams* in **Chapter 4 Using Streams** 
+* *Piping streams in production* in **Chapter 4 Using Streams**.
+* *Storing and Retrieving Data with MongoDB* in this chapter
+* *Connecting and sending SQL to a Postgres server* in this chapter
