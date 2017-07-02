@@ -1,19 +1,16 @@
-# 11 Optimizing Performance
+# 09 Optimizing Performance
 
-This chapter covers the following topics
+This chapter covers the following recipes:
 
-* The performance optimization workflow
-* Measuring a web applications performance
-* Identifying hot code paths using flamegraphs
-* Measuring the performance of a synchronous function
-* Optimizing a synchronous function
-* Measuring the performance of an asynchronous application
+* Benchmarking HTTP
+* Finding Bottlenecks with Flamegraphs
+* Optimizing a synchronous function call
 * Optimizing asynchronous callbacks
 * Profiling memory
 
 ## Introduction
 
-JavaScript runs in a single threaded event-loop. Node.js is a runtime built for evented I/O where multiple execution
+JavaScript runs in a single threaded event-loop. Node.js is a runtime platform built for evented I/O where multiple execution
 flows are processed concurrently but not in parallel. An example of this could be an HTTP server, tens of thousands of requests can be processed per second but only one instruction is being executed at any given time.
 
 The performance of our application is tied to how fast we can
@@ -22,11 +19,29 @@ process an individual execution flow prior to performing the next I/O operation.
 Through several recipes, this chapter demonstrates the Optimization Workflow as shown here:
 
 ![bdd-flowchart](./images/bdd-flowchart.png)
-*Optimization Workflow*
 
 We'll be referencing the workflow throughout this chapter.
 
 This chapter is about making our JavaScript code as fast as possible in order to increase I/O handling capacity, thus decreasing costs and increasing user experience.
+
+> #### Upcoming changes to Node.js performance characteristics ![](../info.png)
+> At the time of writing we're in a transition as far as Node.js 
+> performance is concerned. This is because the (primary/original) Node.js
+> JavaScript engine, is moving from a JIT compiler called Crankshaft
+> to an alternative faster JIT compiler called Turbofan. An additional 
+> interpreter called Ignition is also being introduced. 
+> With the first release of Node 8 only parts of Turbofan are enabled, but
+> over time more of Turbofan will be enabled - which means Node 8 performance
+> characteristics will be in significant flux throughout 2017. Not only that
+> but core code in Node.js will have to re-optimized for Turbofan, so these
+> performance fluctuations may continue through 2018 and possibly beyond.
+> Fortunately this chapter focuses on measurement, and attempts to minimize
+> recommendations around specific performance particulars. However it is written 
+> against the Crankshaft compiler, which means that characteristics and
+> trace output will be different in the near future. In light of that, 
+> a new edition of Node Cookbook will be released after Turbofan is fully
+> enabled in a future Node release and made available for free (in eBook form)
+> to readers who have already purchased this book. 
 
 ## Benchmarking HTTP
 
@@ -40,21 +55,20 @@ In this recipe, we'll be applying the first step in the optimization work-flow "
 
 ### Getting Ready
 
-We will need the [`autocannon`][autocannon] load testing tool.
+We're going to use [`autocannon`][autocannon] as our load testing tool.
 
 So let's run the following command in our terminal:
 
 ```sh
-$ npm install -g autocannon`
+$ npm install -g autocannon
 ```
 
 > #### About Autocannon ![](../info.png)
-> Autocannon is superior to other load testing tools in two main ways. Firstly it's cross-platform (macOS, Windows and Linux) whereas alternatives (such as `wrk` and `ab`) either do not run on Windows or are non-trivial to setup. Secondly, autocannon supports pipelining which allows for around 10% higher saturation than common alternatives
-
+> Autocannon has two main advantages over other load testing tools. Firstly it's cross-platform (macOS, Windows and Linux) whereas alternatives (such as `wrk` and `ab`) either do not run on Windows or are non-trivial to setup. Secondly, autocannon supports pipelining which allows for around 10% higher saturation than common alternatives
 
 ### How to do it
 
-Let's create a small [express][express] application with a `/hello` endpoint.
+Let's bootstrap a small [express][express] application with a `/hello` endpoint.
 
 First we'll create a folder with a `package.json` file and install Express:
 
@@ -105,7 +119,7 @@ Bytes/Sec    1.2 MB 73 kB  1.31 MB
 Our results show an average of 5800 requests per second, with throughput of 1.2MB per second.
 
 > #### The Optimization Workflow ![](../tip.png)
-> When it comes to HTTP servers we should now know how to **establish a baseline**: by executing `autocannon` and generating a number in the form of req/sec (request per second).
+> When it comes to HTTP servers we should now know how to **establish a baseline** (step 1 in the introductory diagram): by executing `autocannon` and generating a number in the form of req/sec (request per second).
 
 
 The `-c 100` flag instructs `autocannon` to open 100 sockets and connect them to our server.
@@ -113,19 +127,18 @@ The `-c 100` flag instructs `autocannon` to open 100 sockets and connect them to
 We can alter this number to whatever suits, but it's imperative that the connection count remains constant throughout an optimization cycle to avoid confounding comparisons between data sets.
 
 > #### Load test duration ![](../tip.png)
-> Duration defaults to 10 seconds but can be specified with the `-d` flag, followed by a number representing the amount of seconds to run the load test for. For instance `-d 20` will load the server for 20 seconds.
+> We may want to alter duration in various scenarios. For instance, load testing for a longer duration can smooth out any initialization work. How long the duration should be depends on the complexity of the server, and any other relevant context such as business requirements. Duration defaults to 10 seconds but can be specified with the `-d` flag, followed by a number representing the amount of seconds to run the load test for. For instance `-d 20` will load the server for 20 seconds. 
 
 ### How it works
 
 The `autocannon` tool allocates a pool of connections (as per the `-c 100` setting), issuing a request on each socket immediately after the previous has completed.
 
-This techniques emulates a steady concurrency level whilst
+This techniques emulates a steady concurrency level while
 driving the target to maximum resource utilization without
 over saturating.
 
 > #### Apache Benchmark ![](../info.png)
 > Apache Benchmark (`ab`) is another tool for load testing HTTP servers. However `ab` adopts a different paradigm, executes a specific amount of requests per second, regardless of whether prior requests have completed. Apache Benchmark can be used to saturate an HTTP endpoint to the point where some requests start to timeout, this can be useful for finding the saturation limit of a server but can also be problematic when it comes to troubleshooting a problem.
-
 
 ### There's more
 
@@ -289,7 +302,9 @@ POST requests have roughly 65% the performance of GET requests when compared to 
 
 ### See also
 
-* TBD
+* *Creating an Express Web App* in **Chapter 7 Working with Web Frameworks**
+* *Processing POST requests* in **Chapter 5 Wielding Web Protocols**
+* *Finding bottlenecks in Flamegraphs* in this chapter
 
 ## Finding Bottlenecks with Flamegraphs
 
@@ -398,7 +413,7 @@ Bytes/Sec    131.4 kB 35.84 kB 155.65 kB
 40k requests in 10s, 1.45 MB read
 ```
 
-When the benchmark finishes, we hit CTRL-C in the server terminal.
+When the benchmark finishes, we hit Ctrl + C in the server terminal.
 This will cause `0x` to begin converting captured stacks into a flamegraph. 
 
 When the flamegraph has been generated a long URL will be printed to the terminal:
@@ -480,7 +495,6 @@ In other words, it's blocking the event loop.
 
 Each block representing a function call also contains other useful information, such as where the function is located in the code base, and if the function has been optimized or not by Node's JavaScript engine ([V8][V8]).
 
-
 ### There's more
 
 What's the underlying cause of our bottleneck, how does 0x actually profile our code, and what about Chrome Devtools?
@@ -504,7 +518,7 @@ Let's take a look at the resulting flamegraph generating from running the same b
 This time when we use `0x` to spin up our server we ensure `NODE_ENV` is set to production:
 
 ```sh
-$ NODE_ENV=production `0x` server
+$ NODE_ENV=production 0x server
 ```
 
 Now bench it with `autocannon` in another terminal window:
@@ -524,7 +538,7 @@ Bytes/Sec    1.85 MB 260.17 kB 2.03 MB
 
 Note the difference in requests per second. 
 
-Now we hit CTRL-C on our server, once the flamegraph is generated it should look something like the following
+Now we hit Ctrl + C on our server, once the flamegraph is generated it should look something like the following
 
 ![the flamegraph for the main example](./images/flamegraph2-production.png)
 
@@ -607,7 +621,11 @@ In our particular case, the Flamegraph was more suitable than the Flamechart pro
 
 ### See also
 
-TBD
+* *Creating an Express Web App* in **Chapter 7 Working with Web Frameworks**
+* *Debugging Node with Chrome Devtools* in **Chapter 1 Debugging Processes**
+* *Benchmarking HTTP* in this chapter
+* *Optimizing a synchronous function call* in this chapter
+* *Optimizing asynchronous callbacks* in this chapter
 
 ## Optimizing a synchronous function call
 
@@ -759,7 +777,6 @@ $ 0x initial-bench.js
 ```
 
 ![](images/divideByAndSum.png)
-*flamegraph of our initial benchmark*
 
 Again we can see that several pieces of code in `array.js` (the internal V8 array library), seems very hot, both in relation to `map` and `reduce` functionality. Note also how hot the internal `DefineIndexProperty` call is.
 
@@ -873,7 +890,6 @@ We converted our function to use a plain old `for` loop, and set up a benchmark 
 
 > # Best Practices vs Performance ![](../tip.png)
 > This recipe has shown the functional programming in JavaScript (e.g. use of `map`, `reduce` and others) can cause bottlnecks. Does this mean we should use a procedural approach everywhere? We think not. The highest priority should be code that's easy to maintain, collaborate on, and debug. Functional programming is a powerful paradigm for these goals, and great for rapid prototyping. Not every function will be a bottleneck, for these functions use of `map`, `reduce` or any such methods is perfectly fine. Only after profiling should we revert to a procedural approach, and in these cases reasons for doing so should be clearly commented. 
-
 
 ### There's more
 
@@ -1159,12 +1175,10 @@ noTryCatch function is optimized
 Fastest is no-try-catch
 ```
 
-
 > #### Getting Optimization Status with 0x ![](../tip.png)
-> For a holistic view of the optimization status of an entire app, the flamegraph generated by 0x has "+Optimized" and "+Not Optimized" control buttons. 0x will highlight optimized functions in yellow and non-optimized functions in salmon pink.
+> For a holistic view of the optimization status of an entire app, the flamegraph generated by 0x has "+Optimized" and "+Not Optimized" control buttons. 0x will highlight optimized functions in yellow and non-optimized functions in salmon pink (in grayscale print editions, optimized functions appear as off-white and non-optimized in a gray shade).
 >
 > ![](images/opt-not-opt.png)
-> *Optimized (yellow) and Non-Optimized (salmon) stacks*
 
 #### Tracing optimization and deoptimization events
 
@@ -1226,7 +1240,9 @@ instead.
 
 ### See also
 
-TBD
+* *Writing module code* in **Chapter 2 Writing Modules**
+* *Finding Bottlenecks with Flamegraphs* in this chapter
+* *Optimizing asynchronous callbacks* in this chapter
 
 ## Optimizing asynchronous callbacks
 
@@ -1359,7 +1375,7 @@ Bytes/Sec    68.02 kB 33.03 kB 94.21 kB
 2 errors
 ```
 
-Ok we have our baseline, now let's kill our server (Ctrl-C) and run the benchmark again with `0x` to get a flamegraph:
+Ok we have our baseline, now let's kill our server (Ctrl + C) and run the benchmark again with `0x` to get a flamegraph:
 
 ```sh
 $ 0x server.js
@@ -1376,7 +1392,7 @@ This should generate a flamegraph that looks something like the figure below:
 ![](images/flamegraph4.png)
 *Flamegraph of our server*
 
-The flamegraph shows some dark red areas related to two functions, `deserializeObject` and `slowToString`.
+The flamegraph shows some dark red areas (in grayscale print editions these are a darker shade of gray) related to two functions, `deserializeObject` and `slowToString`.
 
 These particular bottlenecks are typical to MongoDB applications, and are related to the amount of data being received from MongoDB. The only way to optimize this (other than somehow making MongoDB entity deserialization faster), is to change the data flow.
 
@@ -1730,7 +1746,7 @@ MongoClient.connect(url, function(err, db) {
 })
 ```
 
-Th queue ensures the responses are sent out in the correct order and, importantly, prevents subsequent requests from triggering additional database lookups before the first lookup is resolved. 
+The queue ensures the responses are sent out in the correct order and, importantly, prevents subsequent requests from triggering additional database lookups before the first lookup is resolved. 
 
 The cache holds results in memory and simply replays them out, which cuts out the I/O and expensive de-serialization process.
 
@@ -1757,7 +1773,9 @@ Unsurprisingly, this is the best-performing solution so far, over a ten-fold imp
 
 ### See also
 
-TBD
+* *Creating an Express Web App* in **Chapter 7 Working with Web Frameworks**
+* *Storing and Retrieving Data with MongoDB* in **Chapter 6 Persisting to Databases**
+* *Optimizing a synchronous function call* in this chapter
 
 ## Profiling memory
 
@@ -2001,16 +2019,17 @@ Now we can put our leaky server under some load and see what happens to memory o
 $ autocannon localhost:8080
 ```
 
-This will cause climem to graph something similar to the following:
+This will cause `climem` to graph something similar to the following:
 
 ![](images/climem-graph.png)
-*`climem` graph*
 
 The initial jump at the start of the graph is where climem connects to the process. The big climb in the middle is where we ran `autocannon` against the server. The drop in the middle of the climb appears to be a garbage collection. The steep climb in memory would have forced V8 to do a GC sweep and wipe anything laying around. The straight line followed by a drop off at the end is essentially V8 de-escalating defensive memory provisioning. That is, the process memory isn't under pressure any more, it's probably safe to deallocate additionally allocated memory. Notice that the severe declines apply to RSS and Heap Total, whereas Heap Used drops only very slightly (possibly another minor GC).
 
 ### See also
 
-TBD
+* *Debugging Node with Chrome Devtools* in **Chapter 1 Debugging Processes**
+* *Finding bottlenecks in Flamegraphs* in this chapter
+* *Benchmarking HTTP* in this chapter
 
 [autocannon]: https://github.com/mcollina/autocannon
 [wrk]: https://github.com/wg/wrk
