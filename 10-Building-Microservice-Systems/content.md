@@ -554,7 +554,7 @@ Microservice systems have many advantages over traditional monolithic systems. H
 
 One of these has been termed Shell Hell. This occurs when we have many microservices to spin up and down on a local development machine in order to run integration and regression testing against the system, as illustrated in the image below:
 
-![](./images/shellhell.jpg)
+![](./images/shellhell.png)
 
 In this recipe, we're going to investigate a solution to this problem
 in the form of a microservice development environment.
