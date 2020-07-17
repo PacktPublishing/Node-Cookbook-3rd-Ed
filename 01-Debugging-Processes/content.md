@@ -159,7 +159,7 @@ The next thing we see should look like the following:
 ![](images/devtools-4.png)
 
 We can see line 7 is now highlighted, and there's a sort of tooltip 
-showing us the values of of the `req` and `res` objects on the line above. 
+showing us the values of the `req` and `res` objects on the line above. 
 
 Over in the right column the Call Stack panel is full of Call Frames 
 (the functions in the stack), and there's now a blue play button in 
