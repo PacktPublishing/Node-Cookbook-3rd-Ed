@@ -344,7 +344,10 @@ fs.readFile(path.join(cwd, 'file.dat'), (err, bytes) => {
     if (err) { console.error(err); process.exit(1); }
     fs.appendFile(
       path.join(cwd, 'log.txt'),
-      (new Date) + ' ' + (bytes.length - clean.length) + ' bytes removed\n'
+      (new Date) + ' ' + (bytes.length - clean.length) + ' bytes removed\n',
+      (err) => {
+        if (err) { console.error(err); process.exit(1); }
+      }
     )
   })
 })
