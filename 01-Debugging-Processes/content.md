@@ -1138,7 +1138,7 @@ so that log output is in newline delimited JSON (a great compromise between mach
 
 > #### About `pino` ![](../tip.png)
 > [`pino`](http://npm.im/pino) is a high performance logger, that's 
-> up to 8-9 times faster than other popular loggers (see the [benchmarks](https://github.com/pinojs/pino#benchmarks) for more information.) 
+> up to 8-9 times faster than other popular loggers (see the [benchmarks](https://github.com/pinojs/pino/blob/HEAD/docs/benchmarks.md) for more information.) 
 
 Due to the performant techniques used by `pino` using
 `pino-debug` leads to a performance increase in
